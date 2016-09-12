@@ -38,9 +38,7 @@ def create_input_queue(audio_names, txt_names, speakers):
 
 layer_count = 0
 
-
-# Definition of a single causal dilated convolutional layer
-def create_layer(input_batch, dilation=1):
+def create_causal_dilation(input_batch, dilation=1):
     global layer_count
     layer_count += 1
 
@@ -57,9 +55,6 @@ def create_layer(input_batch, dilation=1):
             padding="SAME",
             name="conv_g")
 
-    tmp1 = tf.reshape(tmp1, [BATCH_SIZE, 1, -1, QUANTIZATION_MU + 1])
-    tmp2 = tf.reshape(tmp2, [BATCH_SIZE, 1, -1, QUANTIZATION_MU + 1])
-
     out = tf.tanh(tmp1) * tf.sigmoid(tmp2)
 
     # Shift output to the right by dilation count so that only current/past
@@ -70,26 +65,44 @@ def create_layer(input_batch, dilation=1):
     tf.histogram_summary('layer{}_filter'.format(layer_count), wf)
     tf.histogram_summary('layer{}_guard'.format(layer_count), wg)
 
-    return out
+    w = tf.Variable(tf.random_normal([1, 1, 256, 256], stddev=0.35, name="dense"))
+    transformed = tf.nn.conv2d(out, w, strides=[1, 1, 1, 1], padding="SAME", name="dense")
+
+    return input_batch + transformed
 
 def create_network(input_batch):
 
     with tf.name_scope('transform_inputs'):
         waves = tf.reshape(input_batch, [BATCH_SIZE, 1, -1])
         encoded = tf.one_hot(input_batch, depth=QUANTIZATION_MU + 1, dtype=tf.float32)
+        encoded = tf.reshape(encoded, [BATCH_SIZE, 1, -1, QUANTIZATION_MU + 1])
 
-    layer = encoded
+    dilations = [1, 2, 4]
+    outputs = []
+    current_layer = encoded
 
-    with tf.name_scope('layer1'):
-        layer = create_layer(layer, dilation=1)
-    with tf.name_scope('layer2'):
-        layer = create_layer(layer, dilation=2)
-    with tf.name_scope('layer3'):
-        layer = create_layer(layer, dilation=4)
+    for i, dilation in enumerate(dilations):
+        with tf.name_scope('layer{}'.format(i)):
+            current_layer = create_causal_dilation(current_layer, dilation=dilation)
+            outputs.append(current_layer)
+
+    with tf.name_scope('postprocess'):
+        # Postprocess sum of outputs using dense layers
+        w1 = tf.Variable(tf.random_normal([1, 1, 256, 256], stddev=0.35, name="postprocess1"))
+        w2 = tf.Variable(tf.random_normal([1, 1, 256, 256], stddev=0.35, name="postprocess2"))
+
+        summed = tf.nn.relu(tf.add_n(outputs))
+        convolved = tf.nn.conv2d(summed, w1, [1, 1, 1, 1], padding="SAME")
+        skipped = tf.nn.relu(convolved)
+        out = tf.nn.conv2d(skipped, w2, [1, 1, 1, 1], padding="SAME")
 
     with tf.name_scope('loss'):
-        result = tf.reshape(layer, [-1, QUANTIZATION_MU + 1])
-        loss = tf.nn.softmax_cross_entropy_with_logits(result, tf.reshape(encoded, [-1, QUANTIZATION_MU + 1]))
+        # Shift original input left by one sample, which means that the network
+        # will have to predict the immediate future
+        shifted = tf.slice(encoded, [0, 0, 1, 0], [-1, -1, tf.shape(encoded)[2] - 1, -1])
+        shifted = tf.pad(shifted, [[0, 0], [0, 0], [0, 1], [0, 0]])
+
+        loss = tf.nn.softmax_cross_entropy_with_logits(out, tf.reshape(shifted, [-1, QUANTIZATION_MU + 1]))
         reduced_loss =  tf.reduce_mean(loss)
 
     tf.scalar_summary('loss', reduced_loss)
@@ -98,8 +111,7 @@ def create_network(input_batch):
 
 
 def main():
-
-    sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+    sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     # We retrieve each audio sample, the corresponding text, and the speaker id
     audio_filenames = glob.glob('./VCTK-Corpus/wav48/**/*.wav', recursive=True)
 
@@ -114,7 +126,8 @@ def main():
     speaker_map = {speaker_id: idx for idx, speaker_id in enumerate(ids)}
     speaker = [speaker_map[re.findall(SPEAKER_RE, p)[0]] for p in text_filenames]
 
-    audio, txt, speaker = create_input_queue(audio_filenames, text_filenames, speaker)
+    with tf.name_scope('create_inputs'):
+        audio, txt, speaker = create_input_queue(audio_filenames, text_filenames, speaker)
 
     queue = tf.PaddingFIFOQueue(1000, ["int32", "string", "int32"], shapes=[(None, 1), (), ()])
     enqueue = queue.enqueue([audio, txt, speaker])
@@ -122,7 +135,7 @@ def main():
 
     loss = create_network(audio_op)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.03)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.10)
 
     trainable = tf.trainable_variables()
 
