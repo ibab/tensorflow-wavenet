@@ -9,6 +9,11 @@ class WaveNet(object):
         self.dilations = dilations
 
     def _create_dilation_layer(self, input_batch, i, dilation):
+        '''Adds a single causal dilated convolution layer'''
+
+        # TODO Which filter width should be used?
+        # The pictures in the paper seem to suggest 2, but larger filters would
+        # also make sense and could be more performant
         wf = tf.Variable(tf.truncated_normal([1, 2, 256, 256], stddev=0.2, name="filter"))
         wg = tf.Variable(tf.truncated_normal([1, 2, 256, 256], stddev=0.2, name="gate"))
 
