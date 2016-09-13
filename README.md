@@ -26,7 +26,7 @@ This implementation is currently still under :construction:
 ## Training the network
 
 The [VCTK corpus](http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html) is currently used.
-In order to train the network, you need to download the corpus and unpack it in the same directory as the `run.py` script.
+In order to train the network, you need to download the corpus and unpack it in the same directory as the `main.py` script.
 
 Then, execute
 ```python
