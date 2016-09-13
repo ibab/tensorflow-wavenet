@@ -3,7 +3,6 @@ import tensorflow as tf
 class WaveNet(object):
 
     def __init__(self, batch_size, channels, dilations):
-        self.dilations = []
         self.batch_size = batch_size
         self.channels = channels
         self.dilations = dilations
