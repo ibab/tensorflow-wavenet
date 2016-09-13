@@ -74,7 +74,7 @@ class WaveNet(object):
             tf.histogram_summary('postprocess1_weights', w1)
             tf.histogram_summary('postprocess2_weights', w2)
 
-            # We skip connections from the outputs of each layers, adding them all up here
+            # We skip connections from the outputs of each layer, adding them all up here
             summed = tf.add_n(outputs)
             transformed1 = tf.nn.relu(summed)
             conv1 = tf.nn.conv2d(transformed1, w1, [1, 1, 1, 1], padding="SAME")
