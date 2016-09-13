@@ -45,11 +45,11 @@ class WaveNet(object):
     def _preprocess(self, audio):
         '''Quantize waveform amplitudes
         '''
-        mu = self.channels - 1
-        # Perform mu-law companding transformation (ITU-T, 1988)
-        signal = tf.sign(audio) * (tf.log(1 + mu * tf.abs(audio))
-                                    / tf.log(1. + mu))
-        quantized = tf.cast((signal + 1) / 2 * mu, tf.int32)
+        with tf.name_scope('preprocessing'):
+            mu = self.channels - 1
+            # Perform mu-law companding transformation (ITU-T, 1988)
+            signal = tf.sign(audio) * (tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu))
+            quantized = tf.cast((signal + 1) / 2 * mu, tf.int32)
 
         return quantized
 
@@ -58,15 +58,16 @@ class WaveNet(object):
         current_layer = input_batch
 
         # Add all defined dilation layers
-        for i, dilation in enumerate(self.dilations):
-            with tf.name_scope('layer{}'.format(i)):
-                current_layer = self._create_dilation_layer(
-                        current_layer,
-                        i,
-                        dilation=dilation)
-                outputs.append(current_layer)
+        with tf.name_scope('dilated_stack'):
+            for i, dilation in enumerate(self.dilations):
+                with tf.name_scope('layer{}'.format(i)):
+                    current_layer = self._create_dilation_layer(
+                            current_layer,
+                            i,
+                            dilation=dilation)
+                    outputs.append(current_layer)
 
-        with tf.name_scope('postprocess'):
+        with tf.name_scope('postprocessing'):
             # Perform 1x1 conv -> ReLU -> 1x1 conv to postprocess the output
             w1 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3, name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3, name="postprocess2"))
