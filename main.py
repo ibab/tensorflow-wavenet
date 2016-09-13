@@ -16,7 +16,7 @@ def create_vctk_inputs(directory):
     # TODO make sure that text is matched correctly to the samples
 
     # We retrieve each audio sample, the corresponding text, and the speaker id
-    audio_filenames = glob.glob(directory + '/wav48/**/*.wav', recursive=True)
+    audio_filenames = glob.glob(directory + '/wav48/*/*.wav')
 
     # Mysteriously, speaker 315 doesn't have any text files associated with them
     audio_filenames = list(filter(lambda x: not '315' in x, audio_filenames))
