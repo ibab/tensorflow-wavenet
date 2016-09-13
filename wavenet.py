@@ -80,11 +80,10 @@ class WaveNet(object):
         return conv2
 
     def loss(self, input_batch):
-        # One-hot encode waveform amplitudes, so we can define the network as a
-        # categorical distribution over possible amplitudes
-
         input_batch = self._preprocess(input_batch)
 
+        # One-hot encode waveform amplitudes, so we can define the network as a
+        # categorical distribution over possible amplitudes
         with tf.name_scope('one_hot_encode'):
             waves = tf.reshape(input_batch, [self.batch_size, 1, -1])
             encoded = tf.one_hot(input_batch, depth=self.channels, dtype=tf.float32)
