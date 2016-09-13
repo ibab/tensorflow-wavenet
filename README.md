@@ -11,7 +11,7 @@ The network is a model of the conditional probability to generate the next
 sample in the audio waveform, given all previous samples and possibly
 additional parameters.
 It is constructed from a stack of *causal dilated layers*, each of which is a
-dilated convolution (convolution with holes) with a filter of width 2.
+dilated convolution (convolution with holes), which only accesses the current and past audio samples.
 
 The network is implemented in the file [`wavenet.py`](./wavenet.py).
 
