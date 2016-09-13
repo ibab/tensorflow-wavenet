@@ -67,7 +67,7 @@ class WaveNet(object):
                 outputs.append(current_layer)
 
         with tf.name_scope('postprocess'):
-            # Some 1x1 convolution + ReLU layers to postprocess the output
+            # Perform 1x1 conv -> ReLU -> 1x1 conv to postprocess the output
             w1 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3, name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3, name="postprocess2"))
 
