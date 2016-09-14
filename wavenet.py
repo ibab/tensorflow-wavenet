@@ -61,7 +61,7 @@ class WaveNet(object):
         with tf.name_scope('preprocessing'):
             mu = self.channels - 1
             # Perform mu-law companding transformation (ITU-T, 1988).
-            eagnitude = tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu)
+            magnitude = tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu)
             signal = tf.sign(audio) * magnitude
             quantized = tf.cast((signal + 1) / 2 * mu, tf.int32)
 
@@ -94,7 +94,7 @@ class WaveNet(object):
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
-            total = sum(out)
+            total = sum(outputs)
             transformed1 = tf.nn.relu(total)
             conv1 = tf.nn.conv2d(transformed1, w1, [1] * 4, padding="SAME")
             transformed2 = tf.nn.relu(conv1)
