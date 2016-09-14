@@ -138,14 +138,14 @@ def main():
             writer.add_summary(summary, step)
             writer.add_run_metadata(run_metadata, 'step_{:04d}'.format(step))
             tl = timeline.Timeline(run_metadata.step_stats)
-            with open('./timeline.trace', 'w') as f:
+            with open(args.logdir + '/timeline.trace', 'w') as f:
                 f.write(tl.generate_chrome_trace_format(show_memory=True))
         else:
             summary, loss_value, _ = sess.run([summaries, loss, optim])
             writer.add_summary(summary, step)
 
         if step % 50 == 0:
-            checkpoint_path = './model.ckpt'
+            checkpoint_path = args.logdir + '/model.ckpt'
             print('Storing checkpoint to {}'.format(checkpoint_path))
             saver.save(sess, checkpoint_path, global_step=step)
 
