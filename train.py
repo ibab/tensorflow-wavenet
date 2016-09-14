@@ -37,7 +37,7 @@ def get_arguments():
     parser.add_argument('--logdir', type=str, default=LOGDIR,
                         help='Directory in which to store the logging '
                         'information for TensorBoard.')
-    parser.add_argument('--num_steps', type=int, default-NUM_STEPS,
+    parser.add_argument('--num_steps', type=int, default=NUM_STEPS,
                         help='Number of training steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
                         help='Learning rate for training.')
