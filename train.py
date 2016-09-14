@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 import glob
 import json
+import os
 import re
 import sys
 
@@ -35,7 +36,7 @@ def get_arguments():
                         help='Number of training steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
                         help='Learning rate for training.')
-    parser.add_argument('--network', type=string, default=NETWORK,
+    parser.add_argument('--network', type=str, default=NETWORK,
                         help='JSON file with the network parameters.')
     return parser.parse_args()
 
@@ -78,6 +79,7 @@ def create_vctk_inputs(directory, sample_rate=1<<13):
 
 def main():
     args = get_arguments()
+    logdir = os.path.join(args.logdir, 'train', str(datetime.now()))
 
     with open(args.network, 'r') as config_file:
         network_config = json.load(config_file)
@@ -108,7 +110,7 @@ def main():
 
     # Set up logging for TensorBoard.
     current_time = str(datetime.now())
-    writer = tf.train.SummaryWriter('./logdir/TRAIN-{}'.format(current_time))
+    writer = tf.train.SummaryWriter(logdir)
     writer.add_graph(tf.get_default_graph())
     run_metadata = tf.RunMetadata()
     summaries = tf.merge_all_summaries()
@@ -137,16 +139,21 @@ def main():
             writer.add_summary(summary, step)
             writer.add_run_metadata(run_metadata, 'step_{:04d}'.format(step))
             tl = timeline.Timeline(run_metadata.step_stats)
-            with open(args.logdir + '/timeline.trace', 'w') as f:
+            timeline_path = os.path.join(logdir, 'timeline.trace')
+            with open(timeline_path, 'w') as f:
                 f.write(tl.generate_chrome_trace_format(show_memory=True))
+            os.symlink(timeline_path,
+                       os.path.join(args.logdir, 'train', 'latest.trace'))
         else:
             summary, loss_value, _ = sess.run([summaries, loss, optim])
             writer.add_summary(summary, step)
 
         if step % 50 == 0:
-            checkpoint_path = args.logdir + '/model.ckpt'
+            checkpoint_path = os.path.join(logdir, 'model.ckpt')
             print('Storing checkpoint to {}'.format(checkpoint_path))
             saver.save(sess, checkpoint_path, global_step=step)
+            os.symlink(checkpoint_path,
+                       os.path.join(args.logdir, 'latest.ckpt'))
 
         print('Loss: {}'.format(loss_value))
 
