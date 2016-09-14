@@ -26,17 +26,17 @@ This implementation is currently still under :construction:
 ## Training the network
 
 The [VCTK corpus](http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html) is currently used.
-In order to train the network, you need to download the corpus and unpack it in the same directory as the `main.py` script.
+In order to train the network, you need to download the corpus and unpack it in the same directory as the `train.py` script.
 
 Then, execute
 ```bash
-python main.py
+python train.py
 ```
 to train the network.
 
 You can see documentation on the settings by by running
 ```bash
-python main.py --help
+python train.py --help
 ```
 
 **Disclaimer:** This repository is not affiliated with DeepMind or Google in any way.

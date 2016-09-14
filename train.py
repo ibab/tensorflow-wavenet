@@ -14,11 +14,13 @@ from wavenet import WaveNet
 BATCH_SIZE = 1
 CHANNELS = 256
 DATA_DIRECTORY='./VCTK-Corpus'
+FILTER_WIDTH=2
+LOGDIR='./logdir'
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
-        help='How many sound samples to process at once')
+        help='How many wav files to process at once')
     parser.add_argument('--channels', type=int, default=CHANNELS,
         help='Number of possible waveform amplitude values')
     parser.add_argument('--data_dir', type=str, default=DATA_DIRECTORY,
@@ -26,6 +28,10 @@ def get_arguments():
     parser.add_argument('--store_metadata', type=bool, default=False,
         help='Whether to store advanced debugging information (execution '
         'time, memory consumption) for use with TensorBoard')
+    parser.add_argument('--filter_width', type=int, default=FILTER_WIDTH,
+        help='Width of the filters to use in the causal dilated convolutions')
+    parser.add_argument('--logdir', type=str, default=LOGDIR,
+        help='Directory in which to store the logging information for TensorBoard')
     return parser.parse_args()
 
 
@@ -78,8 +84,11 @@ def main():
         audio_batch, _ = queue.dequeue_many(args.batch_size)
 
     # Create network
-    dilations = [1, 2, 4, 8, 16]
-    net = WaveNet(args.batch_size, args.channels, dilations)
+    dilations = [1, 1, 2, 2, 4, 4, 8, 8]
+    net = WaveNet(args.batch_size,
+                 args.channels,
+                 dilations,
+                 filter_width=args.filter_width)
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=0.10)
     trainable = tf.trainable_variables()

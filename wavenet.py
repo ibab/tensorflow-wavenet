@@ -2,19 +2,23 @@ import tensorflow as tf
 
 class WaveNet(object):
 
-    def __init__(self, batch_size, channels, dilations):
+    def __init__(self, batch_size, channels, dilations, filter_width=2):
         self.batch_size = batch_size
         self.channels = channels
         self.dilations = dilations
+        self.filter_width = filter_width
 
     def _create_dilation_layer(self, input_batch, i, dilation):
         '''Adds a single causal dilated convolution layer'''
 
-        # TODO Which filter width should be used?
-        # The pictures in the paper seem to suggest 2, but larger filters would
-        # also make sense and could be more performant
-        wf = tf.Variable(tf.truncated_normal([1, 2, 256, 256], stddev=0.2, name="filter"))
-        wg = tf.Variable(tf.truncated_normal([1, 2, 256, 256], stddev=0.2, name="gate"))
+        # The filter widths can be configured as a hyperparameter
+        wf = tf.Variable(tf.truncated_normal(
+            [1, self.filter_width, 256, 256],
+            stddev=0.2,
+            name="filter"))
+        wg = tf.Variable(tf.truncated_normal(
+            [1, self.filter_width, 256, 256],
+            stddev=0.2, name="gate"))
 
         # TensorFlow has an operator for convolution with holes
         tmp1 = tf.nn.atrous_conv2d(input_batch, wf,
@@ -68,7 +72,7 @@ class WaveNet(object):
                     outputs.append(current_layer)
 
         with tf.name_scope('postprocessing'):
-            # Perform 1x1 conv -> ReLU -> 1x1 conv to postprocess the output
+            # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to postprocess the output
             w1 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3, name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3, name="postprocess2"))
 
@@ -76,8 +80,12 @@ class WaveNet(object):
             tf.histogram_summary('postprocess2_weights', w2)
 
             # We skip connections from the outputs of each layer, adding them all up here
-            summed = tf.add_n(outputs)
-            transformed1 = tf.nn.relu(summed)
+            # We perform pairwise addition instead of using tf.add_n, so TensorFlow can free
+            # the memory of previous layers
+            total = outputs[0]
+            for out in outputs[1:]:
+                total += out
+            transformed1 = tf.nn.relu(total)
             conv1 = tf.nn.conv2d(transformed1, w1, [1, 1, 1, 1], padding="SAME")
             transformed2 = tf.nn.relu(conv1)
             conv2 = tf.nn.conv2d(transformed2, w2, [1, 1, 1, 1], padding="SAME")
