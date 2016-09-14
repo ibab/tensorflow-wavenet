@@ -12,28 +12,22 @@ import tensorflow.python.client.timeline as timeline
 from wavenet import WaveNet
 
 BATCH_SIZE = 1
-CHANNELS = 256
 DATA_DIRECTORY = './VCTK-Corpus'
-FILTER_WIDTH = 2
 LOGDIR = './logdir'
 NUM_STEPS = 1000
 LEARNING_RATE = 0.10
+NETWORK = './layout.json'
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
                         help='How many wav files to process at once.')
-    parser.add_argument('--channels', type=int, default=CHANNELS,
-                        help='Number of possible waveform amplitude values.')
     parser.add_argument('--data_dir', type=str, default=DATA_DIRECTORY,
                         help='The directory containing the VCTK corpus.')
     parser.add_argument('--store_metadata', type=bool, default=False,
                         help='Whether to store advanced debugging information '
                         '(execution time, memory consumption) for use with '
                         'TensorBoard.')
-    parser.add_argument('--filter_width', type=int, default=FILTER_WIDTH,
-                        help='Width of the filters to use in the causal '
-                        'dilated convolutions.')
     parser.add_argument('--logdir', type=str, default=LOGDIR,
                         help='Directory in which to store the logging '
                         'information for TensorBoard.')
@@ -41,10 +35,12 @@ def get_arguments():
                         help='Number of training steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
                         help='Learning rate for training.')
+    parser.add_argument('--network', type=string, default=NETWORK,
+                        help='JSON file with the network parameters.')
     return parser.parse_args()
 
 
-def create_vctk_inputs(directory):
+def create_vctk_inputs(directory, sample_rate=1<<13):
     '''Loads audio samples and speaker IDs from the VTCK dataset.'''
 
     # We retrieve each audio sample, the corresponding text, and the speaker id
@@ -73,7 +69,7 @@ def create_vctk_inputs(directory):
         audio_values,
         file_format='wav',
         # Downsample to 16 kHz.
-        samples_per_second=1<<13,
+        samples_per_second=sample_rate,
         # Corpus uses mono.
         channel_count=1)
 
@@ -83,10 +79,14 @@ def create_vctk_inputs(directory):
 def main():
     args = get_arguments()
 
+    with open(args.network, 'r') as config_file:
+        network_config = json.load(config_file)
+
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
-        audio, speaker = create_vctk_inputs(args.data_dir)
+        audio, speaker = create_vctk_inputs(args.data_dir,
+                                            network_config.sample_rate)
 
         queue = tf.PaddingFIFOQueue(
             256,
@@ -97,11 +97,10 @@ def main():
         audio_batch, _ = queue.dequeue_many(args.batch_size)
 
     # Create network.
-    dilations = [1, 2, 4, 8, 16]
     net = WaveNet(args.batch_size,
-                  args.channels,
-                  dilations,
-                  filter_width=args.filter_width)
+                  network_config.quantization_steps,
+                  network_config.dilations,
+                  filter_width=network_config.filter_width)
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
