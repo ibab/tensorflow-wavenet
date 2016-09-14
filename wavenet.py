@@ -44,7 +44,7 @@ class WaveNet(object):
         tf.histogram_summary('layer{}_guard'.format(i), wg)
         tf.histogram_summary('layer{}_weights'.format(i), w)
 
-        return input_batch + transformed
+        return transformed, input_batch + transformed
 
     def _preprocess(self, audio):
         '''Quantize waveform amplitudes
@@ -65,11 +65,11 @@ class WaveNet(object):
         with tf.name_scope('dilated_stack'):
             for i, dilation in enumerate(self.dilations):
                 with tf.name_scope('layer{}'.format(i)):
-                    current_layer = self._create_dilation_layer(
+                    output, current_layer = self._create_dilation_layer(
                         current_layer,
                         i,
                         dilation=dilation)
-                    outputs.append(current_layer)
+                    outputs.append(output)
 
         with tf.name_scope('postprocessing'):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to postprocess the output
@@ -80,8 +80,6 @@ class WaveNet(object):
             tf.histogram_summary('postprocess2_weights', w2)
 
             # We skip connections from the outputs of each layer, adding them all up here
-            # We perform pairwise addition instead of using tf.add_n, so TensorFlow can free
-            # the memory of previous layers
             total = outputs[0]
             for out in outputs[1:]:
                 total += out
