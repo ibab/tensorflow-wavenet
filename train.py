@@ -95,10 +95,10 @@ def main():
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
         audio, speaker = create_vctk_inputs(args.data_dir,
-                                            network_config.sample_rate)
+                                            network_config["sample_rate"])
 
         queue = tf.PaddingFIFOQueue(
-            256,
+            256,  # Queue size.
             ['float32', 'int32'],
             shapes=[(None, 1), ()])
         enqueue = queue.enqueue([audio, speaker])
@@ -107,9 +107,9 @@ def main():
 
     # Create network.
     net = WaveNet(args.batch_size,
-                  network_config.quantization_steps,
-                  network_config.dilations,
-                  filter_width=network_config.filter_width)
+                  network_config["quantization_steps"],
+                  network_config["dilations"],
+                  filter_width=network_config["filter_width"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
