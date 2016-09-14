@@ -22,13 +22,13 @@ class WaveNet(object):
 
         # TensorFlow has an operator for convolution with holes
         tmp1 = tf.nn.atrous_conv2d(input_batch, wf,
-                rate=dilation,
-                padding="SAME",
-                name="conv_f")
+                                   rate=dilation,
+                                   padding="SAME",
+                                   name="conv_f")
         tmp2 = tf.nn.atrous_conv2d(input_batch, wg,
-                rate=dilation,
-                padding="SAME",
-                name="conv_g")
+                                   rate=dilation,
+                                   padding="SAME",
+                                   name="conv_g")
 
         out = tf.tanh(tmp1) * tf.sigmoid(tmp2)
 
@@ -66,9 +66,9 @@ class WaveNet(object):
             for i, dilation in enumerate(self.dilations):
                 with tf.name_scope('layer{}'.format(i)):
                     current_layer = self._create_dilation_layer(
-                            current_layer,
-                            i,
-                            dilation=dilation)
+                        current_layer,
+                        i,
+                        dilation=dilation)
                     outputs.append(current_layer)
 
         with tf.name_scope('postprocessing'):
@@ -98,7 +98,6 @@ class WaveNet(object):
         # One-hot encode waveform amplitudes, so we can define the network as a
         # categorical distribution over possible amplitudes
         with tf.name_scope('one_hot_encode'):
-            waves = tf.reshape(input_batch, [self.batch_size, 1, -1])
             encoded = tf.one_hot(input_batch, depth=self.channels, dtype=tf.float32)
             encoded = tf.reshape(encoded, [self.batch_size, 1, -1, self.channels])
 
@@ -111,8 +110,10 @@ class WaveNet(object):
             shifted = tf.pad(shifted, [[0, 0], [0, 0], [0, 1], [0, 0]])
 
             prediction = tf.reshape(raw_output, [-1, self.channels])
-            loss = tf.nn.softmax_cross_entropy_with_logits(prediction, tf.reshape(shifted, [-1, self.channels]))
-            reduced_loss =  tf.reduce_mean(loss)
+            loss = tf.nn.softmax_cross_entropy_with_logits(
+                prediction,
+                tf.reshape(shifted, [-1, self.channels]))
+            reduced_loss = tf.reduce_mean(loss)
 
             tf.scalar_summary('loss', reduced_loss)
 

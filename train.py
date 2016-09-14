@@ -2,36 +2,35 @@
 import glob
 import re
 from datetime import datetime
+import argparse
 
-import threading
 import tensorflow as tf
 from tensorflow.contrib import ffmpeg
 import tensorflow.python.client.timeline as timeline
-import argparse
 
 from wavenet import WaveNet
 
 BATCH_SIZE = 1
 CHANNELS = 256
-DATA_DIRECTORY='./VCTK-Corpus'
-FILTER_WIDTH=2
-LOGDIR='./logdir'
+DATA_DIRECTORY = './VCTK-Corpus'
+FILTER_WIDTH = 2
+LOGDIR = './logdir'
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
-        help='How many wav files to process at once')
+                        help='How many wav files to process at once')
     parser.add_argument('--channels', type=int, default=CHANNELS,
-        help='Number of possible waveform amplitude values')
+                        help='Number of possible waveform amplitude values')
     parser.add_argument('--data_dir', type=str, default=DATA_DIRECTORY,
-        help='The directory containing the VCTK corpus')
+                        help='The directory containing the VCTK corpus')
     parser.add_argument('--store_metadata', type=bool, default=False,
-        help='Whether to store advanced debugging information (execution '
-        'time, memory consumption) for use with TensorBoard')
+                        help='Whether to store advanced debugging information '
+                        '(execution time, memory consumption) for use with TensorBoard')
     parser.add_argument('--filter_width', type=int, default=FILTER_WIDTH,
-        help='Width of the filters to use in the causal dilated convolutions')
+                        help='Width of the filters to use in the causal dilated convolutions')
     parser.add_argument('--logdir', type=str, default=LOGDIR,
-        help='Directory in which to store the logging information for TensorBoard')
+                        help='Directory in which to store the logging information for TensorBoard')
     return parser.parse_args()
 
 
@@ -48,10 +47,10 @@ def create_vctk_inputs(directory):
 
     # Find the speaker ID and map it into a range [0, ...,  num_speakers]
     dirs = glob.glob(directory + '/wav48/p*')
-    SPEAKER_RE = r'p([0-9]+)'
-    ids = [re.findall(SPEAKER_RE, d)[0] for d in dirs]
+    speaker_re = r'p([0-9]+)'
+    ids = [re.findall(speaker_re, d)[0] for d in dirs]
     speaker_map = {speaker_id: idx for idx, speaker_id in enumerate(ids)}
-    speaker = [speaker_map[re.findall(SPEAKER_RE, p)[0]] for p in audio_filenames]
+    speaker = [speaker_map[re.findall(speaker_re, p)[0]] for p in audio_filenames]
 
     audio_files = tf.train.string_input_producer(audio_filenames)
     speaker_values = tf.train.input_producer(speaker)
@@ -84,11 +83,11 @@ def main():
         audio_batch, _ = queue.dequeue_many(args.batch_size)
 
     # Create network
-    dilations = [1, 1, 2, 2, 4, 4, 8, 8]
+    dilations = [1, 2, 4, 8, 16]
     net = WaveNet(args.batch_size,
-                 args.channels,
-                 dilations,
-                 filter_width=args.filter_width)
+                  args.channels,
+                  dilations,
+                  filter_width=args.filter_width)
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=0.10)
     trainable = tf.trainable_variables()
