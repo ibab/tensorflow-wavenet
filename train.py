@@ -42,7 +42,7 @@ def get_arguments():
 
 
 def create_vctk_inputs(directory, sample_rate=1<<13):
-    '''Loads audio samples and speaker IDs from the VTCK dataset.'''
+    '''Loads audio samples and speaker IDs from the VCTK dataset.'''
 
     # We retrieve each audio sample, the corresponding text, and the speaker id
     audio_glob = directory + '/wav48/*/*.wav'
