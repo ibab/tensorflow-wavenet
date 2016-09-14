@@ -48,7 +48,7 @@ def get_arguments():
     return parser.parse_args()
 
 
-def create_vctk_inputs(directory, sample_rate=1<<13):
+def create_vctk_inputs(directory, sample_rate=16000):
     '''Loads audio samples and speaker IDs from the VCTK dataset.'''
 
     # We retrieve each audio sample, the corresponding text, and the speaker id
