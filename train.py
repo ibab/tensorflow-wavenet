@@ -73,7 +73,7 @@ def create_vctk_inputs(directory):
         audio_values,
         file_format='wav',
         # Downsample to 16 kHz.
-        samples_per_second=1<<13,
+        samples_per_second=1<<14,
         # Corpus uses mono.
         channel_count=1)
 
