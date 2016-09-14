@@ -21,11 +21,11 @@ class WaveNet(object):
 
         # The filter widths can be configured as a hyperparameter.
         wf = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, 256, 256],
+            [1, self.filter_width, self.channels, self.channels],
             stddev=0.2,
             name="filter"))
         wg = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, 256, 256],
+            [1, self.filter_width, self.channels, self.channels],
             stddev=0.2, name="gate"))
 
         # TensorFlow has an operator for convolution with holes.
@@ -45,8 +45,8 @@ class WaveNet(object):
         out = tf.slice(out, [0] * 4, [-1, -1, tf.shape(out)[2] - dilation, -1])
         out = tf.pad(out, [[0, 0], [0, 0], [dilation, 0], [0, 0]])
 
-        w = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.20,
-                        name="dense"))
+        w = tf.Variable(tf.truncated_normal(
+            [1, 1, self.channels, self.channels], stddev=0.2, name="dense"))
         transformed = tf.nn.conv2d(out, w, strides=[1] * 4,
                                    padding="SAME", name="dense")
 
@@ -84,10 +84,12 @@ class WaveNet(object):
         with tf.name_scope('postprocessing'):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
-            w1 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3,
-                             name="postprocess1"))
-            w2 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3,
-                             name="postprocess2"))
+            w1 = tf.Variable(tf.truncated_normal(
+                [1, 1, self.channels, self.channels], stddev=0.3,
+                name="postprocess1"))
+            w2 = tf.Variable(tf.truncated_normal(
+                [1, 1, self.channels, self.channels], stddev=0.3,
+                name="postprocess2"))
 
             tf.histogram_summary('postprocess1_weights', w1)
             tf.histogram_summary('postprocess2_weights', w2)
@@ -102,7 +104,7 @@ class WaveNet(object):
 
         return conv2
 
-    def loss(self, input_batch, name='wavenet'):
+    def loss(self, input_batch, add_summary=True, name='wavenet'):
         with tf.variable_scope(name):
             input_batch = self._preprocess(input_batch)
 
@@ -118,7 +120,7 @@ class WaveNet(object):
 
             with tf.name_scope('loss'):
                 # Shift original input left by one sample, which means that
-                # each output pixel has to predict the next input pixel.
+                # each output sample has to predict the next input sample.
                 shifted = tf.slice(encoded, [0, 0, 1, 0],
                                    [-1, -1, tf.shape(encoded)[2] - 1, -1])
                 shifted = tf.pad(shifted, [[0, 0], [0, 0], [0, 1], [0, 0]])
@@ -129,6 +131,7 @@ class WaveNet(object):
                     tf.reshape(shifted, [-1, self.channels]))
                 reduced_loss = tf.reduce_mean(loss)
 
-                tf.scalar_summary('loss', reduced_loss)
+                if add_summary:
+                    tf.scalar_summary('loss', reduced_loss)
 
         return reduced_loss
