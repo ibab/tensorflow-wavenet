@@ -95,7 +95,7 @@ def main():
     optim = optimizer.minimize(loss, var_list=trainable)
 
     # Set up logging for TensorBoard
-    writer = tf.train.SummaryWriter('./logdir/{}'.format(str(datetime.now())))
+    writer = tf.train.SummaryWriter('./logdir/TRAIN-{}'.format(str(datetime.now())))
     writer.add_graph(tf.get_default_graph())
     run_metadata = tf.RunMetadata()
     summaries = tf.merge_all_summaries()
