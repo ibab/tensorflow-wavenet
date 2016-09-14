@@ -108,6 +108,9 @@ def main():
     qr.create_threads(sess, coord=coord, start=True)
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
+    # Saver for storing checkpoints of the model
+    saver = tf.train.Saver(tf.all_variables())
+
     for i in range(1000):
         if args.store_metadata and i % 50 == 0:
             # Slow run that stores extra information for debugging
@@ -122,10 +125,14 @@ def main():
             tl = timeline.Timeline(run_metadata.step_stats)
             with open('./timeline.trace', 'w') as f:
                 f.write(tl.generate_chrome_trace_format(show_memory=True))
-
         else:
             summary, loss_value, _ = sess.run([summaries, loss, optim])
             writer.add_summary(summary, i)
+
+        if i % 50 == 0:
+            checkpoint_path = './model.ckpt'
+            print('Storing checkpoint to {}'.format(checkpoint_path))
+            saver.save(sess, checkpoint_path, global_step=i)
 
         print('Loss: {}'.format(loss_value))
 
