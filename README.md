@@ -15,13 +15,21 @@ dilated convolution (convolution with holes), which only accesses the current an
 
 The network is implemented in the file [`wavenet.py`](./wavenet.py).
 
-This implementation is currently still under :construction:
+:construction: This implementation is currently still under construction :construction:
 
 **TODO:**
 
  - Add step-by-step generation of audio samples (and make them available in TensorBoard)
  - Add conditioning on extra parameters (tagged speech, speaker, etc.)
  - Generate example outputs
+
+## Requirements
+
+TensorFlow needs to be installed before running the training script.
+TensorFlow 0.10 and the current `master` version are supported.
+
+In addition, the `ffmpeg` binary needs to be available on the command line`.
+It is needed by the TensorFlow ffmpeg contrib package that is used to decode the audio files.
 
 ## Training the network
 
