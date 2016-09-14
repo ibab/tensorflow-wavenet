@@ -37,7 +37,7 @@ def get_arguments():
     parser.add_argument('--logdir', type=str, default=LOGDIR,
                         help='Directory in which to store the logging '
                         'information for TensorBoard.')
-    parser.add_argument('--num_steps', type=int, default-NUM_STEPS,
+    parser.add_argument('--num_steps', type=int, default=NUM_STEPS,
                         help='Number of training steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
                         help='Learning rate for training.')
@@ -144,10 +144,10 @@ def main():
             summary, loss_value, _ = sess.run([summaries, loss, optim])
             writer.add_summary(summary, step)
 
-        if i % 50 == 0:
+        if step % 50 == 0:
             checkpoint_path = './model.ckpt'
             print('Storing checkpoint to {}'.format(checkpoint_path))
-            saver.save(sess, checkpoint_path, global_step=i)
+            saver.save(sess, checkpoint_path, global_step=step)
 
         print('Loss: {}'.format(loss_value))
 
