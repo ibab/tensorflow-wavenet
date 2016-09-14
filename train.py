@@ -149,8 +149,6 @@ def main():
             timeline_path = os.path.join(logdir, 'timeline.trace')
             with open(timeline_path, 'w') as f:
                 f.write(tl.generate_chrome_trace_format(show_memory=True))
-            os.symlink(timeline_path,
-                       os.path.join(args.logdir, 'train', 'latest.trace'))
         else:
             summary, loss_value, _ = sess.run([summaries, loss, optim])
             writer.add_summary(summary, step)
@@ -159,8 +157,6 @@ def main():
             checkpoint_path = os.path.join(logdir, 'model.ckpt')
             print('Storing checkpoint to {}'.format(checkpoint_path))
             saver.save(sess, checkpoint_path, global_step=step)
-            os.symlink(checkpoint_path,
-                       os.path.join(args.logdir, 'latest.ckpt'))
 
         print('Loss: {}'.format(loss_value))
 
