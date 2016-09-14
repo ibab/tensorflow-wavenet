@@ -28,7 +28,7 @@ The network is implemented in the file [`wavenet.py`](./wavenet.py).
 TensorFlow needs to be installed before running the training script.
 TensorFlow 0.10 and the current `master` version are supported.
 
-In addition, the `ffmpeg` binary needs to be available on the command line`.
+In addition, the `ffmpeg` binary needs to be available on the command line.
 It is needed by the TensorFlow ffmpeg contrib package that is used to decode the audio files.
 
 ## Training the network
