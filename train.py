@@ -144,10 +144,10 @@ def main():
             summary, loss_value, _ = sess.run([summaries, loss, optim])
             writer.add_summary(summary, step)
 
-        if i % 50 == 0:
+        if step % 50 == 0:
             checkpoint_path = './model.ckpt'
             print('Storing checkpoint to {}'.format(checkpoint_path))
-            saver.save(sess, checkpoint_path, global_step=i)
+            saver.save(sess, checkpoint_path, global_step=step)
 
         print('Loss: {}'.format(loss_value))
 
