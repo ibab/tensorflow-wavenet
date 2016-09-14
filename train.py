@@ -1,3 +1,10 @@
+'''Training script for the WaveNet network on the VCTK corpus.
+
+This script trains a network with the WaveNet using data from the VCTK corpus,
+which can be freely downloaded at the following site (~10 GB):
+http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html
+'''
+
 import argparse
 from datetime import datetime
 import glob
