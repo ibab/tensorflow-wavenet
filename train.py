@@ -3,6 +3,7 @@ import glob
 import re
 from datetime import datetime
 import argparse
+import sys
 
 import tensorflow as tf
 from tensorflow.contrib import ffmpeg
@@ -40,7 +41,13 @@ def create_vctk_inputs(directory):
     '''
 
     # We retrieve each audio sample, the corresponding text, and the speaker id
-    audio_filenames = glob.glob(directory + '/wav48/*/*.wav')
+    audio_glob = directory + '/wav48/*/*.wav'
+    audio_filenames = glob.glob(audio_glob)
+    if len(audio_filenames) == 0:
+        print('No audio files matching {} have been found!'.format(audio_glob))
+        sys.exit(1)
+
+    print('Found {} audio files'.format(len(audio_filenames)))
     audio_files = tf.train.string_input_producer(audio_filenames)
     reader = tf.WholeFileReader()
     _, audio_values = reader.read(audio_files)
