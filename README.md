@@ -16,7 +16,7 @@ dilated convolution (convolution with holes), which only accesses the current an
 The network itself is implemented in the file [`wavenet.py`](./wavenet.py).
 
 <p align="center">
-![graph](images/network.png)
+<img src="images/network.png"></img>
 </p>
 
 ## Requirements
