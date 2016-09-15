@@ -18,7 +18,7 @@ additional parameters.
 </p>
 <p>
 After an audio preprocessing step, the input waveform is quantized to a fixed integer range.
-The integer amplitudes are then one-hot encoded to produce a tensor of shape `(num_samples, num_channels)`.
+The integer amplitudes are then one-hot encoded to produce a tensor of shape <code>(num_samples, num_channels)</code>.
 </p>
 <p>
 A convolutional layer that only accesses the current and previous inputs then reduces the channel dimension.
@@ -30,6 +30,9 @@ dilated convolution (convolution with holes), which only accesses the current an
 <p>
 The outputs of all layers are combined and extended back to the original number
 of channels by a series of dense postprocessing layers.
+</p>
+<p>
+The loss function is the cross-entropy between the output for each timestep and the input at the next timestep.
 </p>
 <p>
 In this repository, the network implementation can be found in <a href="./wavenet.py">wavenet.py</a>.
