@@ -13,15 +13,7 @@ additional parameters.
 It is constructed from a stack of *causal dilated layers*, each of which is a
 dilated convolution (convolution with holes), which only accesses the current and past audio samples.
 
-The network is implemented in the file [`wavenet.py`](./wavenet.py).
-
-:construction: This implementation is currently still under construction :construction:
-
-**TODO:**
-
- - Add step-by-step generation of audio samples (and make them available in TensorBoard)
- - Add conditioning on extra parameters (tagged speech, speaker, etc.)
- - Generate example outputs
+The network itself is implemented in the file [`wavenet.py`](./wavenet.py).
 
 ## Requirements
 
@@ -47,5 +39,20 @@ You can see documentation on the settings by by running
 python train.py --help
 ```
 
-**Disclaimer:** This repository is not affiliated with DeepMind or Google in any way.
+## Generating audio
 
+You can use the `generate.py` script to generate audio using a previously trained model.
+
+Run
+```
+python generate.py --samples 16000 model.ckpt-1000
+```
+where `model.ckpt-1000` needs to be a previously saved model.
+(You will find these in the `logdir`)
+The generated waveform can be played back using TensorBoard.
+
+## Missing features
+
+Currently, there is no conditioning on extra information like the speaker ID.
+
+**Disclaimer:** This repository is not affiliated with DeepMind or Google in any way.
