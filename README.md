@@ -85,4 +85,3 @@ The generated waveform can be played back using TensorBoard.
 
 Currently, there is no conditioning on extra information like the speaker ID.
 
-**Disclaimer:** This repository is not affiliated with DeepMind or Google in any way.
