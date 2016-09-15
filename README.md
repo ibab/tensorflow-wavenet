@@ -17,8 +17,8 @@ It is constructed from a stack of *causal dilated layers*, each of which is a
 dilated convolution (convolution with holes), which only accesses the current and past audio samples.
 The network itself is implemented in the file <a href="./wavenet.py">wavenet.py</a>.
 </td>
-<td>
-<img src="images/network.png" width="25%" height="25%"></img>
+<td width="200">
+<img src="images/network.png" width="200"></img>
 </td>
 </tr>
 </table>
