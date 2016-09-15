@@ -133,34 +133,35 @@ def main():
     # Saver for storing checkpoints of the model.
     saver = tf.train.Saver()
 
-    for step in range(args.num_steps):
-        if args.store_metadata and step % 50 == 0:
-            # Slow run that stores extra information for debugging.
-            print('Storing metadata')
-            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-            summary, loss_value, _ = sess.run(
-                [summaries, loss, optim],
-                options=run_options,
-                run_metadata=run_metadata)
-            writer.add_summary(summary, step)
-            writer.add_run_metadata(run_metadata, 'step_{:04d}'.format(step))
-            tl = timeline.Timeline(run_metadata.step_stats)
-            timeline_path = os.path.join(logdir, 'timeline.trace')
-            with open(timeline_path, 'w') as f:
-                f.write(tl.generate_chrome_trace_format(show_memory=True))
-        else:
-            summary, loss_value, _ = sess.run([summaries, loss, optim])
-            writer.add_summary(summary, step)
+    try:
+      for step in range(args.num_steps):
+          if args.store_metadata and step % 50 == 0:
+              # Slow run that stores extra information for debugging.
+              print('Storing metadata')
+              run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+              summary, loss_value, _ = sess.run(
+                  [summaries, loss, optim],
+                  options=run_options,
+                  run_metadata=run_metadata)
+              writer.add_summary(summary, step)
+              writer.add_run_metadata(run_metadata, 'step_{:04d}'.format(step))
+              tl = timeline.Timeline(run_metadata.step_stats)
+              timeline_path = os.path.join(logdir, 'timeline.trace')
+              with open(timeline_path, 'w') as f:
+                  f.write(tl.generate_chrome_trace_format(show_memory=True))
+          else:
+              summary, loss_value, _ = sess.run([summaries, loss, optim])
+              writer.add_summary(summary, step)
 
-        if step % 50 == 0:
-            checkpoint_path = os.path.join(logdir, 'model.ckpt')
-            print('Storing checkpoint to {}'.format(checkpoint_path))
-            saver.save(sess, checkpoint_path, global_step=step)
+          if step % 50 == 0:
+              checkpoint_path = os.path.join(logdir, 'model.ckpt')
+              print('Storing checkpoint to {}'.format(checkpoint_path))
+              saver.save(sess, checkpoint_path, global_step=step)
 
-        print('Loss: {}'.format(loss_value))
-
-    coord.request_stop()
-    coord.join(threads)
+          print('Loss: {}'.format(loss_value))
+    finally:
+      coord.request_stop()
+      coord.join(threads)
 
 
 if __name__ == '__main__':
