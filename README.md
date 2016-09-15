@@ -29,7 +29,8 @@ dilated convolution (convolution with holes), which only accesses the current an
 </p>
 <p>
 The outputs of all layers are combined and extended back to the original number
-of channels by a series of dense postprocessing layers.
+of channels by a series of dense postprocessing layers, followed by a softmax
+function to transform the outputs into a categorical distribution.
 </p>
 <p>
 The loss function is the cross-entropy between the output for each timestep and the input at the next timestep.
