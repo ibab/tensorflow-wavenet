@@ -106,7 +106,7 @@ class WaveNet(object):
 
         return conv2
 
-    def loss(self, input_batch, add_summary=True, name='wavenet'):
+    def loss(self, input_batch, name='wavenet'):
         with tf.variable_scope(name):
             input_batch = self._preprocess(input_batch)
 
@@ -133,7 +133,6 @@ class WaveNet(object):
                     tf.reshape(shifted, [-1, self.channels]))
                 reduced_loss = tf.reduce_mean(loss)
 
-                if add_summary:
-                    tf.scalar_summary('loss', reduced_loss)
+                tf.scalar_summary('loss', reduced_loss)
 
         return reduced_loss
