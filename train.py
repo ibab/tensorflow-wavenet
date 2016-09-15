@@ -76,7 +76,6 @@ def create_vctk_inputs(directory, sample_rate=16000):
     waveform = ffmpeg.decode_audio(
         audio_values,
         file_format='wav',
-        # Downsample to 16 kHz.
         samples_per_second=sample_rate,
         # Corpus uses mono.
         channel_count=1)
@@ -132,7 +131,7 @@ def main():
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(tf.all_variables())
+    saver = tf.train.Saver()
 
     for step in range(args.num_steps):
         if args.store_metadata and step % 50 == 0:

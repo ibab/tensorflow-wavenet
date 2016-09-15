@@ -20,6 +20,7 @@ class WaveNet(object):
         '''Adds a single causal dilated convolution layer.'''
 
         # The filter widths can be configured as a hyperparameter.
+        # It corresponds to the number of samples we combine at once
         weights_filter = tf.Variable(tf.truncated_normal(
             [1, self.filter_width, self.channels, self.channels],
             stddev=0.2,
@@ -31,18 +32,17 @@ class WaveNet(object):
         # TensorFlow has an operator for convolution with holes.
         conv_filter = tf.nn.atrous_conv2d(input_batch, weights_filter,
                                           rate=dilation,
-                                          padding="SAME",
+                                          padding="VALID",
                                           name="conv_filter")
         conv_gate = tf.nn.atrous_conv2d(input_batch, weights_gate,
                                         rate=dilation,
-                                        padding="SAME",
+                                        padding="VALID",
                                         name="conv_gate")
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
-        # Shift output to the right by dilation count so that only current/past
-        # values can influence the prediction.
-        out = tf.slice(out, [0] * 4, [-1, -1, tf.shape(out)[2] - dilation, -1])
+        # Pad output with zeros from the left to ensure that a given pixel only
+        # uses current/past values
         out = tf.pad(out, [[0, 0], [0, 0], [dilation, 0], [0, 0]])
 
         weights_dense = tf.Variable(tf.truncated_normal(
@@ -68,6 +68,16 @@ class WaveNet(object):
             quantized = tf.cast((signal + 1) / 2 * mu, tf.int32)
 
         return quantized
+
+
+    def decode(self, output):
+        mu = self.channels
+        output = tf.cast(output, tf.float32)
+        y = (2 * output  - 1) / mu
+        x = tf.sign(y) * (tf.exp(y * tf.log(1. + mu)) - 1) / mu
+
+        return x
+
 
     def _create_network(self, input_batch):
         outputs = []
@@ -106,18 +116,33 @@ class WaveNet(object):
 
         return conv2
 
+
+    def _one_hot(self, input_batch):
+        # One-hot encode waveform amplitudes, so we can define the network
+        # as a categorical distribution over possible amplitudes.
+        with tf.name_scope('one_hot_encode'):
+            encoded = tf.one_hot(input_batch, depth=self.channels,
+                                 dtype=tf.float32)
+            encoded = tf.reshape(encoded,
+                                 [self.batch_size, 1, -1, self.channels])
+
+        return encoded
+
+
+    def predict_proba(self, waveform, name='wavenet'):
+        with tf.variable_scope(name):
+            encoded = self._one_hot(waveform)
+            raw_output = self._create_network(encoded)
+            out = tf.reshape(raw_output, [-1, self.channels])
+            proba = tf.nn.softmax(out)
+            last = tf.slice(proba, [tf.shape(proba)[0] - 1, 0], [1, self.channels])
+            return tf.reshape(last, [-1])
+
+
     def loss(self, input_batch, name='wavenet'):
         with tf.variable_scope(name):
             input_batch = self._preprocess(input_batch)
-
-            # One-hot encode waveform amplitudes, so we can define the network
-            # as a categorical distribution over possible amplitudes.
-            with tf.name_scope('one_hot_encode'):
-                encoded = tf.one_hot(input_batch, depth=self.channels,
-                                     dtype=tf.float32)
-                encoded = tf.reshape(encoded,
-                                     [self.batch_size, 1, -1, self.channels])
-
+            encoded = self._one_hot(input_batch)
             raw_output = self._create_network(encoded)
 
             with tf.name_scope('loss'):
