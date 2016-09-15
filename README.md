@@ -6,18 +6,24 @@ network architecture](https://deepmind.com/blog/wavenet-generative-model-raw-aud
 <table>
 <tr>
 <td>
+<p>
 The WaveNet architecture directly generates a raw audio waveform,
 and shows excellent results in TTS and general audio generation (see the
 DeepMind blog post and paper for examples).
+</p>
 
+<p>
 The network is a model of the conditional probability to generate the next
 sample in the audio waveform, given all previous samples and possibly
 additional parameters.
+</p>
 
-It is constructed from a stack of *causal dilated layers*, each of which is a
+<p>
+It is constructed from a stack of <em>causal dilated layers</em>, each of which is a
 dilated convolution (convolution with holes), which only accesses the current
 and past audio samples. The network itself is implemented in the file
 <a href="./wavenet.py">wavenet.py</a>.
+</p>
 </td>
 <td width="300">
 <img src="images/network.png" width="300"></img>
