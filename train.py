@@ -22,8 +22,8 @@ from wavenet import WaveNet
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR = './logdir'
-NUM_STEPS = 1000
-LEARNING_RATE = 0.10
+NUM_STEPS = 2000
+LEARNING_RATE = 0.03
 WAVENET_PARAMS = './wavenet_params.json'
 
 def get_arguments():
@@ -85,7 +85,8 @@ def create_vctk_inputs(directory, sample_rate=16000):
 
 def main():
     args = get_arguments()
-    logdir = os.path.join(args.logdir, 'train', str(datetime.now()))
+    datestring = str(datetime.now()).replace(' ', 'T')
+    logdir = os.path.join(args.logdir, 'train', datestring)
 
     with open(args.wavenet_params, 'r') as f:
         wavenet_params = json.load(f)
@@ -108,14 +109,15 @@ def main():
     net = WaveNet(args.batch_size,
                   wavenet_params["quantization_steps"],
                   wavenet_params["dilations"],
-                  filter_width=wavenet_params["filter_width"])
+                  wavenet_params["filter_width"],
+                  wavenet_params["residual_channels"],
+                  wavenet_params["dilation_channels"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
     optim = optimizer.minimize(loss, var_list=trainable)
 
     # Set up logging for TensorBoard.
-    current_time = str(datetime.now())
     writer = tf.train.SummaryWriter(logdir)
     writer.add_graph(tf.get_default_graph())
     run_metadata = tf.RunMetadata()

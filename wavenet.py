@@ -10,23 +10,38 @@ class WaveNet(object):
         loss = net.loss(input_batch)
     '''
 
-    def __init__(self, batch_size, channels, dilations, filter_width=2):
+    def __init__(self, batch_size, channels, dilations, filter_width, residual_channels, dilation_channels):
         self.batch_size = batch_size
         self.channels = channels
         self.dilations = dilations
         self.filter_width = filter_width
+        self.residual_channels = residual_channels
+        self.dilation_channels = dilation_channels
 
-    def _create_dilation_layer(self, input_batch, layer_index, dilation):
+
+    def _create_causal_layer(self, input_batch, in_channels, out_channels):
+        with tf.name_scope('causal_layer'):
+            weights_filter = tf.Variable(tf.truncated_normal(
+                [1, self.filter_width, in_channels, out_channels],
+                stddev=0.2,
+                name="filter"))
+            conv = tf.nn.conv2d(
+                input_batch,
+                weights_filter,
+                strides=4 * [1],
+                padding='VALID')
+            return tf.pad(conv, [[0, 0], [0, 0], [self.filter_width - 1, 0], [0, 0]])
+
+
+    def _create_dilation_layer(self, input_batch, layer_index, dilation, in_channels, dilation_channels):
         '''Adds a single causal dilated convolution layer.'''
 
-        # The filter widths can be configured as a hyperparameter.
-        # It corresponds to the number of samples we combine at once
         weights_filter = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, self.channels, self.channels],
+            [1, self.filter_width, in_channels, dilation_channels],
             stddev=0.2,
             name="filter"))
         weights_gate = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, self.channels, self.channels],
+            [1, self.filter_width, in_channels, dilation_channels],
             stddev=0.2, name="gate"))
 
         # TensorFlow has an operator for convolution with holes.
@@ -46,7 +61,7 @@ class WaveNet(object):
         out = tf.pad(out, [[0, 0], [0, 0], [dilation, 0], [0, 0]])
 
         weights_dense = tf.Variable(tf.truncated_normal(
-            [1, 1, self.channels, self.channels], stddev=0.2, name="dense"))
+            [1, 1, dilation_channels, in_channels], stddev=0.2, name="dense"))
         transformed = tf.nn.conv2d(out, weights_dense, strides=[1] * 4,
                                    padding="SAME", name="dense")
 
@@ -83,6 +98,8 @@ class WaveNet(object):
         outputs = []
         current_layer = input_batch
 
+        current_layer = self._create_causal_layer(current_layer, self.channels, self.residual_channels)
+
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
             for layer_index, dilation in enumerate(self.dilations):
@@ -90,17 +107,19 @@ class WaveNet(object):
                     output, current_layer = self._create_dilation_layer(
                         current_layer,
                         layer_index,
-                        dilation=dilation)
+                        dilation,
+                        self.residual_channels,
+                        self.dilation_channels)
                     outputs.append(output)
 
         with tf.name_scope('postprocessing'):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
             w1 = tf.Variable(tf.truncated_normal(
-                [1, 1, self.channels, self.channels], stddev=0.3,
+                [1, 1, self.residual_channels, int(self.channels / 2)], stddev=0.3,
                 name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal(
-                [1, 1, self.channels, self.channels], stddev=0.3,
+                [1, 1, int(self.channels / 2), self.channels], stddev=0.3,
                 name="postprocess2"))
 
             tf.histogram_summary('postprocess1_weights', w1)
