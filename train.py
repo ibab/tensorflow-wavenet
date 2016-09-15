@@ -24,7 +24,7 @@ DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR = './logdir'
 NUM_STEPS = 1000
 LEARNING_RATE = 0.10
-NETWORK = './layout.json'
+WAVENET_PARAMS = './wavenet_params.json'
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
@@ -43,7 +43,7 @@ def get_arguments():
                         help='Number of training steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
                         help='Learning rate for training.')
-    parser.add_argument('--network', type=str, default=NETWORK,
+    parser.add_argument('--wavenet_params', type=str, default=WAVENET_PARAMS,
                         help='JSON file with the network parameters.')
     return parser.parse_args()
 
@@ -88,14 +88,14 @@ def main():
     args = get_arguments()
     logdir = os.path.join(args.logdir, 'train', str(datetime.now()))
 
-    with open(args.network, 'r') as config_file:
-        network_config = json.load(config_file)
+    with open(args.wavenet_params, 'r') as f:
+        wavenet_params = json.load(f)
 
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
         audio, speaker = create_vctk_inputs(args.data_dir,
-                                            network_config["sample_rate"])
+                                            wavenet_params["sample_rate"])
 
         queue = tf.PaddingFIFOQueue(
             256,  # Queue size.
@@ -107,9 +107,9 @@ def main():
 
     # Create network.
     net = WaveNet(args.batch_size,
-                  network_config["quantization_steps"],
-                  network_config["dilations"],
-                  filter_width=network_config["filter_width"])
+                  wavenet_params["quantization_steps"],
+                  wavenet_params["dilations"],
+                  filter_width=wavenet_params["filter_width"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
