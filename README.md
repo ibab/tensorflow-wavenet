@@ -48,7 +48,8 @@ Run
 python generate.py --samples 16000 model.ckpt-1000
 ```
 where `model.ckpt-1000` needs to be a previously saved model.
-(You will find these in the `logdir`)
+You can find these in the `logdir`.
+
 The generated waveform can be played back using TensorBoard.
 
 ## Missing features
