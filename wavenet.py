@@ -20,39 +20,40 @@ class WaveNet(object):
         '''Adds a single causal dilated convolution layer.'''
 
         # The filter widths can be configured as a hyperparameter.
-        wf = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, 256, 256],
+        weights_filter = tf.Variable(tf.truncated_normal(
+            [1, self.filter_width, self.channels, self.channels],
             stddev=0.2,
             name="filter"))
-        wg = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, 256, 256],
+        weights_gate = tf.Variable(tf.truncated_normal(
+            [1, self.filter_width, self.channels, self.channels],
             stddev=0.2, name="gate"))
 
         # TensorFlow has an operator for convolution with holes.
-        tmp1 = tf.nn.atrous_conv2d(input_batch, wf,
-                                   rate=dilation,
-                                   padding="SAME",
-                                   name="conv_f")
-        tmp2 = tf.nn.atrous_conv2d(input_batch, wg,
-                                   rate=dilation,
-                                   padding="SAME",
-                                   name="conv_g")
+        conv_filter = tf.nn.atrous_conv2d(input_batch, weights_filter,
+                                          rate=dilation,
+                                          padding="SAME",
+                                          name="conv_filter")
+        conv_gate = tf.nn.atrous_conv2d(input_batch, weights_gate,
+                                        rate=dilation,
+                                        padding="SAME",
+                                        name="conv_gate")
 
-        out = tf.tanh(tmp1) * tf.sigmoid(tmp2)
+        out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
         # Shift output to the right by dilation count so that only current/past
         # values can influence the prediction.
         out = tf.slice(out, [0] * 4, [-1, -1, tf.shape(out)[2] - dilation, -1])
         out = tf.pad(out, [[0, 0], [0, 0], [dilation, 0], [0, 0]])
 
-        w = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.20,
-                        name="dense"))
-        transformed = tf.nn.conv2d(out, w, strides=[1] * 4,
+        weights_dense = tf.Variable(tf.truncated_normal(
+            [1, 1, self.channels, self.channels], stddev=0.2, name="dense"))
+        transformed = tf.nn.conv2d(out, weights_dense, strides=[1] * 4,
                                    padding="SAME", name="dense")
 
-        tf.histogram_summary('layer{}_filter'.format(layer_index), wf)
-        tf.histogram_summary('layer{}_guard'.format(layer_index), wg)
-        tf.histogram_summary('layer{}_weights'.format(layer_index), w)
+        layer = 'layer{}'.format(layer_index)
+        tf.histogram_summary(layer + '_filter', weights_filter)
+        tf.histogram_summary(layer + '_gate', weights_gate)
+        tf.histogram_summary(layer + '_dense', weights_dense)
 
         return transformed, input_batch + transformed
 
@@ -63,6 +64,7 @@ class WaveNet(object):
             # Perform mu-law companding transformation (ITU-T, 1988).
             magnitude = tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu)
             signal = tf.sign(audio) * magnitude
+            # Quantize signal to the specified number of levels
             quantized = tf.cast((signal + 1) / 2 * mu, tf.int32)
 
         return quantized
@@ -84,10 +86,12 @@ class WaveNet(object):
         with tf.name_scope('postprocessing'):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
-            w1 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3,
-                             name="postprocess1"))
-            w2 = tf.Variable(tf.truncated_normal([1, 1, 256, 256], stddev=0.3,
-                             name="postprocess2"))
+            w1 = tf.Variable(tf.truncated_normal(
+                [1, 1, self.channels, self.channels], stddev=0.3,
+                name="postprocess1"))
+            w2 = tf.Variable(tf.truncated_normal(
+                [1, 1, self.channels, self.channels], stddev=0.3,
+                name="postprocess2"))
 
             tf.histogram_summary('postprocess1_weights', w1)
             tf.histogram_summary('postprocess2_weights', w2)
@@ -118,7 +122,7 @@ class WaveNet(object):
 
             with tf.name_scope('loss'):
                 # Shift original input left by one sample, which means that
-                # each output pixel has to predict the next input pixel.
+                # each output sample has to predict the next input sample.
                 shifted = tf.slice(encoded, [0, 0, 1, 0],
                                    [-1, -1, tf.shape(encoded)[2] - 1, -1])
                 shifted = tf.pad(shifted, [[0, 0], [0, 0], [0, 1], [0, 0]])

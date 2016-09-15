@@ -1,0 +1,6 @@
+{
+    "filter_width": 2,
+    "quantization_steps": 256,
+    "sample_rate": 16000,
+    "dilations": [1, 2, 4, 8, 16]
+}

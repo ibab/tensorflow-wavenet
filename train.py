@@ -1,8 +1,16 @@
+'''Training script for the WaveNet network on the VCTK corpus.
 
-import glob
-import re
-from datetime import datetime
+This script trains a network with the WaveNet using data from the VCTK corpus,
+which can be freely downloaded at the following site (~10 GB):
+http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html
+'''
+
 import argparse
+from datetime import datetime
+import glob
+import json
+import os
+import re
 import sys
 
 import tensorflow as tf
@@ -12,28 +20,22 @@ import tensorflow.python.client.timeline as timeline
 from wavenet import WaveNet
 
 BATCH_SIZE = 1
-CHANNELS = 256
 DATA_DIRECTORY = './VCTK-Corpus'
-FILTER_WIDTH = 2
 LOGDIR = './logdir'
 NUM_STEPS = 1000
 LEARNING_RATE = 0.10
+WAVENET_PARAMS = './wavenet_params.json'
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
                         help='How many wav files to process at once.')
-    parser.add_argument('--channels', type=int, default=CHANNELS,
-                        help='Number of possible waveform amplitude values.')
     parser.add_argument('--data_dir', type=str, default=DATA_DIRECTORY,
                         help='The directory containing the VCTK corpus.')
     parser.add_argument('--store_metadata', type=bool, default=False,
                         help='Whether to store advanced debugging information '
                         '(execution time, memory consumption) for use with '
                         'TensorBoard.')
-    parser.add_argument('--filter_width', type=int, default=FILTER_WIDTH,
-                        help='Width of the filters to use in the causal '
-                        'dilated convolutions.')
     parser.add_argument('--logdir', type=str, default=LOGDIR,
                         help='Directory in which to store the logging '
                         'information for TensorBoard.')
@@ -41,11 +43,13 @@ def get_arguments():
                         help='Number of training steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
                         help='Learning rate for training.')
+    parser.add_argument('--wavenet_params', type=str, default=WAVENET_PARAMS,
+                        help='JSON file with the network parameters.')
     return parser.parse_args()
 
 
-def create_vctk_inputs(directory):
-    '''Loads audio samples and speaker IDs from the VTCK dataset.'''
+def create_vctk_inputs(directory, sample_rate=16000):
+    '''Loads audio samples and speaker IDs from the VCTK dataset.'''
 
     # We retrieve each audio sample, the corresponding text, and the speaker id
     audio_glob = directory + '/wav48/*/*.wav'
@@ -73,7 +77,7 @@ def create_vctk_inputs(directory):
         audio_values,
         file_format='wav',
         # Downsample to 16 kHz.
-        samples_per_second=1<<13,
+        samples_per_second=sample_rate,
         # Corpus uses mono.
         channel_count=1)
 
@@ -82,14 +86,19 @@ def create_vctk_inputs(directory):
 
 def main():
     args = get_arguments()
+    logdir = os.path.join(args.logdir, 'train', str(datetime.now()))
+
+    with open(args.wavenet_params, 'r') as f:
+        wavenet_params = json.load(f)
 
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
-        audio, speaker = create_vctk_inputs(args.data_dir)
+        audio, speaker = create_vctk_inputs(args.data_dir,
+                                            wavenet_params["sample_rate"])
 
         queue = tf.PaddingFIFOQueue(
-            256,
+            256,  # Queue size.
             ['float32', 'int32'],
             shapes=[(None, 1), ()])
         enqueue = queue.enqueue([audio, speaker])
@@ -97,11 +106,10 @@ def main():
         audio_batch, _ = queue.dequeue_many(args.batch_size)
 
     # Create network.
-    dilations = [1, 2, 4, 8, 16]
     net = WaveNet(args.batch_size,
-                  args.channels,
-                  dilations,
-                  filter_width=args.filter_width)
+                  wavenet_params["quantization_steps"],
+                  wavenet_params["dilations"],
+                  filter_width=wavenet_params["filter_width"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
@@ -109,7 +117,7 @@ def main():
 
     # Set up logging for TensorBoard.
     current_time = str(datetime.now())
-    writer = tf.train.SummaryWriter('./logdir/TRAIN-{}'.format(current_time))
+    writer = tf.train.SummaryWriter(logdir)
     writer.add_graph(tf.get_default_graph())
     run_metadata = tf.RunMetadata()
     summaries = tf.merge_all_summaries()
@@ -138,14 +146,15 @@ def main():
             writer.add_summary(summary, step)
             writer.add_run_metadata(run_metadata, 'step_{:04d}'.format(step))
             tl = timeline.Timeline(run_metadata.step_stats)
-            with open(args.logdir + '/timeline.trace', 'w') as f:
+            timeline_path = os.path.join(logdir, 'timeline.trace')
+            with open(timeline_path, 'w') as f:
                 f.write(tl.generate_chrome_trace_format(show_memory=True))
         else:
             summary, loss_value, _ = sess.run([summaries, loss, optim])
             writer.add_summary(summary, step)
 
         if step % 50 == 0:
-            checkpoint_path = args.logdir + '/model.ckpt'
+            checkpoint_path = os.path.join(logdir, 'model.ckpt')
             print('Storing checkpoint to {}'.format(checkpoint_path))
             saver.save(sess, checkpoint_path, global_step=step)
 
