@@ -68,7 +68,7 @@ You can see documentation on the settings by by running
 python train.py --help
 ```
 
-You can find the hyperparameters of the network in [`wavenet_parameters.json`](./wavenet_parameters.json).
+You can find the hyperparameters of the network in [`wavenet_params.json`](./wavenet_params.json).
 
 ## Generating audio
 
