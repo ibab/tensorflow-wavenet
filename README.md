@@ -68,6 +68,8 @@ You can see documentation on the settings by by running
 python train.py --help
 ```
 
+You can find the hyperparameters of the network in [`wavenet_parameters.json`](./wavenet_parameters.json).
+
 ## Generating audio
 
 You can use the `generate.py` script to generate audio using a previously trained model.
