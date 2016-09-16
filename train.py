@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+import time
 
 import tensorflow as tf
 from tensorflow.contrib import ffmpeg
