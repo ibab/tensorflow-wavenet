@@ -6,6 +6,7 @@ import os
 
 import numpy as np
 import tensorflow as tf
+from scipy.io import wavfile
 
 from wavenet import WaveNet
 
@@ -28,6 +29,8 @@ def get_arguments():
                         'account at each step')
     parser.add_argument('--wavenet_params', type=str, default=WAVENET_PARAMS,
                         help='JSON file with the network parameters')
+    parser.add_argument('--wav_out_path', type=str, default=None,
+                        help='Path to output wav file')
     return parser.parse_args()
 
 def main():
@@ -79,6 +82,10 @@ def main():
 
     summary_out = sess.run(summaries, feed_dict={samples: np.reshape(waveform, [-1, 1])})
     writer.add_summary(summary_out)
+
+    if args.wav_out_path:
+        print('The result saved to {}'.format(args.wav_out_path))
+        wavfile.write(args.wav_out_path, wavenet_params['sample_rate'], np.array(waveform).astype(np.uint8))
 
     print('Finished generating. The result can be viewed in TensorBoard.')
 
