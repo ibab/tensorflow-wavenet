@@ -170,7 +170,7 @@ class WaveNet(object):
             encoded = self._one_hot(waveform)
             raw_output = self._create_network(encoded)
             out = tf.reshape(raw_output, [-1, self.channels])
-            proba = tf.nn.softmax(out)
+            proba = tf.nn.softmax(tf.cast(out, tf.float64))
             last = tf.slice(proba, [tf.shape(proba)[0] - 1, 0], [1, self.channels])
             return tf.reshape(last, [-1])
 
