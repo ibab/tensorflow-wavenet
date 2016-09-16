@@ -53,6 +53,8 @@ TensorFlow 0.10 and the current `master` version are supported.
 In addition, the `ffmpeg` binary needs to be available on the command line.
 It is needed by the TensorFlow ffmpeg contrib package that is used to decode the audio files.
 
+You will need `scipy` if you want to have the result as a wavfile directly from command line.
+
 ## Training the network
 
 The [VCTK corpus](http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html) is currently used.
@@ -83,6 +85,12 @@ where `model.ckpt-1000` needs to be a previously saved model.
 You can find these in the `logdir`.
 
 The generated waveform can be played back using TensorBoard.
+
+Passing `--wav_out_path` yields the output as a wav file.
+
+```
+python generate.py --wav_out_path=generated.wav --samples 16000 model.ckpt-1000
+```
 
 ## Missing features
 
