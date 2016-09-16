@@ -32,26 +32,29 @@ class WaveNet(object):
     # pads the height so that is matches `dilation`, which leads
     # to terrible performance if dilation is large.
     def _causal_dilated_conv(self, value, filter, dilation):
-        if dilation == 1:
-            out = tf.nn.conv2d(value, filter, strides=4 * [1], padding='VALID')
-        else:
-            shape = tf.shape(value)
-            # How many elements we are missing to be divisible by dilation.
-            pad_elements = dilation - 1 - (shape[2] + dilation - 1) % dilation
-            padded = tf.pad(value, [[0, 0], [0, 0], [0, pad_elements], [0, 0]])
-            # Use the batch dimension to skip (dilation - 1) elements.
-            reshaped = tf.reshape(padded, [shape[0] * dilation, 1, -1, shape[3]])
-            # Perform a simple convolution.
-            conv = tf.nn.conv2d(reshaped, filter, strides=[1, 1, 1, 1], padding='VALID')
-            restored = tf.reshape(conv, [shape[0], 1, -1, tf.shape(filter)[3]])
-            # Remove padding elements from the end
-            out = tf.slice(restored, 4 * [0], [-1, -1, tf.shape(restored)[2] - pad_elements, -1])
+        with tf.name_scope('causal_conv'):
+            if dilation == 1:
+                out = tf.nn.conv2d(value, filter, strides=4 * [1], padding='VALID')
+            else:
+                shape = tf.shape(value)
+                # How many elements we are missing to be divisible by dilation.
+                pad_elements = dilation - 1 - (shape[2] + dilation - 1) % dilation
+                padded = tf.pad(value, [[0, 0], [0, 0], [0, pad_elements], [0, 0]])
+                # Use the batch dimension to skip (dilation - 1) elements.
+                reshaped = tf.reshape(padded, [shape[0] * dilation, 1, -1, shape[3]])
+                # Perform a regular convolution.
+                conv = tf.nn.conv2d(reshaped, filter, strides=[1, 1, 1, 1], padding='VALID')
+                restored = tf.reshape(conv, [shape[0], 1, -1, tf.shape(filter)[3]])
+                # Remove padding elements from the end
+                out = tf.slice(restored, 4 * [0], [-1, -1, tf.shape(restored)[2] - pad_elements, -1])
 
-        padding = (tf.shape(filter)[1] - 1) *  dilation
-        return tf.pad(out, [[0, 0], [0, 0], [padding, 0], [0, 0]])
+            # Prepend zeros to ensure that the prediction only
+            # relies on the  current/past samples
+            padding = (tf.shape(filter)[1] - 1) *  dilation
+            return tf.pad(out, [[0, 0], [0, 0], [padding, 0], [0, 0]])
 
 
-    # A single causal convolution layer that reduces the number of channels.
+    # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
         with tf.name_scope('causal_layer'):
             weights_filter = tf.Variable(tf.truncated_normal(
