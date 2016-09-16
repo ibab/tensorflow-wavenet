@@ -137,6 +137,7 @@ def main():
 
     try:
       for step in range(args.num_steps):
+          start_time = time.time()
           if args.store_metadata and step % 50 == 0:
               # Slow run that stores extra information for debugging.
               print('Storing metadata')
@@ -155,12 +156,14 @@ def main():
               summary, loss_value, _ = sess.run([summaries, loss, optim])
               writer.add_summary(summary, step)
 
+          duration = time.time() - start_time
+          print('step %d - loss = %.3f, (%.3f sec/step)' % (step, loss_value, duration))
+
           if step % 50 == 0:
               checkpoint_path = os.path.join(logdir, 'model.ckpt')
               print('Storing checkpoint to {}'.format(checkpoint_path))
               saver.save(sess, checkpoint_path, global_step=step)
 
-          print('Loss: {}'.format(loss_value))
     finally:
       coord.request_stop()
       coord.join(threads)
