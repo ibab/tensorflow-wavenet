@@ -6,7 +6,6 @@ import os
 
 import numpy as np
 import tensorflow as tf
-from scipy.io import wavfile
 
 from wavenet import WaveNet
 
@@ -84,6 +83,8 @@ def main():
     writer.add_summary(summary_out)
 
     if args.wav_out_path:
+        from scipy.io import wavfile
+
         print('The result saved to {}'.format(args.wav_out_path))
         wavfile.write(args.wav_out_path, wavenet_params['sample_rate'], np.array(waveform).astype(np.uint8))
 
