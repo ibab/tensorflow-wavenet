@@ -4,5 +4,5 @@
     "sample_rate": 16000,
     "dilations": [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512],
     "residual_channels": 32,
-    "dilation_channels":16
+    "dilation_channels": 16
 }
