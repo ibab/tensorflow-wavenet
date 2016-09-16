@@ -138,8 +138,7 @@ def validate_directories(args):
     restore_from = args.restore_from
     if restore_from is None:
         # args.logdir and args.restore_from is exclusive,
-        # So it is guranteed the logdir here is newly created.
-
+        # so it is guaranteed the logdir here is newly created.
         restore_from = logdir
 
     return {

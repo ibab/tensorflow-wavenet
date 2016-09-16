@@ -127,71 +127,91 @@ class WaveNet(object):
                         self.dilation_channels)
                     outputs.append(output)
 
+        # Create the output layer that aggregates the skip connections.
+        output_layer = self._create_output_layer(sum(outputs))
+        return output_layer
+
+
+    def _create_output_layer(self, input_tensor):
+        '''Processes the input through a convolution stack.'''
         with tf.name_scope('postprocessing'):
-            # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
-            # postprocess the output.
-            w1 = tf.Variable(tf.truncated_normal(
-                [1, self.residual_channels, int(self.channels / 2)], stddev=0.3,
-                name="postprocess1"))
-            w2 = tf.Variable(tf.truncated_normal(
-                [1, int(self.channels / 2), self.channels], stddev=0.3,
-                name="postprocess2"))
-
-            tf.histogram_summary('postprocess1_weights', w1)
-            tf.histogram_summary('postprocess2_weights', w2)
-
-            # We skip connections from the outputs of each layer, adding them
-            # all up here.
-            total = sum(outputs)
-            transformed1 = tf.nn.relu(total)
-            conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
-            transformed2 = tf.nn.relu(conv1)
-            conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
-
-        return conv2
+            # Perform ReLU -> 1x1 conv -> ReLU -> 1x1 conv to postprocess the
+            # output.
+            layer_channels = [self.residual_channels,
+                              int(self.quantization_steps / 2),
+                              self.quantization_steps]
+            zipped_channels = zip(layer_channels[:-1], layer_channels[1:])
+            next_input = input_tensor
+            for layer_index, channels in enumerate(zipped_channels):
+                prev_channels, next_channels = channels[:]
+                name = "postprocess{}".format(layer_index)
+                weights = tf.Variable(tf.truncated_normal(
+                    [1, prev_channels, next_channels],
+                    stddev=0.3, name=name))
+                tf.histogram_summary(name + '_weights', weights)
+                relu = tf.nn.relu(next_input)
+                next_input = tf.nn.conv1d(relu, weights, stride=1,
+                                          padding="SAME")
+            return next_input
 
 
     def _one_hot(self, input_batch):
-        # One-hot encode waveform amplitudes, so we can define the network
-        # as a categorical distribution over possible amplitudes.
-        with tf.name_scope('one_hot_encode'):
-            encoded = tf.one_hot(input_batch, depth=self.channels,
-                                 dtype=tf.float32)
-            encoded = tf.reshape(encoded,
-                                 [self.batch_size, -1, self.channels])
+        '''One-hot encodes the waveform amplitudes.
 
-        return encoded
+        This allows the definition of the network as a categorical distribution
+        over a finite set of possible amplitudes.
+        '''
+        with tf.name_scope('one_hot_encode'):
+            encoded = tf.one_hot(input_batch, depth=self.quantization_steps,
+                                 dtype=tf.float32)
+            encoded = tf.reshape(
+                encoded, [self.batch_size, -1, self.quantization_steps])
+            return encoded
 
 
     def predict_proba(self, waveform, name='wavenet'):
+        '''Computes the probability distribution of the next sample.'''
         with tf.variable_scope(name):
             encoded = self._one_hot(waveform)
             raw_output = self._create_network(encoded)
-            out = tf.reshape(raw_output, [-1, self.channels])
+            out = tf.reshape(raw_output, [-1, self.quantization_steps])
             proba = tf.nn.softmax(tf.cast(out, tf.float64))
-            last = tf.slice(proba, [tf.shape(proba)[0] - 1, 0], [1, self.channels])
+            last = tf.slice(proba,
+                            [tf.shape(proba)[0] - 1, 0],
+                            [1, self.quantization_steps])
             return tf.reshape(last, [-1])
 
 
     def loss(self, input_batch, name='wavenet'):
+        '''Creates a WaveNet network and returns the autoencoding loss.
+
+        The variables are all scoped to the given name.
+        '''
         with tf.variable_scope(name):
-            input_batch = self._preprocess(input_batch)
-            encoded = self._one_hot(input_batch)
-            raw_output = self._create_network(encoded)
+            mu_law_encoded = self.encode(input_batch)  # Mu-law encoding.
+            one_hot = self._one_hot(mu_law_encoded)
+            raw_output = self._create_network(one_hot)
+            loss = self._create_loss(raw_output, one_hot)
+            return loss
 
-            with tf.name_scope('loss'):
-                # Shift original input left by one sample, which means that
-                # each output sample has to predict the next input sample.
-                shifted = tf.slice(encoded, [0, 1, 0],
-                                   [-1, tf.shape(encoded)[1] - 1, -1])
-                shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
 
-                prediction = tf.reshape(raw_output, [-1, self.channels])
-                loss = tf.nn.softmax_cross_entropy_with_logits(
-                    prediction,
-                    tf.reshape(shifted, [-1, self.channels]))
-                reduced_loss = tf.reduce_mean(loss)
+    def _create_loss(self, prediction, truth):
+        '''Computes the loss given the input and the reconstruction.
 
-                tf.scalar_summary('loss', reduced_loss)
-
-        return reduced_loss
+        This is an auto-encoding loss computed using the cross-entropy of the
+        predicted values.
+        '''
+        with tf.name_scope('loss'):
+            # Shift original input left by one sample, which means that
+            # each output sample has to predict the next input sample.
+            shifted = tf.slice(truth, [0, 1, 0],
+                               [-1, tf.shape(truth)[2] - 1, -1])
+            shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
+            prediction = tf.reshape(prediction, [-1, self.quantization_steps])
+            loss = tf.nn.softmax_cross_entropy_with_logits(
+                prediction,
+                tf.reshape(shifted, [-1, self.quantization_steps]))
+            # Compute average loss across all samples and examples.
+            reduced_loss = tf.reduce_mean(loss)
+            tf.scalar_summary('loss', reduced_loss)
+            return reduced_loss
