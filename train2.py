@@ -83,7 +83,7 @@ class CustomRunner(object):
         self.enqueue = self.queue.enqueue([self.dataX, self.dataY])
 
     def get_inputs(self):
-        self.audio_batch, _ = self.queue.dequeue_many(BATCH_SIZE)
+        self.audio_batch, _ = self.queue.dequeue_many(self.args.batch_size)
         return self.audio_batch, _
 
     def thread_main(self, sess):
