@@ -66,6 +66,7 @@ def iterate_through_directory(directory, sample_rate):
     files = scan_directory(directory)
     for f in files:
         audio, sr = librosa.load(f, sr=sample_rate, mono=True)
+        audio = audio.reshape(-1, 1)
         label = 0
         yield audio, label
 
@@ -74,11 +75,11 @@ class CustomRunner(object):
     def __init__(self, args, wavenet_params):
         self.args = args
         self.wavenet_params = wavenet_params
-        self.dataX = tf.placeholder(dtype=tf.float32, shape=[None, 1])
-        self.dataY = tf.placeholder(dtype=tf.int32)
+        self.dataX = tf.placeholder(dtype=tf.float32, shape=None)
+        self.dataY = tf.placeholder(dtype=tf.int64)
         self.queue = tf.PaddingFIFOQueue(
             256,  # Queue size.
-            ['float32', 'int32'],
+            ['float32', 'int64'],
             shapes=[(None, 1), ()])
         self.enqueue = self.queue.enqueue([self.dataX, self.dataY])
 
@@ -88,7 +89,7 @@ class CustomRunner(object):
 
     def thread_main(self, sess):
         for audio, label in iterate_through_directory(self.args.data_dir, self.wavenet_params["sample_rate"]):
-            sess.run(self.enqueue, feed_dict={self.dataX:audio})
+            sess.run(self.enqueue, feed_dict={self.dataX:audio, self.dataY:label})
 
     def start_threads(self, sess, n_threads=1):
         threads = []
