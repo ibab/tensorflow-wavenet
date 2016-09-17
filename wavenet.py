@@ -29,7 +29,7 @@ class WaveNet(object):
 
 
     # We add our own dilated convolution here, because atrous_conv2d
-    # pads the height so that is matches `dilation`, which leads
+    # pads the height so that it matches `dilation`, which leads
     # to terrible performance if dilation is large.
     def _causal_dilated_conv(self, value, filter, dilation):
         with tf.name_scope('causal_conv'):
