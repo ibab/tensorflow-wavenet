@@ -1,7 +1,5 @@
 import tensorflow as tf
 
-def Print(op):
-    return tf.Print(op, [op, tf.shape(op)], summarize=10)
 
 class WaveNet(object):
     '''Implements the WaveNet network for generative audio.
@@ -12,6 +10,7 @@ class WaveNet(object):
         net = WaveNet(batch_size, channels, dilations)
         loss = net.loss(input_batch)
     '''
+
 
     def __init__(self,
                  batch_size,
