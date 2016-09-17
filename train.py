@@ -86,7 +86,7 @@ def create_vctk_inputs(directory, sample_rate=16000):
 
 def main():
     args = get_arguments()
-    datestring = str(datetime.now()).replace(' ', 'T')
+    datestring = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
     logdir = os.path.join(args.logdir, 'train', datestring)
 
     with open(args.wavenet_params, 'r') as f:
