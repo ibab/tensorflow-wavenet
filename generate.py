@@ -57,10 +57,10 @@ def main():
     saver.restore(sess, args.checkpoint)
 
     quantization_steps = wavenet_params['quantization_steps']
-    waveform = [np.random.randint(quantization_steps)]
+    waveform = np.random.randint(quantization_steps, size=(1,)).tolist()
     for step in range(args.samples):
         if len(waveform) > args.window:
-            window = waveform[-args.window]
+            window = waveform[-args.window:]
         else:
             window = waveform
         prediction = sess.run(
