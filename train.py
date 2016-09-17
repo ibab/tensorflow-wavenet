@@ -160,7 +160,7 @@ def main():
           duration = time.time() - start_time
           print('step %d - loss = %.3f, (%.3f sec/step)' % (step, loss_value, duration))
 
-          if step % 50 == 0:
+          if step % 50 == 0 or step == args.num_steps - 1:
               checkpoint_path = os.path.join(logdir, 'model.ckpt')
               print('Storing checkpoint to {}'.format(checkpoint_path))
               saver.save(sess, checkpoint_path, global_step=step)
