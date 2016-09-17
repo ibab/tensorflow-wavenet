@@ -175,9 +175,10 @@ def main():
                 print('Storing checkpoint to {}'.format(checkpoint_path))
                 saver.save(sess, checkpoint_path, global_step=step)
 
-    #finally:
-    #   coord.request_stop()
-    #   coord.join(threads)
+    finally:
+        pass
+        #coord.request_stop()
+        #coord.join(threads)
 
 
 if __name__ == '__main__':
