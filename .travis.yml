@@ -1,4 +1,5 @@
 language: python
+sudo: required
 dist: trusty
 matrix:
     include:
