@@ -20,11 +20,11 @@ import tensorflow.python.client.timeline as timeline
 
 from wavenet import WaveNet
 
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR = './logdir'
-NUM_STEPS = 2000
-LEARNING_RATE = 0.03
+NUM_STEPS = 4000
+LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 
 def get_arguments():

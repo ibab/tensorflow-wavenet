@@ -11,7 +11,7 @@ from wavenet import WaveNet
 
 SAMPLES = 16000
 LOGDIR = './logdir'
-WINDOW = 256
+WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
 
 def get_arguments():
