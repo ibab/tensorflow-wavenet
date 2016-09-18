@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+from wavenet_ops import causal_conv
 
 class WaveNet(object):
     '''Implements the WaveNet network for generative audio.
@@ -27,36 +27,6 @@ class WaveNet(object):
         self.dilation_channels = dilation_channels
 
 
-    # We add our own dilated convolution here, because atrous_conv2d
-    # pads the height so that it matches `dilation`, which leads
-    # to terrible performance if dilation is large.
-    def _causal_dilated_conv(self, value, filter, dilation):
-        with tf.name_scope('causal_conv'):
-            if dilation == 1:
-                out = tf.nn.conv2d(value, filter, strides=4 * [1], padding='VALID')
-                pad_elements = 0
-            else:
-                shape = tf.shape(value)
-                # Pad the input with zeros until the number of entries is
-                # divisible by `dilation`.
-                pad_elements = dilation - 1 - (shape[2] + dilation - 1) % dilation
-                padded = tf.pad(value, [[0, 0], [0, 0], [0, pad_elements], [0, 0]])
-                # Reshape the width dimension into the batch dimension so that
-                # each step along the new width dimension skips (dilation - 1)
-                # elements in the original width.
-                reshaped = tf.reshape(padded, [shape[0] * dilation, 1, -1, shape[3]])
-                # Perform a regular convolution.
-                conv = tf.nn.conv2d(reshaped, filter, strides=[1, 1, 1, 1], padding='VALID')
-                out = tf.reshape(conv, [shape[0], 1, -1, tf.shape(filter)[3]])
-
-            filter_width = tf.shape(filter)[1]
-            padded = tf.pad(out, [[0, 0], [0, 0], [(filter_width - 1) * dilation, 0], [0, 0]])
-            result = tf.slice(padded,
-                             [0, 0, 0, 0],
-                             [-1, -1, tf.shape(padded)[2] - pad_elements, -1])
-            return result
-
-
     # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
         with tf.name_scope('causal_layer'):
@@ -64,7 +34,7 @@ class WaveNet(object):
                 [1, self.filter_width, in_channels, out_channels],
                 stddev=0.2,
                 name="filter"))
-            return self._causal_dilated_conv(input_batch, weights_filter, 1)
+            return causal_conv(input_batch, weights_filter, 1)
 
 
     def _create_dilation_layer(self, input_batch, layer_index, dilation, in_channels, dilation_channels):
@@ -78,8 +48,8 @@ class WaveNet(object):
             [1, self.filter_width, in_channels, dilation_channels],
             stddev=0.2, name="gate"))
 
-        conv_filter = self._causal_dilated_conv(input_batch, weights_filter, dilation)
-        conv_gate = self._causal_dilated_conv(input_batch, weights_gate, dilation)
+        conv_filter = causal_conv(input_batch, weights_filter, dilation)
+        conv_gate = causal_conv(input_batch, weights_gate, dilation)
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
