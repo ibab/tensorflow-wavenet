@@ -1,0 +1,11 @@
+language: python
+matrix:
+    include:
+        - python: 3.5
+        - env: TENSORFLOW="0.10.0"
+install:
+    - source ci/install.sh
+script:
+    - bash ci/test.sh
+notifications:
+    email: false
