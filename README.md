@@ -57,7 +57,7 @@ You will need `scipy` if you want to have the result as a wavfile directly from 
 
 ## Training the network
 
-The [VCTK corpus](http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html) is currently used.
+The [VCTK corpus](http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html)(around 10.4GB, [Alternative host](http://www.udialogue.org/download/cstr-vctk-corpus.html)) is currently used.
 In order to train the network, you need to download the corpus and unpack it in the same directory as the `train.py` script.
 
 Then, execute
