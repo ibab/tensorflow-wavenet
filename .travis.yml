@@ -1,4 +1,6 @@
 language: python
+sudo: required
+dist: trusty
 matrix:
     include:
         - python: 3.5
