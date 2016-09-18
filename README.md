@@ -1,5 +1,7 @@
 # A TensorFlow implementation of DeepMind's WaveNet paper
 
+[![Build Status](https://travis-ci.org/ibab/tensorflow-wavenet.svg?branch=master)](https://travis-ci.org/ibab/tensorflow-wavenet)
+
 This is a TensorFlow implementation of the [WaveNet generative neural
 network architecture](https://deepmind.com/blog/wavenet-generative-model-raw-audio/) for audio generation.
 
