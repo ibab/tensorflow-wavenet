@@ -81,9 +81,11 @@ def iterate_through_vctk(directory, sample_rate):
 
 
 class CustomRunner(object):
-    def __init__(self, args, wavenet_params):
+    def __init__(self, args, wavenet_params, coord):
         self.args = args
         self.wavenet_params = wavenet_params
+        self.coord = coord
+        self.threads = []
         self.dataX = tf.placeholder(dtype=tf.float32, shape=None)
         self.dataY = tf.placeholder(dtype=tf.int32)
         self.queue = tf.PaddingFIFOQueue(
@@ -98,16 +100,21 @@ class CustomRunner(object):
 
     def thread_main(self, sess):
         for audio, label in iterate_through_vctk(self.args.data_dir, self.wavenet_params["sample_rate"]):
+            if self.coord.should_stop():
+                self.stop_threads()
             sess.run(self.enqueue, feed_dict={self.dataX:audio, self.dataY:label})
 
+    def stop_threads():
+        for t in self.threads:
+            t.stop()
+
     def start_threads(self, sess, n_threads=1):
-        threads = []
         for n in range(n_threads):
             t = threading.Thread(target=self.thread_main, args=(sess,))
             t.daemon = True # thread will close when parent quits
             t.start()
-            threads.append(t)
-        return threads
+            self.threads.append(t)
+        return self.threads
 
 
 def main():
@@ -118,9 +125,12 @@ def main():
     with open(args.wavenet_params, 'r') as f:
         wavenet_params = json.load(f)
 
+    # create coordinator
+    coord = tf.train.Coordinator()
+    
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
-        custom_runner = CustomRunner(args, wavenet_params)
+        custom_runner = CustomRunner(args, wavenet_params, coord)
         audio_batch, _ = custom_runner.get_inputs()
     
     # Create network.
@@ -145,10 +155,7 @@ def main():
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     init = tf.initialize_all_variables()
     sess.run(init)
-
-    # start the tensorflow QueueRunner's
-    tf.train.start_queue_runners(sess=sess)
-    # start our custom queue runner's threads
+    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     custom_runner.start_threads(sess)
 
     # Saver for storing checkpoints of the model.
@@ -184,8 +191,9 @@ def main():
                 saver.save(sess, checkpoint_path, global_step=step)
 
     finally:
-        pass
+        coord.request_stop()
+        coord.join(threads)
         
 
 if __name__ == '__main__':
-    main() 
+    main()
