@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+from wavenet_ops import causal_conv
 
 class WaveNet(object):
     '''Implements the WaveNet network for generative audio.
@@ -27,65 +27,35 @@ class WaveNet(object):
         self.dilation_channels = dilation_channels
 
 
-    # We add our own dilated convolution here, because atrous_conv2d
-    # pads the height so that it matches `dilation`, which leads
-    # to terrible performance if dilation is large.
-    def _causal_dilated_conv(self, value, filter, dilation):
-        with tf.name_scope('causal_conv'):
-            if dilation == 1:
-                out = tf.nn.conv2d(value, filter, strides=4 * [1], padding='VALID')
-                pad_elements = 0
-            else:
-                shape = tf.shape(value)
-                # Pad the input with zeros until the number of entries is
-                # divisible by `dilation`.
-                pad_elements = dilation - 1 - (shape[2] + dilation - 1) % dilation
-                padded = tf.pad(value, [[0, 0], [0, 0], [0, pad_elements], [0, 0]])
-                # Reshape the width dimension into the batch dimension so that
-                # each step along the new width dimension skips (dilation - 1)
-                # elements in the original width.
-                reshaped = tf.reshape(padded, [shape[0] * dilation, 1, -1, shape[3]])
-                # Perform a regular convolution.
-                conv = tf.nn.conv2d(reshaped, filter, strides=[1, 1, 1, 1], padding='VALID')
-                out = tf.reshape(conv, [shape[0], 1, -1, tf.shape(filter)[3]])
-
-            filter_width = tf.shape(filter)[1]
-            padded = tf.pad(out, [[0, 0], [0, 0], [(filter_width - 1) * dilation, 0], [0, 0]])
-            result = tf.slice(padded,
-                             [0, 0, 0, 0],
-                             [-1, -1, tf.shape(padded)[2] - pad_elements, -1])
-            return result
-
-
     # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
         with tf.name_scope('causal_layer'):
             weights_filter = tf.Variable(tf.truncated_normal(
-                [1, self.filter_width, in_channels, out_channels],
+                [self.filter_width, in_channels, out_channels],
                 stddev=0.2,
                 name="filter"))
-            return self._causal_dilated_conv(input_batch, weights_filter, 1)
+            return causal_conv(input_batch, weights_filter, 1)
 
 
     def _create_dilation_layer(self, input_batch, layer_index, dilation, in_channels, dilation_channels):
         '''Adds a single causal dilated convolution layer.'''
 
         weights_filter = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, in_channels, dilation_channels],
+            [self.filter_width, in_channels, dilation_channels],
             stddev=0.2,
             name="filter"))
         weights_gate = tf.Variable(tf.truncated_normal(
-            [1, self.filter_width, in_channels, dilation_channels],
+            [self.filter_width, in_channels, dilation_channels],
             stddev=0.2, name="gate"))
 
-        conv_filter = self._causal_dilated_conv(input_batch, weights_filter, dilation)
-        conv_gate = self._causal_dilated_conv(input_batch, weights_gate, dilation)
+        conv_filter = causal_conv(input_batch, weights_filter, dilation)
+        conv_gate = causal_conv(input_batch, weights_gate, dilation)
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
         weights_dense = tf.Variable(tf.truncated_normal(
-            [1, 1, dilation_channels, in_channels], stddev=0.2, name="dense"))
-        transformed = tf.nn.conv2d(out, weights_dense, strides=[1] * 4,
+            [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
+        transformed = tf.nn.conv1d(out, weights_dense, stride=1,
                                    padding="SAME", name="dense")
         layer = 'layer{}'.format(layer_index)
         tf.histogram_summary(layer + '_filter', weights_filter)
@@ -139,10 +109,10 @@ class WaveNet(object):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
             w1 = tf.Variable(tf.truncated_normal(
-                [1, 1, self.residual_channels, int(self.channels / 2)], stddev=0.3,
+                [1, self.residual_channels, int(self.channels / 2)], stddev=0.3,
                 name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal(
-                [1, 1, int(self.channels / 2), self.channels], stddev=0.3,
+                [1, int(self.channels / 2), self.channels], stddev=0.3,
                 name="postprocess2"))
 
             tf.histogram_summary('postprocess1_weights', w1)
@@ -152,9 +122,9 @@ class WaveNet(object):
             # all up here.
             total = sum(outputs)
             transformed1 = tf.nn.relu(total)
-            conv1 = tf.nn.conv2d(transformed1, w1, [1] * 4, padding="SAME")
+            conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
             transformed2 = tf.nn.relu(conv1)
-            conv2 = tf.nn.conv2d(transformed2, w2, [1] * 4, padding="SAME")
+            conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
 
         return conv2
 
@@ -166,7 +136,7 @@ class WaveNet(object):
             encoded = tf.one_hot(input_batch, depth=self.channels,
                                  dtype=tf.float32)
             encoded = tf.reshape(encoded,
-                                 [self.batch_size, 1, -1, self.channels])
+                                 [self.batch_size, -1, self.channels])
 
         return encoded
 
@@ -190,9 +160,9 @@ class WaveNet(object):
             with tf.name_scope('loss'):
                 # Shift original input left by one sample, which means that
                 # each output sample has to predict the next input sample.
-                shifted = tf.slice(encoded, [0, 0, 1, 0],
-                                   [-1, -1, tf.shape(encoded)[2] - 1, -1])
-                shifted = tf.pad(shifted, [[0, 0], [0, 0], [0, 1], [0, 0]])
+                shifted = tf.slice(encoded, [0, 1, 0],
+                                   [-1, tf.shape(encoded)[1] - 1, -1])
+                shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
 
                 prediction = tf.reshape(raw_output, [-1, self.channels])
                 loss = tf.nn.softmax_cross_entropy_with_logits(

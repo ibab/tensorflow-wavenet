@@ -20,11 +20,11 @@ import tensorflow.python.client.timeline as timeline
 
 from wavenet import WaveNet
 
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR = './logdir'
-NUM_STEPS = 2000
-LEARNING_RATE = 0.03
+NUM_STEPS = 4000
+LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 
 def get_arguments():
@@ -86,7 +86,7 @@ def create_vctk_inputs(directory, sample_rate=16000):
 
 def main():
     args = get_arguments()
-    datestring = str(datetime.now()).replace(' ', 'T')
+    datestring = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
     logdir = os.path.join(args.logdir, 'train', datestring)
 
     with open(args.wavenet_params, 'r') as f:
@@ -160,7 +160,7 @@ def main():
           duration = time.time() - start_time
           print('step %d - loss = %.3f, (%.3f sec/step)' % (step, loss_value, duration))
 
-          if step % 50 == 0:
+          if step % 50 == 0 or step == args.num_steps - 1:
               checkpoint_path = os.path.join(logdir, 'model.ckpt')
               print('Storing checkpoint to {}'.format(checkpoint_path))
               saver.save(sess, checkpoint_path, global_step=step)
