@@ -9,7 +9,7 @@ import tensorflow as tf
 
 from wavenet import WaveNet
 
-SAMPLES = 16000
+SAMPLES = 2000
 LOGDIR = './logdir'
 WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
@@ -83,10 +83,10 @@ def main():
     writer.add_summary(summary_out)
 
     if args.wav_out_path:
-        from scipy.io import wavfile
-
+        import librosa
+        y = np.array(waveform)/127.5-1.0
+        librosa.output.write_wav(args.wav_out_path, y, wavenet_params['sample_rate'])
         print('The result saved to {}'.format(args.wav_out_path))
-        wavfile.write(args.wav_out_path, wavenet_params['sample_rate'], np.array(waveform).astype(np.uint8))
 
     print('Finished generating. The result can be viewed in TensorBoard.')
 
