@@ -36,9 +36,9 @@ def get_arguments():
     return parser.parse_args()
 
 def write_wav(waveform, sample_rate, filename):
-    y = np.array(waveform)/127.5-1.0
+    y = np.array(waveform)
     librosa.output.write_wav(filename, y, sample_rate)
-    print('The result saved to {}'.format(filename))
+    print('Updated wav file at {}'.format(filename))
 
 def main():
     args = get_arguments()
@@ -64,6 +64,8 @@ def main():
     print('Restoring model from {}'.format(args.checkpoint))
     saver.restore(sess, args.checkpoint)
 
+    decode = net.decode(samples)
+
     quantization_steps = wavenet_params['quantization_steps']
     waveform = np.random.randint(quantization_steps, size=(1,)).tolist()
     for step in range(args.samples):
@@ -77,23 +79,29 @@ def main():
         sample = np.random.choice(np.arange(quantization_steps), p=prediction)
         waveform.append(sample)
         print('Sample {:3<d}/{:3<d}: {}'.format(step + 1, args.samples, sample))
-        if args.wav_out_path and args.save_every and (step+1)%args.save_every==0:
-            write_wav(waveform, wavenet_params['sample_rate'], args.wav_out_path)
+        if (args.wav_out_path
+            and args.save_every
+            and (step + 1) % args.save_every == 0):
 
-    # Undo the companding transformation
-    result = net.decode(samples)
+            out = sess.run(decode, feed_dict={samples: waveform})
+            write_wav(out,
+                      wavenet_params['sample_rate'],
+                      args.wav_out_path)
 
     datestring = str(datetime.now()).replace(' ', 'T')
     writer = tf.train.SummaryWriter(
         os.path.join(logdir, 'generation', datestring))
-    tf.audio_summary('generated', result, wavenet_params['sample_rate'])
+    tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
     summaries = tf.merge_all_summaries()
 
     summary_out = sess.run(summaries, feed_dict={samples: np.reshape(waveform, [-1, 1])})
     writer.add_summary(summary_out)
 
     if args.wav_out_path:
-        write_wav(waveform, wavenet_params['sample_rate'], args.wav_out_path)
+        out = sess.run(decode, feed_dict={samples: waveform})
+        write_wav(out,
+                  wavenet_params['sample_rate'],
+                  args.wav_out_path)
 
     print('Finished generating. The result can be viewed in TensorBoard.')
 
