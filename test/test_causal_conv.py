@@ -22,3 +22,35 @@ class TestCausalConv(tf.test.TestCase):
 
         self.assertAllEqual(result, ref)
 
+    # Test that the causal convolution does not shift the output in time
+    # incorrectly with respect to the input. So we give
+    # it a time series, choose a filter that should be the identity, and assert
+    # that the output is not shifted at all relative to the input.
+    def testNoTimeShift(self):
+        # Input to filter is a time series of values 1..10
+        x = np.arange(1,11, dtype=np.float32)
+        # Reshape the input: shape is batch item x duration x channels = 1x10x1
+        x = np.reshape(x, [1,10,1])
+        # Default shape ordering for conv filter = HWIO for 2d. Since we use
+        # 1d, this just becomes WxIxO where:
+        #   W = width AKA number of time steps in time series = 2
+        #   I = input channels = 1
+        #   O = output channels = 1
+        # Since the filter is size 2, for it to be identity-preserving, one
+        # value is 1.0, the other 0.0
+        filter = np.reshape(np.array([0.0,1.0], dtype=np.float32), [2,1,1])
+
+        # Compute the output
+        out = causal_conv(x, filter, dilation=2)
+
+        with self.test_session() as sess:
+            result = sess.run(out)
+
+        # The shapes should be the same.
+        self.assertAllEqual(result.shape, x.shape)
+
+        # The output time series should be identical to the input series.
+        self.assertAllEqual(result, x)
+
+if __name__ == '__main__':
+    tf.test.main()
