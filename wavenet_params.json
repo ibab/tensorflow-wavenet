@@ -5,5 +5,5 @@
     "dilations": [1, 2, 4, 8, 16, 32, 64, 128, 256,
                   1, 2, 4, 8, 16, 32, 64, 128, 256],
     "residual_channels": 32,
-    "dilation_channels":16
+    "dilation_channels": 16
 }
