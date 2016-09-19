@@ -98,6 +98,12 @@ Passing `--wav_out_path` yields the output as a wav file.
 python generate.py --wav_out_path=generated.wav --samples 16000 model.ckpt-1000
 ```
 
+Passing `--save_every` in addition to `--wav_out_path` will save the in-progress wav file every n samples.
+
+```
+python generate.py --wav_out_path=generated.wav --save_every 2000 --samples 16000 model.ckpt-1000
+```
+
 ## Missing features
 
 Currently, there is no conditioning on extra information like the speaker ID.

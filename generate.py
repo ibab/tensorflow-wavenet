@@ -1,8 +1,8 @@
-
 import argparse
 from datetime import datetime
 import json
 import os
+import librosa
 
 import numpy as np
 import tensorflow as tf
@@ -13,6 +13,7 @@ SAMPLES = 16000
 LOGDIR = './logdir'
 WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
+SAVE_EVERY = None
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet generation script')
@@ -30,7 +31,14 @@ def get_arguments():
                         help='JSON file with the network parameters')
     parser.add_argument('--wav_out_path', type=str, default=None,
                         help='Path to output wav file')
+    parser.add_argument('--save_every', type=int, default=SAVE_EVERY,
+                        help='How many samples before saving in-progress wav')
     return parser.parse_args()
+
+def write_wav(waveform, sample_rate, filename):
+    y = np.array(waveform)/127.5-1.0
+    librosa.output.write_wav(filename, y, sample_rate)
+    print('The result saved to {}'.format(filename))
 
 def main():
     args = get_arguments()
@@ -69,6 +77,8 @@ def main():
         sample = np.random.choice(np.arange(quantization_steps), p=prediction)
         waveform.append(sample)
         print('Sample {:3<d}/{:3<d}: {}'.format(step + 1, args.samples, sample))
+        if args.wav_out_path and args.save_every and (step+1)%args.save_every==0:
+            write_wav(waveform, wavenet_params['sample_rate'], args.wav_out_path)
 
     # Undo the companding transformation
     result = net.decode(samples)
@@ -83,10 +93,7 @@ def main():
     writer.add_summary(summary_out)
 
     if args.wav_out_path:
-        from scipy.io import wavfile
-
-        print('The result saved to {}'.format(args.wav_out_path))
-        wavfile.write(args.wav_out_path, wavenet_params['sample_rate'], np.array(waveform).astype(np.uint8))
+        write_wav(waveform, wavenet_params['sample_rate'], args.wav_out_path)
 
     print('Finished generating. The result can be viewed in TensorBoard.')
 
