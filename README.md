@@ -52,8 +52,7 @@ In this repository, the network implementation can be found in <a href="./wavene
 TensorFlow needs to be installed before running the training script.
 TensorFlow 0.10 and the current `master` version are supported.
 
-In addition, the `ffmpeg` binary needs to be available on the command line.
-It is needed by the TensorFlow ffmpeg contrib package that is used to decode the audio files.
+In addition, [librosa](https://github.com/librosa/librosa) must be installed for reading and writing audio.
 
 You will need `scipy` if you want to have the result as a wavfile directly from command line.
 
