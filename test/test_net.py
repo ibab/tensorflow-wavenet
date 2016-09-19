@@ -14,8 +14,8 @@ def MakeSineWaves():
     p1 = 1.0/155.56 # E-flat
     p2 = 1.0/196.00 # G
     p3 = 1.0/233.08 # B-flat
-    # One quarter-second of data.
-    times = np.arange(0.0, 0.25, sample_rate)
+    # 100 mSec of data.
+    times = np.arange(0.0, 0.10, sample_rate)
 
     # Amplitudes
     amplitudes = np.sin(times*2.0*np.pi/p1)/3.0 +  \
@@ -46,8 +46,6 @@ class TestNet(tf.test.TestCase):
     def testEndToEndTraining(self):
         audio = MakeSineWaves()
         np.random.seed(42)
-
-        print "lr:", self.args.learning_rate
 
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
         loss = self.net.loss(audio_tensor)
