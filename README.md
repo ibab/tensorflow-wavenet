@@ -56,6 +56,11 @@ In addition, [librosa](https://github.com/librosa/librosa) must be installed for
 
 You will need `scipy` if you want to have the result as a wavfile directly from command line.
 
+To install required python packages:
+```bash
+sudo pip install -r requirements.txt
+```
+
 ## Training the network
 
 The [VCTK corpus](http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html)(around 10.4GB, [Alternative host](http://www.udialogue.org/download/cstr-vctk-corpus.html)) is currently used.
