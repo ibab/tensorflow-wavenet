@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 from wavenet_ops import time_to_batch, batch_to_time, causal_conv
-from train import WaveNet, get_arguments
+from wavenet import WaveNet
 import json
 
 
@@ -27,17 +27,14 @@ def MakeSineWaves():
 
 class TestNet(tf.test.TestCase):
     def setUp(self):
-        self.args = get_arguments()
-
-        with open(self.args.wavenet_params, 'r') as f:
-            wavenet_params = json.load(f)
-
-        self.net = WaveNet(self.args.batch_size,
-                           wavenet_params["quantization_steps"],
-                           wavenet_params["dilations"],
-                           wavenet_params["filter_width"],
-                           wavenet_params["residual_channels"],
-                           wavenet_params["dilation_channels"])
+        quantization_steps=256
+        self.net = WaveNet(batch_size = 1,
+                           channels = quantization_steps,
+                           dilations= [1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                       1, 2, 4, 8, 16, 32, 64, 128, 256],
+                           filter_width=2,
+                           residual_channels = 16,
+                           dilation_channels = 16)
 
     # Train a net on a short clip of 3 sine waves superimposed (an e-flat chord)
     # Presumably it can overfit to such a simple signal. This test serves
@@ -49,7 +46,7 @@ class TestNet(tf.test.TestCase):
 
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
         loss = self.net.loss(audio_tensor)
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.args.learning_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.02)
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.initialize_all_variables()
