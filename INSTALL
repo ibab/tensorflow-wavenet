@@ -1,0 +1,6 @@
+To install the most important prerequisites:
+
+run
+
+  extras/check_dependencies.sh
+
