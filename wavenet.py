@@ -44,12 +44,20 @@ class WaveNet(object):
             [self.filter_width, in_channels, dilation_channels],
             stddev=0.2,
             name="filter"))
+        biases_filter = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
+                                    name="filter_biases")
+
         weights_gate = tf.Variable(tf.truncated_normal(
             [self.filter_width, in_channels, dilation_channels],
             stddev=0.2, name="gate"))
+        biases_gate = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
+                                  name="filter_biases")
 
         conv_filter = causal_conv(input_batch, weights_filter, dilation)
+        conv_filter = tf.add(conv_filter, biases_filter)
+
         conv_gate = causal_conv(input_batch, weights_gate, dilation)
+        conv_gate = tf.add(conv_gate, biases_gate)
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
