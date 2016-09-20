@@ -9,6 +9,7 @@ conda update -q conda
 conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
 source activate test
 pip install nose
+pip install librosa
 
 pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-$TENSORFLOW-cp35-cp35m-linux_x86_64.whl
 
