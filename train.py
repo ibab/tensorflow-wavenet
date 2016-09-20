@@ -23,7 +23,7 @@ from tensorflow.contrib import ffmpeg
 import tensorflow.python.client.timeline as timeline
 
 from wavenet import WaveNet
-from util import CustomRunner
+from util import AudioReader
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
@@ -32,6 +32,7 @@ NUM_STEPS = 4000
 LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
+SAMPLE_SIZE = 100000
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
@@ -65,6 +66,9 @@ def get_arguments():
                         help='Learning rate for training.')
     parser.add_argument('--wavenet_params', type=str, default=WAVENET_PARAMS,
                         help='JSON file with the network parameters.')
+    parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
+                        help='Concatenate and cut audio samples to this many '
+                        'samples')
     return parser.parse_args()
 
 
@@ -172,8 +176,12 @@ def main():
 
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
-        custom_runner = CustomRunner(args, wavenet_params, coord)
-        audio_batch, _ = custom_runner.get_inputs()
+        reader = AudioReader(
+            args,
+            wavenet_params,
+            coord,
+            sample_size=args.sample_size)
+        audio_batch, _ = reader.get_inputs()
 
     # Create network.
     net = WaveNet(args.batch_size,
@@ -218,7 +226,7 @@ def main():
         raise
 
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-    custom_runner.start_threads(sess)
+    reader.start_threads(sess)
 
     try:
         for step in range(saved_global_step + 1, args.num_steps):
