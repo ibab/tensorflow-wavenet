@@ -22,7 +22,7 @@ import librosa
 
 import tensorflow as tf
 from tensorflow.contrib import ffmpeg
-import tensorflow.python.client.timeline as timeline
+from tensorflow.python.client import timeline
 
 from wavenet import WaveNet
 
