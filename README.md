@@ -54,8 +54,6 @@ TensorFlow 0.10 and the current `master` version are supported.
 
 In addition, [librosa](https://github.com/librosa/librosa) must be installed for reading and writing audio.
 
-You will need `scipy` if you want to have the result as a wavfile directly from command line.
-
 To install required python packages:
 ```bash
 sudo pip install -r requirements.txt
