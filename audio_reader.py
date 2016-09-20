@@ -20,8 +20,8 @@ def find_files(directory, pattern='*.wav'):
 def load_generic_audio(directory, sample_rate):
     '''Generator that yields audio waveforms from the directory.'''
     files = find_files(directory)
-    for f in files:
-        audio, sr = librosa.load(f, sr=sample_rate, mono=True)
+    for filename in files:
+        audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
         yield audio
 
@@ -32,7 +32,7 @@ def load_vctk_audio(directory, sample_rate):
     files = find_files(directory)
     speaker_re = re.compile(r'p([0-9]+)_([0-9]+)\.wav')
     for filename in files:
-        audio, sr = librosa.load(filename, sr=sample_rate, mono=True)
+        audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
         matches = speaker_re.findall(filename)[0]
         speaker_id, recording_id = [int(id_) for id_ in matches]
