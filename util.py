@@ -94,5 +94,5 @@ class AudioReader(object):
             thread = threading.Thread(target=self.thread_main, args=(sess,))
             thread.daemon = True  # Thread will close when parent quits.
             thread.start()
-            self.threads.append(t)
+            self.threads.append(thread)
         return self.threads
