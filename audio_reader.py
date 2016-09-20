@@ -39,8 +39,8 @@ def load_vctk_audio(directory, sample_rate):
         yield audio, speaker_id
 
 
-def trim_sample(audio, threshold=0.3):
-    '''Removes silence in the beginning and end of a sample.'''
+def trim_silence(audio, threshold=0.3):
+    '''Removes silence at the beginning and end of a sample.'''
     energy = librosa.feature.rmse(audio)
     frames = np.nonzero(energy > threshold)
     indices = librosa.core.frames_to_samples(frames)[1]
@@ -84,7 +84,7 @@ class AudioReader(object):
                     stop = True
                     break
                 # Remove silence
-                audio = trim_sample(audio[:, 0])
+                audio = trim_silence(audio[:, 0])
                 if self.sample_size:
                     # Cut samples into fixed size pieces
                     buffer_ = np.append(buffer_, audio)
