@@ -9,7 +9,7 @@ import tensorflow as tf
 
 
 def find_files(directory, pattern='*.wav'):
-    '''Recursively finds all files matching the pattern'''
+    '''Recursively finds all files matching the pattern.'''
     files = []
     for root, dirnames, filenames in os.walk(directory):
         for filename in fnmatch.filter(filenames, pattern):
@@ -40,7 +40,7 @@ def load_vctk_audio(directory, sample_rate):
 
 
 def trim_sample(audio, threshold=0.3):
-    '''Removes silence in the beginning and end of a sample'''
+    '''Removes silence in the beginning and end of a sample.'''
     energy = librosa.feature.rmse(audio)
     frames = np.nonzero(energy > threshold)
     indices = librosa.core.frames_to_samples(frames)[1]
