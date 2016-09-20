@@ -69,7 +69,7 @@ class AudioReader(object):
         stop = False
         # Go through the dataset multiple times
         while not stop:
-            iterator = load_generic_audio( self.audio_dir, self.sample_rate)
+            iterator = load_generic_audio(self.audio_dir, self.sample_rate)
             for audio in iterator:
                 if self.coord.should_stop():
                     self.stop_threads()
