@@ -17,22 +17,22 @@ import sys
 import time
 import threading
 import numpy as np
-import fnmatch
-import librosa
 
 import tensorflow as tf
 from tensorflow.contrib import ffmpeg
 import tensorflow.python.client.timeline as timeline
 
 from wavenet import WaveNet
+from audio_reader import AudioReader
 
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR = './logdir'
 NUM_STEPS = 4000
 LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
+SAMPLE_SIZE = 100000
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
@@ -66,6 +66,9 @@ def get_arguments():
                         help='Learning rate for training.')
     parser.add_argument('--wavenet_params', type=str, default=WAVENET_PARAMS,
                         help='JSON file with the network parameters.')
+    parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
+                        help='Concatenate and cut audio samples to this many '
+                        'samples')
     return parser.parse_args()
 
 
@@ -86,7 +89,6 @@ def load(saver, sess, logdir):
 
     ckpt = tf.train.get_checkpoint_state(logdir)
     if ckpt:
-        print("")
         print("  Checkpoint found: {}".format(ckpt.model_checkpoint_path))
         global_step = int(ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1])
         print("  Global step was: {}".format(global_step))
@@ -105,40 +107,12 @@ def get_default_logdir(logdir_root):
     return logdir
 
 
-def scan_directory(directory):
-    files = []
-    for root, dirnames, filenames in os.walk(directory):
-        for filename in fnmatch.filter(filenames, '*.wav'):
-            files.append(os.path.join(root, filename))
-    return files
-
-
-def iterate_through_directory(directory, sample_rate):
-    files = scan_directory(directory)
-    for f in files:
-        audio, sr = librosa.load(f, sr=sample_rate, mono=True)
-        audio = audio.reshape(-1, 1)
-        yield audio, 0
-
-
-def iterate_through_vctk(directory, sample_rate):
-    files = scan_directory(directory)
-    speaker_re = re.compile(r'p([0-9]+)_([0-9]+)\.wav')
-    for j,f in enumerate(files):
-        audio, sr = librosa.load(f, sr=sample_rate, mono=True)
-        audio = audio.reshape(-1, 1)
-        speaker_id, recording_id = [int(i) for i in speaker_re.findall(f)[0]]
-        yield audio, speaker_id
-
-
 def validate_directories(args):
     """
     Validate and arrange directory related arguments.
     """
 
     # Validation
-    # ----------
-
     if args.logdir and args.logdir_root:
         raise ValueError("--logdir and --logdir_root cannot be "
                          "specified at the same time.")
@@ -153,8 +127,6 @@ def validate_directories(args):
                          "training from the last checkpoint.")
 
     # Arrangement
-    # -----------
-
     logdir_root = args.logdir_root
     if logdir_root is None:
         logdir_root = LOGDIR
@@ -176,43 +148,6 @@ def validate_directories(args):
         'logdir_root': args.logdir_root,
         'restore_from': restore_from
     }
-
-
-class CustomRunner(object):
-    def __init__(self, args, wavenet_params, coord):
-        self.args = args
-        self.wavenet_params = wavenet_params
-        self.coord = coord
-        self.threads = []
-        self.dataX = tf.placeholder(dtype=tf.float32, shape=None)
-        self.dataY = tf.placeholder(dtype=tf.int32)
-        self.queue = tf.PaddingFIFOQueue(
-            256,  # Queue size.
-            ['float32', 'int32'],
-            shapes=[(None, 1), ()])
-        self.enqueue = self.queue.enqueue([self.dataX, self.dataY])
-
-    def get_inputs(self):
-        self.audio_batch, _ = self.queue.dequeue_many(self.args.batch_size)
-        return self.audio_batch, _
-
-    def thread_main(self, sess):
-        for audio, label in iterate_through_vctk(self.args.data_dir, self.wavenet_params["sample_rate"]):
-            if self.coord.should_stop():
-                self.stop_threads()
-            sess.run(self.enqueue, feed_dict={self.dataX:audio, self.dataY:label})
-
-    def stop_threads():
-        for t in self.threads:
-            t.stop()
-
-    def start_threads(self, sess, n_threads=1):
-        for n in range(n_threads):
-            t = threading.Thread(target=self.thread_main, args=(sess,))
-            t.daemon = True # thread will close when parent quits
-            t.start()
-            self.threads.append(t)
-        return self.threads
 
 
 def main():
@@ -238,12 +173,16 @@ def main():
 
     # create coordinator
     coord = tf.train.Coordinator()
-    
+
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
-        custom_runner = CustomRunner(args, wavenet_params, coord)
-        audio_batch, _ = custom_runner.get_inputs()
-    
+        reader = AudioReader(
+            args.data_dir,
+            coord,
+            sample_rate=wavenet_params['sample_rate'],
+            sample_size=args.sample_size)
+        audio_batch = reader.dequeue(args.batch_size)
+
     # Create network.
     net = WaveNet(args.batch_size,
                   wavenet_params["quantization_steps"],
@@ -287,7 +226,7 @@ def main():
         raise
 
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-    custom_runner.start_threads(sess)
+    reader.start_threads(sess)
 
     try:
         for step in range(saved_global_step + 1, args.num_steps):
@@ -319,7 +258,7 @@ def main():
     finally:
         coord.request_stop()
         coord.join(threads)
-        
+
 
 if __name__ == '__main__':
     main()
