@@ -8,8 +8,8 @@ import numpy as np
 def manual_decode(signal, channels):
     # Calculate inverse mu-law companding and dequantization
     mu = channels
-    output = signal.astype(np.float32)
-    y = (2*output - 1) / mu
+    y = signal.astype(np.float32)
+    y = 2 * (y / mu) - 1
     x = np.sign(y) * (np.exp(y * np.log(1 + mu)) - 1) / mu
 
     return x
@@ -18,11 +18,10 @@ def manual_decode(signal, channels):
 class TestDecode(tf.test.TestCase):
 
     def setUp(self):
-        quantization_steps=256
+        quantization_steps = 256
         self.net = WaveNet(batch_size = 1,
                            channels = quantization_steps,
-                           dilations= [1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                       1, 2, 4, 8, 16, 32, 64, 128, 256],
+                           dilations= [],
                            filter_width=2,
                            residual_channels = 16,
                            dilation_channels = 16)
@@ -48,9 +47,6 @@ class TestDecode(tf.test.TestCase):
             decoded_audio_net_tensor = self.net.decode(encoded_audio_manual)
             decoded_audio_net = decoded_audio_net_tensor.eval()
 
-            # Shapes should be the same
-            self.assertAllEqual(decoded_audio_net.shape, decoded_audio_manual.shape)
-
             # Outputs should be within some rounding errors
             self.assertAllClose(decoded_audio_net, decoded_audio_manual, rtol=1e-7)
 
@@ -74,9 +70,6 @@ class TestDecode(tf.test.TestCase):
             decoded_audio_net_tensor = self.net.decode(encoded_audio_manual)
             decoded_audio_net = decoded_audio_net_tensor.eval()
 
-            # Shapes should be the same
-            self.assertAllEqual(decoded_audio_net.shape, decoded_audio_manual.shape)
-
             # Outputs should be within some rounding errors
             self.assertAllClose(decoded_audio_net, decoded_audio_manual, rtol=1e-7)
 
@@ -88,7 +81,7 @@ class TestDecode(tf.test.TestCase):
             mu = self.net.channels
 
             # Original audio input is a ramp from -1 to 1
-            number_of_steps = 2 / number_of_samples
+            number_of_steps = 2.0 / number_of_samples
             audio = np.arange(-1.0, 1.0, number_of_steps)
 
             encoded_audio_manual = manual_encode(audio, number_of_samples)
@@ -96,9 +89,6 @@ class TestDecode(tf.test.TestCase):
             decoded_audio_manual = manual_decode(encoded_audio_manual, number_of_samples)
             decoded_audio_net_tensor = self.net.decode(encoded_audio_manual)
             decoded_audio_net = decoded_audio_net_tensor.eval()
-
-            # Shapes should be the same
-            self.assertAllEqual(decoded_audio_net.shape, decoded_audio_manual.shape)
 
             # Outputs should be within some rounding errors
             self.assertAllClose(decoded_audio_net, decoded_audio_manual, rtol=1e-7)
@@ -119,9 +109,6 @@ class TestDecode(tf.test.TestCase):
             decoded_audio_manual = manual_decode(encoded_audio_manual, mu)
             decoded_audio_net_tensor = self.net.decode(encoded_audio_manual)
             decoded_audio_net = decoded_audio_net_tensor.eval()
-
-            # Shapes should be the same
-            self.assertAllEqual(decoded_audio_net.shape, decoded_audio_manual.shape)
 
             # Outputs should be within some rounding errors
             self.assertAllClose(decoded_audio_net, decoded_audio_manual, rtol=1e-7)

@@ -24,8 +24,7 @@ class TestEncoding(tf.test.TestCase):
         quantization_steps=256
         self.net = WaveNet(batch_size = 1,
                            channels = quantization_steps,
-                           dilations= [1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                       1, 2, 4, 8, 16, 32, 64, 128, 256],
+                           dilations= [],
                            filter_width=2,
                            residual_channels = 16,
                            dilation_channels = 16)
@@ -91,7 +90,7 @@ class TestEncoding(tf.test.TestCase):
             # Audio encoding parameters
             number_of_samples = 1024
             mu = self.net.channels
-            number_of_steps = 2 / number_of_samples
+            number_of_steps = 2.0 / number_of_samples
             audio = np.arange(-1.0, 1.0, number_of_steps)
 
             # Tensor processing
