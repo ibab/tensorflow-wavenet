@@ -27,15 +27,6 @@ class WaveNet(object):
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
         self.use_biases = use_biases
-        if (self.use_biases == True):
-            print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-            print "use_biases is true!"
-            print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-        else:
-            print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-            print "use_biases is false!"
-            print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-
 
     # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
@@ -54,27 +45,19 @@ class WaveNet(object):
             [self.filter_width, in_channels, dilation_channels],
             stddev=0.2,
             name="filter"))
-        if self.use_biases:
-          print "Using biases!!"
-          biases_filter = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
-                                    name="filter_biases")
-        else:
-          print "NOT using biases!"
-
         weights_gate = tf.Variable(tf.truncated_normal(
             [self.filter_width, in_channels, dilation_channels],
             stddev=0.2, name="gate"))
 
+        conv_filter = causal_conv(input_batch, weights_filter, dilation)
+        conv_gate = causal_conv(input_batch, weights_gate, dilation)
+
         if self.use_biases:
+          biases_filter = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
+                                    name="filter_biases")
           biases_gate = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
                                   name="gate_biases")
-
-        conv_filter = causal_conv(input_batch, weights_filter, dilation)
-        if self.use_biases:
           conv_filter = tf.add(conv_filter, biases_filter)
-
-        conv_gate = causal_conv(input_batch, weights_gate, dilation)
-        if self.use_biases:
           conv_gate = tf.add(conv_gate, biases_gate)
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
@@ -82,12 +65,11 @@ class WaveNet(object):
         weights_dense = tf.Variable(tf.truncated_normal(
             [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
 
-        if self.use_biases:
-          biases_dense = tf.Variable(tf.constant(0.0,shape=[in_channels]),
-                                   name="dense_biases")
         transformed = tf.nn.conv1d(out, weights_dense, stride=1,
                                    padding="SAME", name="dense")
         if self.use_biases:
+          biases_dense = tf.Variable(tf.constant(0.0,shape=[in_channels]),
+                                   name="dense_biases")
           transformed = tf.add(transformed, biases_dense)
         layer = 'layer{}'.format(layer_index)
         tf.histogram_summary(layer + '_filter', weights_filter)
@@ -146,13 +128,12 @@ class WaveNet(object):
             w1 = tf.Variable(tf.truncated_normal(
                 [1, self.residual_channels, int(self.channels / 2)], stddev=0.3,
                 name="postprocess1"))
-            if self.use_biases:
-              b1 = tf.Variable(tf.constant(0.0, shape=[int(self.channels/2)]),
-                  name="postprocess1_bias")
             w2 = tf.Variable(tf.truncated_normal(
                 [1, int(self.channels / 2), self.channels], stddev=0.3,
                 name="postprocess2"))
             if self.use_biases:
+              b1 = tf.Variable(tf.constant(0.0, shape=[int(self.channels/2)]),
+                  name="postprocess1_bias")
               b2 = tf.Variable(tf.constant(0.0, shape=[self.channels]),
                   name="postprocess2_bias")
 
