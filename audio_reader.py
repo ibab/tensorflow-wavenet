@@ -21,7 +21,7 @@ def load_generic_audio(directory, sample_rate):
     for f in files:
         audio, sr = librosa.load(f, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
-        yield audio, 0
+        yield audio
 
 
 def load_vctk_audio(directory, sample_rate):
@@ -37,38 +37,40 @@ def load_vctk_audio(directory, sample_rate):
 def trim_sample(audio, threshold=0.3):
     '''Removes silence in the beginning and end of a sample'''
     energy = librosa.feature.rmse(audio)
-    indices = librosa.core.frames_to_samples(np.nonzero(energy > threshold))[1]
+    frames = np.nonzero(energy > threshold)
+    indices = librosa.core.frames_to_samples(frames)[1]
     return audio[indices[0]:indices[-1]]
 
 
 class AudioReader(object):
-    def __init__(self, args, wavenet_params, coord, sample_size=None):
-        self.args = args
-        self.wavenet_params = wavenet_params
+    def __init__(self,
+                 audio_dir,
+                 coord,
+                 sample_rate,
+                 sample_size=None,
+                 queue_size=256):
+        self.audio_dir = audio_dir
+        self.sample_rate = sample_rate
         self.coord = coord
         self.sample_size = sample_size
         self.threads = []
-        self.dataX = tf.placeholder(dtype=tf.float32, shape=None)
-        self.dataY = tf.placeholder(dtype=tf.int32)
-        self.queue = tf.PaddingFIFOQueue(
-            256,  # Queue size.
-            ['float32', 'int32'],
-            shapes=[(None, 1), ()])
-        self.enqueue = self.queue.enqueue([self.dataX, self.dataY])
+        self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
+        self.queue = tf.PaddingFIFOQueue(queue_size,
+                                         ['float32'],
+                                         shapes=[(None, 1)])
+        self.enqueue = self.queue.enqueue([self.sample_placeholder])
 
-    def get_inputs(self):
-        self.audio_batch, _ = self.queue.dequeue_many(self.args.batch_size)
-        return self.audio_batch, _
+    def dequeue(self, num_elements):
+        output = self.queue.dequeue_many(num_elements)
+        return output
 
     def thread_main(self, sess):
         buff = np.array([])
         stop = False
         # Go through the dataset multiple times
         while not stop:
-            iterator = load_vctk_audio(
-                self.args.data_dir,
-                self.wavenet_params["sample_rate"])
-            for audio, label in iterator:
+            iterator = load_generic_audio( self.audio_dir, self.sample_rate)
+            for audio in iterator:
                 if self.coord.should_stop():
                     self.stop_threads()
                     stop = True
@@ -80,10 +82,12 @@ class AudioReader(object):
                     buff = np.append(buff, audio)
                     while len(buff) > self.sample_size:
                         piece = np.reshape(buff[:self.sample_size], [-1, 1])
-                        sess.run(self.enqueue, feed_dict={self.dataX: piece, self.dataY: label})
+                        sess.run(self.enqueue,
+                                 feed_dict={self.sample_placeholder: piece})
                         buff = buff[self.sample_size:]
                 else:
-                    sess.run(self.enqueue, feed_dict={self.dataX: audio, self.dataY: label})
+                    sess.run(self.enqueue,
+                             feed_dict={self.sample_placeholder: audio})
 
     def stop_threads():
         for t in self.threads:

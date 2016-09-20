@@ -23,7 +23,7 @@ from tensorflow.contrib import ffmpeg
 import tensorflow.python.client.timeline as timeline
 
 from wavenet import WaveNet
-from util import AudioReader
+from audio_reader import AudioReader
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
@@ -177,11 +177,11 @@ def main():
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
         reader = AudioReader(
-            args,
-            wavenet_params,
+            args.data_dir,
             coord,
+            sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size)
-        audio_batch, _ = reader.get_inputs()
+        audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
     net = WaveNet(args.batch_size,
