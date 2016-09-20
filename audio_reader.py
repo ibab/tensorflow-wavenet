@@ -9,6 +9,7 @@ import tensorflow as tf
 
 
 def find_files(directory, pattern='*.wav'):
+    '''Recursively finds all files matching the pattern'''
     files = []
     for root, dirnames, filenames in os.walk(directory):
         for filename in fnmatch.filter(filenames, pattern):
@@ -17,6 +18,7 @@ def find_files(directory, pattern='*.wav'):
 
 
 def load_generic_audio(directory, sample_rate):
+    '''Generator that yields audio waveforms from the directory.'''
     files = find_files(directory)
     for f in files:
         audio, sr = librosa.load(f, sr=sample_rate, mono=True)
@@ -25,12 +27,15 @@ def load_generic_audio(directory, sample_rate):
 
 
 def load_vctk_audio(directory, sample_rate):
+    '''Generator that yields audio waveforms from the VCTK dataset, and
+    additionally the ID of the corresponding speaker.'''
     files = find_files(directory)
     speaker_re = re.compile(r'p([0-9]+)_([0-9]+)\.wav')
-    for j, f in enumerate(files):
-        audio, sr = librosa.load(f, sr=sample_rate, mono=True)
+    for filename in files:
+        audio, sr = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
-        speaker_id, recording_id = [int(i) for i in speaker_re.findall(f)[0]]
+        matches = speaker_re.findall(filename)[0]
+        speaker_id, recording_id = [int(id_) for id_ in matches]
         yield audio, speaker_id
 
 
@@ -43,6 +48,9 @@ def trim_sample(audio, threshold=0.3):
 
 
 class AudioReader(object):
+    '''Generic background audio reader that preprocesses audio files
+    and enqueues them into a TensorFlow queue.'''
+
     def __init__(self,
                  audio_dir,
                  coord,
@@ -65,7 +73,7 @@ class AudioReader(object):
         return output
 
     def thread_main(self, sess):
-        buff = np.array([])
+        buffer_ = np.array([])
         stop = False
         # Go through the dataset multiple times
         while not stop:
@@ -76,15 +84,15 @@ class AudioReader(object):
                     stop = True
                     break
                 # Remove silence
-                audio = trim_sample(audio[:,0])
+                audio = trim_sample(audio[:, 0])
                 if self.sample_size:
                     # Cut samples into fixed size pieces
-                    buff = np.append(buff, audio)
-                    while len(buff) > self.sample_size:
-                        piece = np.reshape(buff[:self.sample_size], [-1, 1])
+                    buffer_ = np.append(buffer_, audio)
+                    while len(buffer_) > self.sample_size:
+                        piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
                         sess.run(self.enqueue,
                                  feed_dict={self.sample_placeholder: piece})
-                        buff = buff[self.sample_size:]
+                        buffer_ = buffer_[self.sample_size:]
                 else:
                     sess.run(self.enqueue,
                              feed_dict={self.sample_placeholder: audio})
