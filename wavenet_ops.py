@@ -19,7 +19,7 @@ def batch_to_time(value, dilation, name=None):
         return tf.reshape(transposed, [tf.div(shape[0], dilation), -1, shape[2]])
 
 
-def causal_conv(value, filter_, dilation, name='casual_conv'):
+def causal_conv(value, filter_, dilation, name='causal_conv'):
     with tf.name_scope(name):
         # Pad beforehand to preserve causality
         filter_width = tf.shape(filter_)[0]
