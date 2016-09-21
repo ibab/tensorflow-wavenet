@@ -7,7 +7,6 @@ from wavenet_ops import mu_law_encode, mu_law_decode
 class TestMuLaw(tf.test.TestCase):
 
     def testEncodeDecode(self):
-
         x = np.linspace(-1, 1, 1000).astype(np.float32)
         channels = 256
 
@@ -25,6 +24,14 @@ class TestMuLaw(tf.test.TestCase):
             x2 = sess.run(mu_law_decode(encoded, channels))
 
         self.assertAllClose(x1, x2)
+
+    def testEncodeIsSurjective(self):
+        x = np.linspace(-1, 1, 10000).astype(np.float32)
+        channels = 123
+        with self.test_session() as sess:
+            encoded = sess.run(mu_law_encode(x, channels))
+        self.assertEqual(len(np.unique(encoded)), channels)
+
 
 if __name__ == '__main__':
     tf.test.main()
