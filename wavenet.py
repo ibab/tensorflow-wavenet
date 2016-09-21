@@ -102,10 +102,10 @@ class WaveNet(object):
             padding="SAME", name="skip")
 
         if self.use_biases:
-            biases_dense = tf.Variable(tf.constant(0.0,shape=[in_channels]),
+            biases_dense = tf.Variable(tf.constant(0.0, shape=[in_channels]),
                                        name="dense_biases")
             transformed = tf.add(transformed, biases_dense)
-            biases_skip = tf.Variable(tf.constant(0.0,shape=[skip_channels]),
+            biases_skip = tf.Variable(tf.constant(0.0, shape=[skip_channels]),
                                       name="skip_biases")
             skip_contribution = tf.add(skip_contribution, biases_skip)
 
