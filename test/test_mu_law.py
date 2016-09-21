@@ -1,5 +1,6 @@
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+
 from wavenet import WaveNet
 
 class TestMuLaw(tf.test.TestCase):
