@@ -18,13 +18,15 @@ class WaveNet(object):
                  dilations,
                  filter_width,
                  residual_channels,
-                 dilation_channels):
+                 dilation_channels,
+                 store_summaries=False):
         self.batch_size = batch_size
         self.channels = channels
         self.dilations = dilations
         self.filter_width = filter_width
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
+        self.store_summaries = store_summaries
 
 
     # A single causal convolution layer that can change the number of channels.
@@ -37,9 +39,10 @@ class WaveNet(object):
             return causal_conv(input_batch, weights_filter, 1)
 
 
-    def _create_dilation_layer(self, input_batch, layer_index, dilation, in_channels, dilation_channels):
-        '''Adds a single causal dilated convolution layer.'''
+    def _create_dilation_block(self, input_batch, layer_index, dilation, in_channels, dilation_channels):
+        '''Adds a causal dilated convolution with gated activation and 1x1 convolutions.'''
 
+        # Causal convolutions with gated activation function.
         weights_filter = tf.Variable(tf.truncated_normal(
             [self.filter_width, in_channels, dilation_channels],
             stddev=0.2,
@@ -53,16 +56,26 @@ class WaveNet(object):
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
-        weights_dense = tf.Variable(tf.truncated_normal(
-            [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
-        transformed = tf.nn.conv1d(out, weights_dense, stride=1,
-                                   padding="SAME", name="dense")
-        layer = 'layer{}'.format(layer_index)
-        tf.histogram_summary(layer + '_filter', weights_filter)
-        tf.histogram_summary(layer + '_gate', weights_gate)
-        tf.histogram_summary(layer + '_dense', weights_dense)
+        # The result of this 1x1 convolution is passed to the next block.
+        weights_residuals = tf.Variable(tf.truncated_normal(
+            [1, dilation_channels, in_channels], stddev=0.2, name="residuals"))
+        residuals = tf.nn.conv1d(out, weights_residuals, stride=1,
+                                 padding="SAME", name="residuals")
 
-        return transformed, input_batch + transformed
+        # The result of this 1x1 convolution is gathered at the end.
+        weights_skipped = tf.Variable(tf.truncated_normal(
+            [1, dilation_channels, in_channels], stddev=0.2, name="skipped"))
+        skipped = tf.nn.conv1d(out, weights_skipped, stride=1,
+                               padding="SAME", name="skipped")
+
+        if self.store_summaries:
+            layer = 'layer{}'.format(layer_index)
+            tf.histogram_summary(layer + '_filter', weights_filter)
+            tf.histogram_summary(layer + '_gate', weights_gate)
+            tf.histogram_summary(layer + '_residuals', weights_residuals)
+            tf.histogram_summary(layer + '_skipped', weights_skipped)
+
+        return skipped, input_batch + residuals
 
 
     def _preprocess(self, audio):
@@ -90,13 +103,13 @@ class WaveNet(object):
         outputs = []
         current_layer = input_batch
 
-        current_layer = self._create_causal_layer(current_layer, self.channels, self.residual_channels)
+        current_layer = self._create_causal_layer(current_layer, 1, self.residual_channels)
 
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
             for layer_index, dilation in enumerate(self.dilations):
                 with tf.name_scope('layer{}'.format(layer_index)):
-                    output, current_layer = self._create_dilation_layer(
+                    output, current_layer = self._create_dilation_block(
                         current_layer,
                         layer_index,
                         dilation,
@@ -108,14 +121,15 @@ class WaveNet(object):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
             w1 = tf.Variable(tf.truncated_normal(
-                [1, self.residual_channels, int(self.channels / 2)], stddev=0.3,
+                [1, self.residual_channels, self.channels], stddev=0.3,
                 name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal(
-                [1, int(self.channels / 2), self.channels], stddev=0.3,
+                [1, self.channels, self.channels], stddev=0.3,
                 name="postprocess2"))
 
-            tf.histogram_summary('postprocess1_weights', w1)
-            tf.histogram_summary('postprocess2_weights', w2)
+            if self.store_summaries:
+                tf.histogram_summary('postprocess1_weights', w1)
+                tf.histogram_summary('postprocess2_weights', w2)
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
@@ -152,9 +166,10 @@ class WaveNet(object):
 
     def loss(self, input_batch, name='wavenet'):
         with tf.variable_scope(name):
-            input_batch = self._preprocess(input_batch)
-            encoded = self._one_hot(input_batch)
-            raw_output = self._create_network(encoded)
+            quantized = self._preprocess(input_batch)
+            encoded = self._one_hot(quantized)
+            inputs = tf.reshape(input_batch, [self.batch_size, -1, 1])
+            raw_output = self._create_network(inputs)
 
             with tf.name_scope('loss'):
                 # Shift original input left by one sample, which means that
