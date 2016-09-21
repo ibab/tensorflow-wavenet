@@ -30,8 +30,8 @@ class TestNetWithBiases(tf.test.TestCase):
         quantization_steps=256
         self.net = WaveNet(batch_size=1,
                            channels=quantization_steps,
-                           dilations= [1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                       1, 2, 4, 8, 16, 32, 64, 128, 256],
+                           dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                      1, 2, 4, 8, 16, 32, 64, 128, 256],
                            filter_width=2,
                            residual_channels=16,
                            dilation_channels=16,
