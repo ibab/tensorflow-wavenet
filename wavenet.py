@@ -2,6 +2,7 @@ import tensorflow as tf
 
 from wavenet_ops import causal_conv, mu_law_encode
 
+
 class WaveNet(object):
     '''Implements the WaveNet network for generative audio.
 
@@ -61,7 +62,6 @@ class WaveNet(object):
                 name="filter"))
             return causal_conv(input_batch, weights_filter, 1)
 
-
     def _create_dilation_layer(self,
                                input_batch,
                                layer_index,
@@ -81,10 +81,12 @@ class WaveNet(object):
         conv_gate = causal_conv(input_batch, weights_gate, dilation)
 
         if self.use_biases:
-            biases_filter = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
-                                        name="filter_biases")
-            biases_gate = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
-                                      name="gate_biases")
+            biases_filter = tf.Variable(
+                tf.constant(0.0, shape=[dilation_channels]),
+                name="filter_biases")
+            biases_gate = tf.Variable(
+                tf.constant(0.0, shape=[dilation_channels]),
+                name="gate_biases")
             conv_filter = tf.add(conv_filter, biases_filter)
             conv_gate = tf.add(conv_gate, biases_gate)
 
@@ -99,8 +101,8 @@ class WaveNet(object):
         weights_skip = tf.Variable(tf.truncated_normal(
             [1, dilation_channels, skip_channels], stddev=0.01),
                                    name="skip")
-        skip_contribution = tf.nn.conv1d(out,weights_skip,stride=1,
-            padding="SAME", name="skip")
+        skip_contribution = tf.nn.conv1d(out, weights_skip, stride=1,
+                                         padding="SAME", name="skip")
 
         if self.use_biases:
             biases_dense = tf.Variable(tf.constant(0.0, shape=[in_channels]),
@@ -122,7 +124,6 @@ class WaveNet(object):
             tf.histogram_summary(layer + '_biases_skip', biases_skip)
 
         return skip_contribution, input_batch + transformed
-
 
     def _create_network(self, input_batch):
         '''Creates a WaveNet network.'''
@@ -151,17 +152,18 @@ class WaveNet(object):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
             w1 = tf.Variable(tf.truncated_normal(
-                [1, self.skip_channels, self.skip_channels], stddev=0.3,
-                name="postprocess1"))
+                [1, self.skip_channels, self.skip_channels],
+                stddev=0.3, name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal(
-                [1, self.skip_channels, self.quantization_channels], stddev=0.3,
-                name="postprocess2"))
+                [1, self.skip_channels, self.quantization_channels],
+                stddev=0.3, name="postprocess2"))
             if self.use_biases:
-                b1 = tf.Variable(tf.constant(0.0, shape=[self.skip_channels]),
-                                 name="postprocess1_bias")
-                b2 = tf.Variable(tf.constant(0.0,
-                                             shape=[self.quantization_channels]),
-                                 name="postprocess2_bias")
+                b1 = tf.Variable(
+                    tf.constant(0.0, shape=[self.skip_channels]),
+                    name="postprocess1_bias")
+                b2 = tf.Variable(
+                    tf.constant(0.0, shape=[self.quantization_channels]),
+                    name="postprocess2_bias")
 
             tf.histogram_summary('postprocess1_weights', w1)
             tf.histogram_summary('postprocess2_weights', w2)
@@ -183,7 +185,6 @@ class WaveNet(object):
 
         return conv2
 
-
     def _one_hot(self, input_batch):
         '''One-hot encodes the waveform amplitudes.
 
@@ -197,7 +198,6 @@ class WaveNet(object):
                 encoded, [self.batch_size, -1, self.quantization_channels])
             return encoded
 
-
     def predict_proba(self, waveform, name='wavenet'):
         '''Computes the probability distribution of the next sample.'''
         with tf.variable_scope(name):
@@ -209,7 +209,6 @@ class WaveNet(object):
                             [tf.shape(proba)[0] - 1, 0],
                             [1, self.quantization_channels])
             return tf.reshape(last, [-1])
-
 
     def loss(self, input_batch, name='wavenet'):
         '''Creates a WaveNet network and returns the autoencoding loss.

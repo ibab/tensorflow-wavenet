@@ -16,6 +16,7 @@ WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
 SAVE_EVERY = None
 
+
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet generation script')
     parser.add_argument('checkpoint', type=str,
@@ -84,10 +85,11 @@ def main():
         sample = np.random.choice(np.arange(quantization_channels),
                                   p=prediction)
         waveform.append(sample)
-        print('Sample {:3<d}/{:3<d}: {}'.format(step + 1, args.samples, sample))
-        if (args.wav_out_path
-            and args.save_every
-            and (step + 1) % args.save_every == 0):
+        print('Sample {:3<d}/{:3<d}: {}'
+              .format(step + 1, args.samples, sample))
+
+        if (args.wav_out_path and args.save_every and
+                (step + 1) % args.save_every == 0):
 
             out = sess.run(decode, feed_dict={samples: waveform})
             write_wav(out,
@@ -101,7 +103,8 @@ def main():
     summaries = tf.merge_all_summaries()
 
     summary_out = sess.run(summaries, feed_dict={
-        samples: np.reshape(waveform, [-1, 1])})
+        samples: np.reshape(waveform, [-1, 1])
+    })
     writer.add_summary(summary_out)
 
     if args.wav_out_path:
