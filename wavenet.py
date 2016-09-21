@@ -190,7 +190,7 @@ class WaveNet(object):
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
-            total = tf.add_n(outputs)
+            total = sum(outputs)
             transformed1 = tf.nn.relu(total)
             conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
             if self.use_biases:
