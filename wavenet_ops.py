@@ -57,4 +57,4 @@ def mu_law_decode(output, quantization_channels):
         signal = 2 * (casted / mu) - 1
         # Perform inverse of mu-law transformation
         magnitude = (1 / mu) * ((1 + mu)**abs(signal) - 1)
-        return tf.sign(y) * magnitude
+        return tf.sign(signal) * magnitude
