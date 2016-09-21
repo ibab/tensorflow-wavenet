@@ -35,6 +35,8 @@ def get_arguments():
                         help='Path to output wav file')
     parser.add_argument('--save_every', type=int, default=SAVE_EVERY,
                         help='How many samples before saving in-progress wav')
+    parser.add_argument('--fast_generation', type=bool, default=True,
+                        help='Use fast generation')    
     return parser.parse_args()
 
 
@@ -60,13 +62,18 @@ def main():
         dilation_channels=wavenet_params['dilation_channels'],
         quantization_channels=wavenet_params['quantization_channels'],
         skip_channels=wavenet_params['skip_channels'],
-        use_biases=wavenet_params['use_biases'])
+        use_biases=wavenet_params['use_biases'],
+        fast_generation=args.fast_generation)
 
     samples = tf.placeholder(tf.int32)
 
     next_sample = net.predict_proba(samples)
+    
+    sess.run(tf.initialize_all_variables())
 
-    saver = tf.train.Saver()
+    variables_to_restore = {var.name[:-2]: var for var in tf.all_variables() if 'Variable' in var.name}
+    saver = tf.train.Saver(variables_to_restore)
+    
     print('Restoring model from {}'.format(args.checkpoint))
     saver.restore(sess, args.checkpoint)
 
@@ -75,15 +82,25 @@ def main():
     quantization_channels = wavenet_params['quantization_channels']
     waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
     for step in range(args.samples):
-        if len(waveform) > args.window:
-            window = waveform[-args.window:]
+        if args.fast_generation:
+            window = waveform[-1]
+            outputs = [next_sample]
+            outputs.extend(net.push_ops)
+            outputs_list = sess.run(
+                outputs,
+                feed_dict={samples: window})
+            prediction = outputs_list[0]                                   
         else:
-            window = waveform
-        prediction = sess.run(
-            next_sample,
-            feed_dict={samples: window})
-        sample = np.random.choice(np.arange(quantization_channels),
-                                  p=prediction)
+            if len(waveform) > args.window:
+                window = waveform[-args.window:]
+            else:
+                window = waveform
+            outputs = [next_sample]
+            prediction = sess.run(
+                next_sample,
+                feed_dict={samples: window})
+            
+        sample = np.random.choice(np.arange(quantization_steps), p=prediction)
         waveform.append(sample)
         print('Sample {:3<d}/{:3<d}: {}'
               .format(step + 1, args.samples, sample))
