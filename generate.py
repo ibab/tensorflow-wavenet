@@ -69,7 +69,9 @@ def main():
 
     next_sample = net.predict_proba(samples)
     
-    sess.run(tf.initialize_all_variables())
+    if args.fast_generation:
+        sess.run(tf.initialize_all_variables())
+        sess.run(net.init_ops)
 
     variables_to_restore = {var.name[:-2]: var for var in tf.all_variables() if 'Variable' in var.name}
     saver = tf.train.Saver(variables_to_restore)
@@ -100,7 +102,7 @@ def main():
                 next_sample,
                 feed_dict={samples: window})
             
-        sample = np.random.choice(np.arange(quantization_steps), p=prediction)
+        sample = np.random.choice(np.arange(quantization_channels), p=prediction)
         waveform.append(sample)
         print('Sample {:3<d}/{:3<d}: {}'
               .format(step + 1, args.samples, sample))

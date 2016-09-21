@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from wavenet_ops import causal_conv, mu_law_encode, Queue
+from wavenet_ops import causal_conv, mu_law_encode
 
 
 class WaveNet(object):
@@ -144,8 +144,7 @@ class WaveNet(object):
                 stddev=0.2,
                 name="filter"))
 
-            output = self._apply_weights(input_batch, state_batch, weights_filter)
-            print 'causal dtype:', output.dtype
+            output = self._apply_weights(input_batch, state_batch, weights_filter)            
         return output
 
     def _generator_dilation_layer(self, input_batch, state_batch, layer_index, dilation,
@@ -231,18 +230,19 @@ class WaveNet(object):
         return conv2
     
     def _create_generator(self, input_batch):
+        init_ops = []
         push_ops = []
-
+        outputs = []
         current_layer = input_batch
 
-        q = Queue(batch_size=self.batch_size,
-                  state_size=self.quantization_channels,
-                  buffer_size=1)
-
-        current_state = q.pop()
-        push = q.push(current_layer)
+        q = tf.FIFOQueue(1, dtypes=tf.float32, shapes=(self.batch_size, self.quantization_channels))
+        init = q.enqueue_many(tf.zeros((1, self.batch_size, self.quantization_channels)))
+    
+        current_state = q.dequeue()
+        push = q.enqueue([current_layer])
+        init_ops.append(init)
         push_ops.append(push)
-
+        
         current_layer = self._generator_causal_layer(current_layer,
                                                      current_state,
                                                      self.quantization_channels,
@@ -252,15 +252,16 @@ class WaveNet(object):
         with tf.name_scope('dilated_stack'):
             for layer_index, dilation in enumerate(self.dilations):
                 with tf.name_scope('layer{}'.format(layer_index)):
+                    
+                    q = tf.FIFOQueue(dilation, dtypes=tf.float32, shapes=(self.batch_size, self.residual_channels))
+                    init = q.enqueue_many(tf.zeros((dilation, self.batch_size, self.residual_channels)))
+    
+                    current_state = q.dequeue()
+                    push = q.enqueue([current_layer])
+                    init_ops.append(init)
+                    push_ops.append(push)
 
-                    q = Queue(batch_size=self.batch_size,
-                              state_size=self.residual_channels,
-                              buffer_size=dilation)
-
-                    current_state = q.pop()
-                    push = q.push(current_layer)
-                    push_ops.append(push)                
-
+                    
                     output, current_layer = self._generator_dilation_layer(
                         current_layer,
                         current_state,
@@ -268,6 +269,8 @@ class WaveNet(object):
                         dilation,
                         self.residual_channels,
                         self.dilation_channels)
+                    outputs.append(output)
+        self.init_ops = init_ops
         self.push_ops = push_ops
 
         with tf.name_scope('postprocessing'):
