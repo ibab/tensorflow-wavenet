@@ -62,3 +62,34 @@ def mu_law_decode(output, quantization_channels):
         # Perform inverse of mu-law transformation.
         magnitude = (1 / mu) * ((1 + mu)**abs(signal) - 1)
         return tf.sign(signal) * magnitude
+
+    
+class Queue(object):
+    def __init__(self, batch_size, state_size, buffer_size):
+        self.batch_size = batch_size
+        self.state_size = state_size
+        self.buffer_size = buffer_size
+
+        self.state_buffer = tf.Variable(tf.constant(0.0,
+                                        dtype=tf.float32,
+                                        shape=[buffer_size, batch_size, state_size],
+                                        name='state_buffer'), name='state_buffer')
+
+        self.pointer = tf.Variable(tf.constant(0,
+                                   dtype=tf.int32,
+                                   shape=(), name='pointer'), name='pointer')
+
+    def pop(self):
+        state = tf.slice(self.state_buffer, [self.pointer, 0, 0],
+                         [1, -1, -1])[0, :, :]
+        
+        state.set_shape(tf.TensorShape([tf.Dimension(self.batch_size), tf.Dimension(self.state_size)]))
+        
+        return state
+
+    def push(self, item):
+        update_op = tf.scatter_update(self.state_buffer, self.pointer, item)
+        with tf.control_dependencies([update_op]):
+            push_op = tf.assign(self.pointer, tf.mod(self.pointer + 1,
+                                                     self.buffer_size))
+        return push_op
