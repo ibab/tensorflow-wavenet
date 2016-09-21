@@ -189,7 +189,8 @@ def main():
                   wavenet_params["dilations"],
                   wavenet_params["filter_width"],
                   wavenet_params["residual_channels"],
-                  wavenet_params["dilation_channels"])
+                  wavenet_params["dilation_channels"],
+                  wavenet_params["use_biases"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()

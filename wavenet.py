@@ -18,14 +18,15 @@ class WaveNet(object):
                  dilations,
                  filter_width,
                  residual_channels,
-                 dilation_channels):
+                 dilation_channels,
+                 use_biases):
         self.batch_size = batch_size
         self.channels = channels
         self.dilations = dilations
         self.filter_width = filter_width
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
-
+        self.use_biases = use_biases
 
     # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
@@ -51,16 +52,32 @@ class WaveNet(object):
         conv_filter = causal_conv(input_batch, weights_filter, dilation)
         conv_gate = causal_conv(input_batch, weights_gate, dilation)
 
+        if self.use_biases:
+            biases_filter = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
+                                        name="filter_biases")
+            biases_gate = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
+                                      name="gate_biases")
+            conv_filter = tf.add(conv_filter, biases_filter)
+            conv_gate = tf.add(conv_gate, biases_gate)
+
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
         weights_dense = tf.Variable(tf.truncated_normal(
             [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
         transformed = tf.nn.conv1d(out, weights_dense, stride=1,
                                    padding="SAME", name="dense")
+        if self.use_biases:
+            biases_dense = tf.Variable(tf.constant(0.0,shape=[in_channels]),
+                                       name="dense_biases")
+            transformed = tf.add(transformed, biases_dense)
         layer = 'layer{}'.format(layer_index)
         tf.histogram_summary(layer + '_filter', weights_filter)
         tf.histogram_summary(layer + '_gate', weights_gate)
         tf.histogram_summary(layer + '_dense', weights_dense)
+        if self.use_biases:
+            tf.histogram_summary(layer + '_biases_filter', biases_filter)
+            tf.histogram_summary(layer + '_biases_gate', biases_gate)
+            tf.histogram_summary(layer + '_biases_dense', biases_dense)
 
         return transformed, input_batch + transformed
 
@@ -113,17 +130,29 @@ class WaveNet(object):
             w2 = tf.Variable(tf.truncated_normal(
                 [1, int(self.channels / 2), self.channels], stddev=0.3,
                 name="postprocess2"))
+            if self.use_biases:
+                b1 = tf.Variable(tf.constant(0.0, shape=[int(self.channels/2)]),
+                                 name="postprocess1_bias")
+                b2 = tf.Variable(tf.constant(0.0, shape=[self.channels]),
+                                 name="postprocess2_bias")
 
             tf.histogram_summary('postprocess1_weights', w1)
             tf.histogram_summary('postprocess2_weights', w2)
+            if self.use_biases:
+                tf.histogram_summary('postprocess1_biases', b1)
+                tf.histogram_summary('postprocess2_biases', b2)
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
             total = sum(outputs)
             transformed1 = tf.nn.relu(total)
             conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
+            if self.use_biases:
+                conv1 = tf.add(conv1, b1)
             transformed2 = tf.nn.relu(conv1)
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
+            if self.use_biases:
+                conv2 = tf.add(conv2, b2)
 
         return conv2
 

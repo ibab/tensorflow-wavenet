@@ -25,16 +25,17 @@ def MakeSineWaves():
     return amplitudes
 
 
-class TestNet(tf.test.TestCase):
+class TestNetWithBiases(tf.test.TestCase):
     def setUp(self):
         quantization_steps=256
-        self.net = WaveNet(batch_size = 1,
-                           channels = quantization_steps,
+        self.net = WaveNet(batch_size=1,
+                           channels=quantization_steps,
                            dilations= [1, 2, 4, 8, 16, 32, 64, 128, 256,
                                        1, 2, 4, 8, 16, 32, 64, 128, 256],
                            filter_width=2,
-                           residual_channels = 16,
-                           dilation_channels = 16)
+                           residual_channels=16,
+                           dilation_channels=16,
+                           use_biases=True)
 
     # Train a net on a short clip of 3 sine waves superimposed (an e-flat chord)
     # Presumably it can overfit to such a simple signal. This test serves
