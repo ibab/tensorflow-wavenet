@@ -19,7 +19,8 @@ class WaveNet(object):
                  filter_width,
                  residual_channels,
                  dilation_channels,
-                 use_biases):
+                 use_biases,
+                 skip_channels):
         self.batch_size = batch_size
         self.channels = channels
         self.dilations = dilations
@@ -27,6 +28,7 @@ class WaveNet(object):
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
         self.use_biases = use_biases
+        self.skip_channels = skip_channels
 
     # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
@@ -38,7 +40,7 @@ class WaveNet(object):
             return causal_conv(input_batch, weights_filter, 1)
 
 
-    def _create_dilation_layer(self, input_batch, layer_index, dilation, in_channels, dilation_channels):
+    def _create_dilation_layer(self, input_batch, layer_index, dilation, in_channels, dilation_channels, skip_channels):
         '''Adds a single causal dilated convolution layer.'''
 
         weights_filter = tf.Variable(tf.truncated_normal(
@@ -66,20 +68,34 @@ class WaveNet(object):
             [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
         transformed = tf.nn.conv1d(out, weights_dense, stride=1,
                                    padding="SAME", name="dense")
+
+        # The 1x1 conv to produce the skip contribution.
+        weights_skip = tf.Variable(tf.truncated_normal(
+            [1, dilation_channels, skip_channels], stddev=0.01),
+                                   name="skip")
+        skip_contribution = tf.nn.conv1d(out,weights_skip,stride=1,
+            padding="SAME", name="skip")
+
         if self.use_biases:
             biases_dense = tf.Variable(tf.constant(0.0,shape=[in_channels]),
                                        name="dense_biases")
             transformed = tf.add(transformed, biases_dense)
+            biases_skip = tf.Variable(tf.constant(0.0,shape=[skip_channels]),
+                                      name="skip_biases")
+            skip_contribution = tf.add(skip_contribution, biases_skip)
+
         layer = 'layer{}'.format(layer_index)
         tf.histogram_summary(layer + '_filter', weights_filter)
         tf.histogram_summary(layer + '_gate', weights_gate)
         tf.histogram_summary(layer + '_dense', weights_dense)
+        tf.histogram_summary(layer + '_skip', weights_skip)
         if self.use_biases:
             tf.histogram_summary(layer + '_biases_filter', biases_filter)
             tf.histogram_summary(layer + '_biases_gate', biases_gate)
             tf.histogram_summary(layer + '_biases_dense', biases_dense)
+            tf.histogram_summary(layer + '_biases_skip', biases_skip)
 
-        return transformed, input_batch + transformed
+        return skip_contribution, input_batch + transformed
 
 
     def _preprocess(self, audio):
@@ -118,20 +134,21 @@ class WaveNet(object):
                         layer_index,
                         dilation,
                         self.residual_channels,
-                        self.dilation_channels)
+                        self.dilation_channels,
+                        self.skip_channels)
                     outputs.append(output)
 
         with tf.name_scope('postprocessing'):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
             w1 = tf.Variable(tf.truncated_normal(
-                [1, self.residual_channels, int(self.channels / 2)], stddev=0.3,
+                [1, self.skip_channels, self.skip_channels], stddev=0.3,
                 name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal(
-                [1, int(self.channels / 2), self.channels], stddev=0.3,
+                [1, self.skip_channels, self.channels], stddev=0.3,
                 name="postprocess2"))
             if self.use_biases:
-                b1 = tf.Variable(tf.constant(0.0, shape=[int(self.channels/2)]),
+                b1 = tf.Variable(tf.constant(0.0, shape=[self.skip_channels]),
                                  name="postprocess1_bias")
                 b2 = tf.Variable(tf.constant(0.0, shape=[self.channels]),
                                  name="postprocess2_bias")
