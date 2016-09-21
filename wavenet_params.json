@@ -6,5 +6,6 @@
     "residual_channels": 32,
     "dilation_channels":16,
     "quantization_channels": 256,
+    "skip_channels": 256,
     "use_biases": false
 }
