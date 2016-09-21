@@ -6,21 +6,37 @@ class WaveNet(object):
 
     Usage (with the architecture as in the DeepMind paper):
         dilations = [2**i for i in range(N)] * M
-        channels = 2**8  # Quantize to 256 possible amplitude values.
-        net = WaveNet(batch_size, channels, dilations)
+        quantization_steps = 2**8  # Quantize to 256 possible amplitude values.
+        filter_width = 2  # Convolutions just use 2 samples.
+        residual_channels = 16  # Not specified in the paper.
+        dilation_channels = 32  # Not specified in the paper.
+        net = WaveNet(batch_size, channels, dilations, filter_width,
+                      residual_channels, dilation_channel)
         loss = net.loss(input_batch)
     '''
-
-
     def __init__(self,
                  batch_size,
-                 channels,
+                 quantization_steps,
                  dilations,
                  filter_width,
                  residual_channels,
                  dilation_channels):
+        '''Initializes the WaveNet model.
+
+        Args:
+            batch_size: How many audio files are supplied per batch
+                (recommended: 1).
+            quantization_steps: How many amplitude values to use for audio
+                quantization and the corresponding one-hot encoding.
+            dilations: A list with the dilation factor for each layer.
+            filter_width: The samples that are included in each convolution,
+                after dilating.
+            residual_channels: How many filters to learn for the residual.
+            dilation_channels: How many filters to learn for the dilated
+                convolution.
+        '''
         self.batch_size = batch_size
-        self.channels = channels
+        self.quantization_steps = quantization_steps
         self.dilations = dilations
         self.filter_width = filter_width
         self.residual_channels = residual_channels
@@ -29,6 +45,7 @@ class WaveNet(object):
 
     # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
+        '''Creates a single causal convolution layer.'''
         with tf.name_scope('causal_layer'):
             weights_filter = tf.Variable(tf.truncated_normal(
                 [self.filter_width, in_channels, out_channels],
@@ -37,13 +54,16 @@ class WaveNet(object):
             return causal_conv(input_batch, weights_filter, 1)
 
 
-    def _create_dilation_layer(self, input_batch, layer_index, dilation, in_channels, dilation_channels):
-        '''Adds a single causal dilated convolution layer.'''
-
+    def _create_dilation_layer(self,
+                               input_batch,
+                               layer_index,
+                               dilation,
+                               in_channels,
+                               dilation_channels):
+        '''Creates a single causal dilated convolution layer.'''
         weights_filter = tf.Variable(tf.truncated_normal(
             [self.filter_width, in_channels, dilation_channels],
-            stddev=0.2,
-            name="filter"))
+            stddev=0.2, name="filter"))
         weights_gate = tf.Variable(tf.truncated_normal(
             [self.filter_width, in_channels, dilation_channels],
             stddev=0.2, name="gate"))
@@ -65,16 +85,15 @@ class WaveNet(object):
         return transformed, input_batch + transformed
 
 
-    def _preprocess(self, audio):
+    def encode(self, audio):
         '''Quantizes waveform amplitudes.'''
         with tf.name_scope('preprocessing'):
-            mu = self.channels - 1
+            mu = self.quantization_steps - 1
             # Perform mu-law companding transformation (ITU-T, 1988).
             magnitude = tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu)
             signal = tf.sign(audio) * magnitude
-            # Quantize signal to the specified number of levels
+            # Quantize signal to the specified number of levels.
             quantized = tf.cast((signal + 1) / 2 * mu, tf.int32)
-
         return quantized
 
 
@@ -87,10 +106,14 @@ class WaveNet(object):
 
 
     def _create_network(self, input_batch):
+        '''Creates a WaveNet network.'''
         outputs = []
         current_layer = input_batch
 
-        current_layer = self._create_causal_layer(current_layer, self.channels, self.residual_channels)
+        # Pre-process the input with a regular convolution
+        current_layer = self._create_causal_layer(current_layer,
+                                                  self.quantization_steps,
+                                                  self.residual_channels)
 
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
