@@ -53,18 +53,17 @@ class WaveNet(object):
         conv_gate = causal_conv(input_batch, weights_gate, dilation)
 
         if self.use_biases:
-          biases_filter = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
-                                    name="filter_biases")
-          biases_gate = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
-                                  name="gate_biases")
-          conv_filter = tf.add(conv_filter, biases_filter)
-          conv_gate = tf.add(conv_gate, biases_gate)
+            biases_filter = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
+                                        name="filter_biases")
+            biases_gate = tf.Variable(tf.constant(0.0, shape=[dilation_channels]),
+                                      name="gate_biases")
+            conv_filter = tf.add(conv_filter, biases_filter)
+            conv_gate = tf.add(conv_gate, biases_gate)
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
         weights_dense = tf.Variable(tf.truncated_normal(
             [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
-
         transformed = tf.nn.conv1d(out, weights_dense, stride=1,
                                    padding="SAME", name="dense")
         if self.use_biases:
