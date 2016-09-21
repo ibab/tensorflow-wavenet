@@ -2,8 +2,8 @@ import argparse
 from datetime import datetime
 import json
 import os
-import librosa
 
+import librosa
 import numpy as np
 import tensorflow as tf
 
@@ -35,10 +35,12 @@ def get_arguments():
                         help='How many samples before saving in-progress wav')
     return parser.parse_args()
 
+
 def write_wav(waveform, sample_rate, filename):
     y = np.array(waveform)
     librosa.output.write_wav(filename, y, sample_rate)
     print('Updated wav file at {}'.format(filename))
+
 
 def main():
     args = get_arguments()
@@ -49,12 +51,13 @@ def main():
     sess = tf.Session()
 
     net = WaveNet(
-        1,
-        wavenet_params['quantization_steps'],
-        wavenet_params['dilations'],
-        wavenet_params['filter_width'],
-        wavenet_params['residual_channels'],
-        wavenet_params['dilation_channels'])
+        batch_size=1,
+        dilations=wavenet_params['dilations'],
+        filter_width=wavenet_params['filter_width'],
+        residual_channels=wavenet_params['residual_channels'],
+        dilation_channels=wavenet_params['dilation_channels'],
+        quantization_channels=wavenet_params['quantization_channels'],
+        use_biases=wavenet_params['use_biases'])
 
     samples = tf.placeholder(tf.int32)
 
@@ -94,7 +97,8 @@ def main():
     tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
     summaries = tf.merge_all_summaries()
 
-    summary_out = sess.run(summaries, feed_dict={samples: np.reshape(waveform, [-1, 1])})
+    summary_out = sess.run(summaries, feed_dict={
+        samples: np.reshape(waveform, [-1, 1])})
     writer.add_summary(summary_out)
 
     if args.wav_out_path:

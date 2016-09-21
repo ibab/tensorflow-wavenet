@@ -1,10 +1,10 @@
 {
     "filter_width": 2,
-    "quantization_steps": 256,
     "sample_rate": 16000,
     "dilations": [1, 2, 4, 8, 16, 32, 64, 128, 256,
                   1, 2, 4, 8, 16, 32, 64, 128, 256],
     "residual_channels": 32,
     "dilation_channels":16,
+    "quantization_channels": 256,
     "use_biases": false
 }

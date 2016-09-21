@@ -1,25 +1,19 @@
-'''Training script for the WaveNet network on the VCTK corpus.
+"""Training script for the WaveNet network on the VCTK corpus.
 
 This script trains a network with the WaveNet using data from the VCTK corpus,
 which can be freely downloaded at the following site (~10 GB):
 http://homepages.inf.ed.ac.uk/jyamagis/page3/page58/page58.html
-'''
+"""
 
 from __future__ import print_function
 
 import argparse
 from datetime import datetime
-import glob
 import json
 import os
-import re
-import sys
 import time
-import threading
-import numpy as np
 
 import tensorflow as tf
-from tensorflow.contrib import ffmpeg
 from tensorflow.python.client import timeline
 
 from wavenet import WaveNet
@@ -27,7 +21,7 @@ from audio_reader import AudioReader
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
-LOGDIR = './logdir'
+LOGDIR_ROOT = './logdir'
 NUM_STEPS = 4000
 LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
@@ -85,7 +79,8 @@ def save(saver, sess, logdir, step):
 
 
 def load(saver, sess, logdir):
-    print("Trying to restore saved checkpoints from {} ...".format(logdir), end="")
+    print("Trying to restore saved checkpoints from {} ...".format(logdir),
+          end="")
 
     ckpt = tf.train.get_checkpoint_state(logdir)
     if ckpt:
@@ -103,14 +98,11 @@ def load(saver, sess, logdir):
 
 def get_default_logdir(logdir_root):
     logdir = os.path.join(logdir_root, 'train', STARTED_DATESTRING)
-
     return logdir
 
 
 def validate_directories(args):
-    """
-    Validate and arrange directory related arguments.
-    """
+    """Validate and arrange directory related arguments."""
 
     # Validation
     if args.logdir and args.logdir_root:
@@ -118,18 +110,19 @@ def validate_directories(args):
                          "specified at the same time.")
 
     if args.logdir and args.restore_from:
-        raise ValueError("--logdir and --restore_from cannot be "
-                         "specified at the same time. This is to keep "
-                         "your previous model from unexpected overwrites.\n"
-                         "Use --logdir_root to specify the root of the directory "
-                         "which will be automatically created with current date "
-                         "and time, or use only --logdir to just continue the "
-                         "training from the last checkpoint.")
+        raise ValueError(
+            "--logdir and --restore_from cannot be specified at the same "
+            "time. This is to keep your previous model from unexpected "
+            "overwrites.\n"
+            "Use --logdir_root to specify the root of the directory which "
+            "will be automatically created with current date and time, or use "
+            "only --logdir to just continue the training from the last "
+            "checkpoint.")
 
     # Arrangement
     logdir_root = args.logdir_root
     if logdir_root is None:
-        logdir_root = LOGDIR
+        logdir_root = LOGDIR_ROOT
 
     logdir = args.logdir
     if logdir is None:
@@ -138,9 +131,8 @@ def validate_directories(args):
 
     restore_from = args.restore_from
     if restore_from is None:
-        # args.logdir and args.restore_from is exclusive,
-        # So it is guranteed the logdir here is newly created.
-
+        # args.logdir and args.restore_from are exclusive,
+        # so it is guaranteed the logdir here is newly created.
         restore_from = logdir
 
     return {
@@ -165,13 +157,13 @@ def main():
     restore_from = directories['restore_from']
 
     # Even if we restored the model, we will treat it as new training
-    # if the trained model is written into arbitrary location.
-    is_new_training = logdir != restore_from
+    # if the trained model is written into an arbitrary location.
+    is_overwritten_training = logdir != restore_from
 
     with open(args.wavenet_params, 'r') as f:
         wavenet_params = json.load(f)
 
-    # create coordinator
+    # Create coordinator.
     coord = tf.train.Coordinator()
 
     # Load raw waveform from VCTK corpus.
@@ -184,13 +176,14 @@ def main():
         audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
-    net = WaveNet(args.batch_size,
-                  wavenet_params["quantization_steps"],
-                  wavenet_params["dilations"],
-                  wavenet_params["filter_width"],
-                  wavenet_params["residual_channels"],
-                  wavenet_params["dilation_channels"],
-                  wavenet_params["use_biases"])
+    net = WaveNet(
+        batch_size=args.batch_size,
+        dilations=wavenet_params["dilations"],
+        filter_width=wavenet_params["filter_width"],
+        residual_channels=wavenet_params["residual_channels"],
+        dilation_channels=wavenet_params["dilation_channels"],
+        quantization_channels=wavenet_params["quantization_channels"],
+        use_biases=wavenet_params["use_biases"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
@@ -212,12 +205,9 @@ def main():
 
     try:
         saved_global_step = load(saver, sess, restore_from)
-        if is_new_training or saved_global_step is None:
-            # For "new" training with using pre-trained model,
-            # We should ignore saved_global_step
-
-            # The training step is start from saved_global_step + 1
-            # Therefore put -1 here if the new training starts.
+        if is_overwritten_training or saved_global_step is None:
+            # The first training step will be saved_global_step + 1,
+            # therefore we put -1 here for new or overwritten trainings.
             saved_global_step = -1
 
     except:
