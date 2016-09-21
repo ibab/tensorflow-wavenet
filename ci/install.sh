@@ -8,6 +8,7 @@ conda update -q conda
 
 conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
 source activate test
+pip install pep8
 pip install nose
 pip install librosa
 
