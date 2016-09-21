@@ -69,8 +69,8 @@ def main():
 
     decode = net.decode(samples)
 
-    quantization_steps = wavenet_params['quantization_steps']
-    waveform = np.random.randint(quantization_steps, size=(1,)).tolist()
+    quantization_channels = wavenet_params['quantization_channels']
+    waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
     for step in range(args.samples):
         if len(waveform) > args.window:
             window = waveform[-args.window:]
@@ -79,7 +79,8 @@ def main():
         prediction = sess.run(
             next_sample,
             feed_dict={samples: window})
-        sample = np.random.choice(np.arange(quantization_steps), p=prediction)
+        sample = np.random.choice(np.arange(quantization_channels),
+                                  p=prediction)
         waveform.append(sample)
         print('Sample {:3<d}/{:3<d}: {}'.format(step + 1, args.samples, sample))
         if (args.wav_out_path
