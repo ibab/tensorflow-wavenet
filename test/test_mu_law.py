@@ -3,6 +3,7 @@ import tensorflow as tf
 
 from wavenet_ops import encode, decode
 
+
 class TestMuLaw(tf.test.TestCase):
 
     def testEncodeDecode(self):

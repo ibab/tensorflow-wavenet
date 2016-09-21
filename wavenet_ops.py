@@ -37,7 +37,7 @@ def causal_conv(value, filter_, dilation, name='causal_conv'):
         return result
 
 
-def encode(audio, quantization_channels):
+def mu_law_encode(audio, quantization_channels):
     '''Quantizes waveform amplitudes.'''
     with tf.name_scope('encode'):
         mu = quantization_channels - 1
@@ -48,12 +48,13 @@ def encode(audio, quantization_channels):
         return tf.cast((signal + 1) / 2 * mu + 0.5, tf.int32)
 
 
-def decode(output, quantization_channels):
+def mu_law_decode(output, quantization_channels):
     '''Recovers waveform from quantized values.'''
     with tf.name_scope('decode'):
         mu = quantization_channels - 1
         # Map values back to [-1, 1]
         casted = tf.cast(output, tf.float32)
-        y = 2 * (casted / mu) - 1
+        signal = 2 * (casted / mu) - 1
         # Perform inverse of mu-law transformation
-        return tf.sign(y) * (1 / mu) * ((1 + mu)**abs(y) - 1)
+        magnitude = (1 / mu) * ((1 + mu)**abs(signal) - 1)
+        return tf.sign(y) * magnitude

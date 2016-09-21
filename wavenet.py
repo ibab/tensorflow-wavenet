@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from wavenet_ops import causal_conv, encode
+from wavenet_ops import causal_conv, mu_law_encode
 
 class WaveNet(object):
     '''Implements the WaveNet network for generative audio.
@@ -198,7 +198,8 @@ class WaveNet(object):
         The variables are all scoped to the given name.
         '''
         with tf.variable_scope(name):
-            input_batch = encode(input_batch, self.quantization_channels)
+            input_batch = mu_law_encode(input_batch,
+                                        self.quantization_channels)
             encoded = self._one_hot(input_batch)
             raw_output = self._create_network(encoded)
 
