@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from wavenet import WaveNet
+from wavenet_ops import decode
 
 SAMPLES = 16000
 LOGDIR = './logdir'
@@ -67,7 +68,7 @@ def main():
     print('Restoring model from {}'.format(args.checkpoint))
     saver.restore(sess, args.checkpoint)
 
-    decode = net.decode(samples)
+    decode = decode(samples, wavenet_params['quantization_channels'])
 
     quantization_steps = wavenet_params['quantization_steps']
     waveform = np.random.randint(quantization_steps, size=(1,)).tolist()

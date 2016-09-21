@@ -1,5 +1,6 @@
 import tensorflow as tf
-from wavenet_ops import causal_conv
+
+from wavenet_ops import causal_conv, encode
 
 class WaveNet(object):
     '''Implements the WaveNet network for generative audio.
@@ -104,28 +105,6 @@ class WaveNet(object):
         return transformed, input_batch + transformed
 
 
-    def encode(self, audio):
-        '''Quantizes waveform amplitudes.'''
-        with tf.name_scope('encode'):
-            mu = self.quantization_channels - 1
-            # Perform mu-law companding transformation (ITU-T, 1988).
-            magnitude = tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu)
-            signal = tf.sign(audio) * magnitude
-            # Quantize signal to the specified number of levels
-            return tf.cast((signal + 1) / 2 * mu + 0.5, tf.int32)
-
-
-    def decode(self, output):
-        '''Recovers waveform from quantized values.'''
-        with tf.name_scope('decode'):
-            mu = self.quantization_channels - 1
-            # Map values back to [-1, 1]
-            casted = tf.cast(output, tf.float32)
-            y = 2 * (casted / mu) - 1
-            # Perform inverse of mu-law transformation
-            return tf.sign(y) * (1 / mu) * ((1 + mu)**abs(y) - 1)
-
-
     def _create_network(self, input_batch):
         '''Creates a WaveNet network.'''
         outputs = []
@@ -219,7 +198,7 @@ class WaveNet(object):
         The variables are all scoped to the given name.
         '''
         with tf.variable_scope(name):
-            input_batch = self.encode(input_batch)
+            input_batch = encode(input_batch, self.quantization_channels)
             encoded = self._one_hot(input_batch)
             raw_output = self._create_network(encoded)
 
