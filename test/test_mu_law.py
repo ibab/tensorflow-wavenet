@@ -8,9 +8,9 @@ class TestMuLaw(tf.test.TestCase):
 
         net = WaveNet(
             batch_size=1,
-            channels=256,
             dilations=[1],
             filter_width=2,
+            quantization_channels=256,
             residual_channels=256,
             dilation_channels=256,
         )
@@ -29,3 +29,6 @@ class TestMuLaw(tf.test.TestCase):
             x2 = sess.run(net.decode(net.encode(x1)))
 
         self.assertAllClose(x1, x2)
+
+if __name__ == '__main__':
+    tf.test.main()

@@ -118,7 +118,7 @@ class WaveNet(object):
     def decode(self, output):
         '''Recovers waveform from quantized values.'''
         with tf.name_scope('decode'):
-            mu = self.channels - 1
+            mu = self.quantization_channels - 1
             # Map values back to [-1, 1]
             casted = tf.cast(output, tf.float32)
             y = 2 * (casted / mu) - 1
