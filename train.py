@@ -182,8 +182,8 @@ def main():
         filter_width=wavenet_params["filter_width"],
         residual_channels=wavenet_params["residual_channels"],
         dilation_channels=wavenet_params["dilation_channels"],
-        quantization_channels=wavenet_params["quantization_channels"],
         skip_channels=wavenet_params["skip_channels"],
+        quantization_channels=wavenet_params["quantization_channels"],
         use_biases=wavenet_params["use_biases"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)

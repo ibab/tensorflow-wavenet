@@ -19,8 +19,8 @@ class WaveNet(object):
                  filter_width,
                  residual_channels,
                  dilation_channels,
-                 quantization_channels=2**8,
                  skip_channels,
+                 quantization_channels=2**8,
                  use_biases=False):
         '''Initializes the WaveNet model.
 
@@ -33,6 +33,8 @@ class WaveNet(object):
             residual_channels: How many filters to learn for the residual.
             dilation_channels: How many filters to learn for the dilated
                 convolution.
+            skip_channels: How many filters to learn that contribute to the
+                quantized softmax output.
             quantization_channels: How many amplitude values to use for audio
                 quantization and the corresponding one-hot encoding.
                 Default: 256 (8-bit quantization).
