@@ -29,7 +29,3 @@ class TestMuLaw(tf.test.TestCase):
             x2 = sess.run(net.decode(net.encode(x1)))
 
         self.assertAllClose(x1, x2)
-
-
-
-
