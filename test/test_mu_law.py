@@ -18,7 +18,7 @@ class TestMuLaw(tf.test.TestCase):
         x = np.linspace(-1, 1, 1000).astype(np.float32)
 
         # Test whether decoded signal is roughly equal to
-        # what was decoded before
+        # what was encoded before
         with self.test_session() as sess:
             x1 = sess.run(net.decode(net.encode(x)))
 
