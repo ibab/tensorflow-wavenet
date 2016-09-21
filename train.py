@@ -176,13 +176,14 @@ def main():
         audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
-    net = WaveNet(batch_size=args.batch_size,
-                  quantization_steps=wavenet_params["quantization_steps"],
-                  dilations=wavenet_params["dilations"],
-                  filter_width=wavenet_params["filter_width"],
-                  residual_channels=wavenet_params["residual_channels"],
-                  dilation_channels=wavenet_params["dilation_channels"],
-                  use_biases=wavenet_params["use_biases"])
+    net = WaveNet(
+        batch_size=args.batch_size,
+        dilations=wavenet_params["dilations"],
+        filter_width=wavenet_params["filter_width"],
+        residual_channels=wavenet_params["residual_channels"],
+        dilation_channels=wavenet_params["dilation_channels"],
+        quantization_channels=wavenet_params["quantization_channels"],
+        use_biases=wavenet_params["use_biases"])
     loss = net.loss(audio_batch)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()

@@ -1,11 +1,15 @@
+"""Unit tests for the causal_conv op."""
 
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+
 from wavenet_ops import time_to_batch, batch_to_time, causal_conv
+
 
 class TestCausalConv(tf.test.TestCase):
 
     def testCausalConv(self):
+        """Tests that the op is equivalent to a numpy implementation."""
         x1 = np.arange(1, 21, dtype=np.float32)
         x = np.append(x1, x1)
         x = np.reshape(x, [2, 20, 1])
@@ -22,11 +26,12 @@ class TestCausalConv(tf.test.TestCase):
 
         self.assertAllEqual(result, ref)
 
-    # Test that the causal convolution does not shift the output in time
-    # incorrectly with respect to the input. So we give
-    # it a time series, choose a filter that should be the identity, and assert
-    # that the output is not shifted at all relative to the input.
     def testNoTimeShift(self):
+        """Tests that the convlution does not introduce a time shift.
+
+        We give it a time series, choose a filter that should be the identity,
+        and assert that the output is not shifted at all relative to the input.
+        """
         # Input to filter is a time series of values 1..10
         x = np.arange(1,11, dtype=np.float32)
         # Reshape the input: shape is batch item x duration x channels = 1x10x1
@@ -51,6 +56,7 @@ class TestCausalConv(tf.test.TestCase):
 
         # The output time series should be identical to the input series.
         self.assertAllEqual(result, x)
+
 
 if __name__ == '__main__':
     tf.test.main()

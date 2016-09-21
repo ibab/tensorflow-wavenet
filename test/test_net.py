@@ -1,23 +1,25 @@
+"""Unit tests for the WaveNet that check that it can train on audio data."""
 
-import tensorflow as tf
-import numpy as np
-from wavenet_ops import time_to_batch, batch_to_time, causal_conv
-from wavenet import WaveNet
 import json
 
+import numpy as np
+import tensorflow as tf
 
-# Create a time-series of audio amplitudes corresponding to 3 superimposed
-# sine waves.
+from wavenet import WaveNet
+from wavenet_ops import time_to_batch, batch_to_time, causal_conv
+
+
 def MakeSineWaves():
-    sample_rate = 1.0/16000.0
-    # Period of the sine wave is inverse of frequency in hz.
-    p1 = 1.0/155.56 # E-flat
-    p2 = 1.0/196.00 # G
-    p3 = 1.0/233.08 # B-flat
-    # 100 mSec of data.
+    """Creates a time-series of audio amplitudes corresponding to 3
+    superimposed sine waves."""
+    sample_rate = 1.0 / 16000.0
+    # The period of the sine wave is the inverse of the frequency in Hz.
+    p1 = 1.0 / 155.56 # E-flat
+    p2 = 1.0 / 196.00 # G
+    p3 = 1.0 / 233.08 # B-flat
+    # The duration is 100 milliseconds.
     times = np.arange(0.0, 0.10, sample_rate)
 
-    # Amplitudes
     amplitudes = np.sin(times*2.0*np.pi/p1)/3.0 +  \
                  np.sin(times*2.0*np.pi/p2)/3.0 +  \
                  np.sin(times*2.0*np.pi/p3)/3.0
@@ -27,14 +29,13 @@ def MakeSineWaves():
 
 class TestNetWithBiases(tf.test.TestCase):
     def setUp(self):
-        quantization_steps=256
         self.net = WaveNet(batch_size=1,
-                           channels=quantization_steps,
                            dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
                                       1, 2, 4, 8, 16, 32, 64, 128, 256],
                            filter_width=2,
                            residual_channels=16,
                            dilation_channels=16,
+                           quantization_channels=256,
                            use_biases=True)
 
     # Train a net on a short clip of 3 sine waves superimposed (an e-flat chord)
@@ -70,7 +71,7 @@ class TestNetWithBiases(tf.test.TestCase):
 
         # Loss should be at least two orders of magnitude better
         # than before training.
-        self.assertLess(loss_val/initial_loss, 0.01)
+        self.assertLess(loss_val / initial_loss, 0.01)
 
 if __name__ == '__main__':
     tf.test.main()

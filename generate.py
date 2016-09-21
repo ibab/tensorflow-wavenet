@@ -50,12 +50,14 @@ def main():
 
     sess = tf.Session()
 
-    net = WaveNet(batch_size=1,
-                  quantization_steps=wavenet_params['quantization_steps'],
-                  dilations=wavenet_params['dilations'],
-                  filter_width=wavenet_params['filter_width'],
-                  residual_channels=wavenet_params['residual_channels'],
-                  dilation_channels=wavenet_params['dilation_channels'])
+    net = WaveNet(
+        batch_size=1,
+        dilations=wavenet_params['dilations'],
+        filter_width=wavenet_params['filter_width'],
+        residual_channels=wavenet_params['residual_channels'],
+        dilation_channels=wavenet_params['dilation_channels'],
+        quantization_channels=wavenet_params['quantization_channels'],
+        use_biases=wavenet_params['use_biases'])
 
     samples = tf.placeholder(tf.int32)
 

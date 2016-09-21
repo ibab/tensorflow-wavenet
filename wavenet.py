@@ -6,43 +6,44 @@ class WaveNet(object):
 
     Usage (with the architecture as in the DeepMind paper):
         dilations = [2**i for i in range(N)] * M
-        quantization_steps = 2**8  # Quantize to 256 possible amplitude values.
         filter_width = 2  # Convolutions just use 2 samples.
         residual_channels = 16  # Not specified in the paper.
         dilation_channels = 32  # Not specified in the paper.
-        net = WaveNet(batch_size, channels, dilations, filter_width,
+        net = WaveNet(batch_size, dilations, filter_width,
                       residual_channels, dilation_channel)
         loss = net.loss(input_batch)
     '''
     def __init__(self,
                  batch_size,
-                 quantization_steps,
                  dilations,
                  filter_width,
                  residual_channels,
                  dilation_channels,
-                 use_biases=True):
+                 quantization_channels=2**8,
+                 use_biases=False):
         '''Initializes the WaveNet model.
 
         Args:
             batch_size: How many audio files are supplied per batch
                 (recommended: 1).
-            quantization_steps: How many amplitude values to use for audio
-                quantization and the corresponding one-hot encoding.
             dilations: A list with the dilation factor for each layer.
             filter_width: The samples that are included in each convolution,
                 after dilating.
             residual_channels: How many filters to learn for the residual.
             dilation_channels: How many filters to learn for the dilated
                 convolution.
+            quantization_channels: How many amplitude values to use for audio
+                quantization and the corresponding one-hot encoding.
+                Default: 256 (8-bit quantization).
             use_biases: Whether to add a bias layer to each convolution.
+                Default: False.
         '''
         self.batch_size = batch_size
-        self.quantization_steps = quantization_steps
         self.dilations = dilations
         self.filter_width = filter_width
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
+        self.quantization_channels = quantization_channels
         self.use_biases = use_biases
 
     # A single causal convolution layer that can change the number of channels.
@@ -106,7 +107,7 @@ class WaveNet(object):
     def encode(self, audio):
         '''Quantizes waveform amplitudes.'''
         with tf.name_scope('preprocessing'):
-            mu = self.quantization_steps - 1
+            mu = self.quantization_channels - 1
             # Perform mu-law companding transformation (ITU-T, 1988).
             magnitude = tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu)
             signal = tf.sign(audio) * magnitude
@@ -116,7 +117,7 @@ class WaveNet(object):
 
 
     def decode(self, output):
-        mu = self.quantization_steps - 1
+        mu = self.quantization_channels - 1
         y = tf.cast(output, tf.float32)
         y = 2 * (y / mu) - 1
         x = tf.sign(y) * (1 / mu) * ((1 + mu)**abs(y) - 1)
@@ -130,7 +131,7 @@ class WaveNet(object):
 
         # Pre-process the input with a regular convolution
         current_layer = self._create_causal_layer(current_layer,
-                                                  self.quantization_steps,
+                                                  self.quantization_channels,
                                                   self.residual_channels)
 
         # Add all defined dilation layers.
@@ -148,18 +149,18 @@ class WaveNet(object):
         with tf.name_scope('postprocessing'):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
-            inner_channels = int(self.quantization_steps / 2)
+            inner_channels = int(self.quantization_channels / 2)
             w1 = tf.Variable(tf.truncated_normal(
                 [1, self.residual_channels, inner_channels],
                 stddev=0.3, name="postprocess1"))
             w2 = tf.Variable(tf.truncated_normal(
-                [1, inner_channels, self.quantization_steps],
+                [1, inner_channels, self.quantization_channels],
                 stddev=0.3, name="postprocess2"))
             if self.use_biases:
                 b1 = tf.Variable(tf.constant(0.0, shape=[inner_channels]),
                                  name="postprocess1_bias")
                 b2 = tf.Variable(tf.constant(0.0,
-                                             shape=[self.quantization_steps]),
+                                             shape=[self.quantization_channels]),
                                  name="postprocess2_bias")
 
             tf.histogram_summary('postprocess1_weights', w1)
@@ -190,10 +191,10 @@ class WaveNet(object):
         over a finite set of possible amplitudes.
         '''
         with tf.name_scope('one_hot_encode'):
-            encoded = tf.one_hot(input_batch, depth=self.quantization_steps,
+            encoded = tf.one_hot(input_batch, depth=self.quantization_channels,
                                  dtype=tf.float32)
             encoded = tf.reshape(
-                encoded, [self.batch_size, -1, self.quantization_steps])
+                encoded, [self.batch_size, -1, self.quantization_channels])
             return encoded
 
 
@@ -202,11 +203,11 @@ class WaveNet(object):
         with tf.variable_scope(name):
             encoded = self._one_hot(waveform)
             raw_output = self._create_network(encoded)
-            out = tf.reshape(raw_output, [-1, self.quantization_steps])
+            out = tf.reshape(raw_output, [-1, self.quantization_channels])
             proba = tf.nn.softmax(tf.cast(out, tf.float64))
             last = tf.slice(proba,
                             [tf.shape(proba)[0] - 1, 0],
-                            [1, self.quantization_steps])
+                            [1, self.quantization_channels])
             return tf.reshape(last, [-1])
 
 
@@ -227,11 +228,11 @@ class WaveNet(object):
                                    [-1, tf.shape(encoded)[1] - 1, -1])
                 shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
 
-                prediction = tf.reshape(raw_output, [-1,
-                                                     self.quantization_steps])
+                prediction = tf.reshape(raw_output,
+                                        [-1, self.quantization_channels])
                 loss = tf.nn.softmax_cross_entropy_with_logits(
                     prediction,
-                    tf.reshape(shifted, [-1, self.quantization_steps]))
+                    tf.reshape(shifted, [-1, self.quantization_channels]))
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)
