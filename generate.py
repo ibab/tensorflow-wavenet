@@ -57,6 +57,7 @@ def main():
         residual_channels=wavenet_params['residual_channels'],
         dilation_channels=wavenet_params['dilation_channels'],
         quantization_channels=wavenet_params['quantization_channels'],
+        skip_channels=wavenet_params['skip_channels'],
         use_biases=wavenet_params['use_biases'])
 
     samples = tf.placeholder(tf.int32)

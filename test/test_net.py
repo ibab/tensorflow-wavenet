@@ -36,7 +36,8 @@ class TestNetWithBiases(tf.test.TestCase):
                            residual_channels=16,
                            dilation_channels=16,
                            quantization_channels=256,
-                           use_biases=True)
+                           use_biases=True,
+                           skip_channels=32)
 
     # Train a net on a short clip of 3 sine waves superimposed (an e-flat chord)
     # Presumably it can overfit to such a simple signal. This test serves
