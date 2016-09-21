@@ -81,7 +81,7 @@ class WaveNet(object):
     def decode(self, output):
         mu = self.channels - 1
         y = tf.cast(output, tf.float32)
-        y = 2 * (output / mu) - 1
+        y = 2 * (y / mu) - 1
         x = tf.sign(y) * (1 / mu) * ((1 + mu)**abs(y) - 1)
         return x
 
