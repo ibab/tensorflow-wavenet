@@ -28,6 +28,7 @@ WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
 
+
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
@@ -85,7 +86,9 @@ def load(saver, sess, logdir):
     ckpt = tf.train.get_checkpoint_state(logdir)
     if ckpt:
         print("  Checkpoint found: {}".format(ckpt.model_checkpoint_path))
-        global_step = int(ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1])
+        global_step = int(ckpt.model_checkpoint_path
+                          .split('/')[-1]
+                          .split('-')[-1])
         print("  Global step was: {}".format(global_step))
         print("  Restoring...", end="")
         saver.restore(sess, ckpt.model_checkpoint_path)
@@ -127,7 +130,7 @@ def validate_directories(args):
     logdir = args.logdir
     if logdir is None:
         logdir = get_default_logdir(logdir_root)
-        print ('Using default logdir: {}'.format(logdir))
+        print('Using default logdir: {}'.format(logdir))
 
     restore_from = args.restore_from
     if restore_from is None:
@@ -226,13 +229,15 @@ def main():
             if args.store_metadata and step % 50 == 0:
                 # Slow run that stores extra information for debugging.
                 print('Storing metadata')
-                run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                run_options = tf.RunOptions(
+                    trace_level=tf.RunOptions.FULL_TRACE)
                 summary, loss_value, _ = sess.run(
                     [summaries, loss, optim],
                     options=run_options,
                     run_metadata=run_metadata)
                 writer.add_summary(summary, step)
-                writer.add_run_metadata(run_metadata, 'step_{:04d}'.format(step))
+                writer.add_run_metadata(run_metadata,
+                                        'step_{:04d}'.format(step))
                 tl = timeline.Timeline(run_metadata.step_stats)
                 timeline_path = os.path.join(logdir, 'timeline.trace')
                 with open(timeline_path, 'w') as f:
@@ -242,7 +247,8 @@ def main():
                 writer.add_summary(summary, step)
 
             duration = time.time() - start_time
-            print('step %d - loss = %.3f, (%.3f sec/step)' % (step, loss_value, duration))
+            print('step %d - loss = %.3f, (%.3f sec/step)'
+                  .format(step, loss_value, duration))
 
             if step % 50 == 0:
                 save(saver, sess, logdir, step)
