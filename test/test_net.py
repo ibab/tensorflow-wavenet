@@ -20,14 +20,15 @@ def MakeSineWaves():
     # The duration is 100 milliseconds.
     times = np.arange(0.0, 0.10, sample_rate)
 
-    amplitudes = (np.sin(times*2.0*np.pi/p1)/3.0 +
-                  np.sin(times*2.0*np.pi/p2)/3.0 +
-                  np.sin(times*2.0*np.pi/p3)/3.0)
+    amplitudes = (np.sin(times * 2.0 * np.pi / p1) / 3.0 +
+                  np.sin(times * 2.0 * np.pi / p2) / 3.0 +
+                  np.sin(times * 2.0 * np.pi / p3) / 3.0)
 
     return amplitudes
 
 
-class TestNetWithBiases(tf.test.TestCase):
+class TestNet(tf.test.TestCase):
+
     def setUp(self):
         self.net = WaveNet(batch_size=1,
                            dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
@@ -36,7 +37,6 @@ class TestNetWithBiases(tf.test.TestCase):
                            residual_channels=16,
                            dilation_channels=16,
                            quantization_channels=256,
-                           use_biases=True,
                            skip_channels=32)
 
     # Train a net on a short clip of 3 sine waves superimposed
@@ -76,6 +76,20 @@ class TestNetWithBiases(tf.test.TestCase):
         # Loss should be at least two orders of magnitude better
         # than before training.
         self.assertLess(loss_val / initial_loss, 0.01)
+
+
+class TestNetWithBiases(TestNet):
+
+    def setUp(self):
+        self.net = WaveNet(batch_size=1,
+                           dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                      1, 2, 4, 8, 16, 32, 64, 128, 256],
+                           filter_width=2,
+                           residual_channels=16,
+                           dilation_channels=16,
+                           quantization_channels=256,
+                           use_biases=True,
+                           skip_channels=32)
 
 if __name__ == '__main__':
     tf.test.main()
