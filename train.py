@@ -247,7 +247,7 @@ def main():
                 writer.add_summary(summary, step)
 
             duration = time.time() - start_time
-            print('step %d - loss = %.3f, (%.3f sec/step)'
+            print('step {:d} - loss = {:.3f}, ({:.3f} sec/step)'
                   .format(step, loss_value, duration))
 
             if step % 50 == 0:
