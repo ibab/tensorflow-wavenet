@@ -1,3 +1,5 @@
+from __future__ import division
+
 import argparse
 from datetime import datetime
 import json
@@ -8,7 +10,7 @@ import numpy as np
 import tensorflow as tf
 
 from wavenet import WaveNet
-from wavenet_ops import mu_law_decode
+from wavenet_ops import mu_law_decode, mu_law_encode
 
 SAMPLES = 16000
 LOGDIR = './logdir'
@@ -44,18 +46,13 @@ def write_wav(waveform, sample_rate, filename):
     librosa.output.write_wav(filename, y, sample_rate)
     print('Updated wav file at {}'.format(filename))
 
-def create_seed(filename, sample_rate, quantization_channels, percent=50):
-    audio = librosa.load(filename, sr=sample_rate, mono=True)
-    audio = audio[0]
+def create_seed(filename, sample_rate, quantization_channels, window_size=WINDOW):
+    audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
 
-    mu = quantization_channels - 1
-    magnitude = np.log(1 + mu * np.abs(audio)) / np.log(1. + mu)
-    signal = np.sign(audio) * magnitude
-    quantized = (signal + 1) / 2 * mu
-    quantized = quantized.astype(np.int32)
+    quantized = mu_law_encode(audio, quantization_channels)
+    cut_index = tf.size(quantized) + tf.constant(window_size) - tf.constant(1)
 
-    cut_index = int(len(quantized) * (percent / 100))
-    return quantized[:cut_index].tolist()
+    return quantized[:cut_index]
 
 def main():
     args = get_arguments()
@@ -87,9 +84,13 @@ def main():
 
     quantization_channels = wavenet_params['quantization_channels']
     if args.wav_seed:
-        waveform = create_seed(args.wav_seed, wavenet_params['sample_rate'], quantization_channels)
+        seed = create_seed(args.wav_seed,
+                    wavenet_params['sample_rate'],
+                    quantization_channels)
+        waveform = sess.run(seed).tolist()
     else:
         waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
+
     for step in range(args.samples):
         if len(waveform) > args.window:
             window = waveform[-args.window:]
