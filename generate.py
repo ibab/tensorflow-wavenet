@@ -33,12 +33,27 @@ def get_arguments():
                         help='Path to output wav file')
     parser.add_argument('--save_every', type=int, default=SAVE_EVERY,
                         help='How many samples before saving in-progress wav')
+    parser.add_argument('--wav_seed', type=str, default=None,
+                        help='The wav file to start generation from')
     return parser.parse_args()
 
 def write_wav(waveform, sample_rate, filename):
     y = np.array(waveform)
     librosa.output.write_wav(filename, y, sample_rate)
     print('Updated wav file at {}'.format(filename))
+
+def create_seed(filename, sample_rate, quantization_steps, percent=50):
+    audio = librosa.load(filename, sr=sample_rate, mono=True)
+    audio = audio[0]
+
+    mu = quantization_steps - 1
+    magnitude = np.log(1 + mu * np.abs(audio)) / np.log(1. + mu)
+    signal = np.sign(audio) * magnitude
+    quantized = (signal + 1) / 2 * mu
+    quantized = quantized.astype(np.int32)
+
+    cut_index = int(len(quantized) * (percent / 100))
+    return quantized[:cut_index].tolist()
 
 def main():
     args = get_arguments()
@@ -54,7 +69,8 @@ def main():
         wavenet_params['dilations'],
         wavenet_params['filter_width'],
         wavenet_params['residual_channels'],
-        wavenet_params['dilation_channels'])
+        wavenet_params['dilation_channels'],
+        wavenet_params['use_biases'])
 
     samples = tf.placeholder(tf.int32)
 
@@ -67,7 +83,10 @@ def main():
     decode = net.decode(samples)
 
     quantization_steps = wavenet_params['quantization_steps']
-    waveform = np.random.randint(quantization_steps, size=(1,)).tolist()
+    if args.wav_seed:
+        waveform = create_seed(args.wav_seed, wavenet_params['sample_rate'], quantization_steps)
+    else:
+        waveform = np.random.randint(quantization_steps, size=(1,)).tolist()
     for step in range(args.samples):
         if len(waveform) > args.window:
             window = waveform[-args.window:]
