@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from wavenet import WaveNet
+from wavenet_ops import mu_law_decode
 
 SAMPLES = 16000
 LOGDIR = './logdir'
@@ -68,7 +69,7 @@ def main():
     print('Restoring model from {}'.format(args.checkpoint))
     saver.restore(sess, args.checkpoint)
 
-    decode = net.decode(samples)
+    decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
 
     quantization_channels = wavenet_params['quantization_channels']
     waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
