@@ -2,12 +2,13 @@ import argparse
 from datetime import datetime
 import json
 import os
-import librosa
 
+import librosa
 import numpy as np
 import tensorflow as tf
 
 from wavenet import WaveNet
+from wavenet_ops import mu_law_decode
 
 SAMPLES = 16000
 LOGDIR = './logdir'
@@ -37,16 +38,17 @@ def get_arguments():
                         help='The wav file to start generation from')
     return parser.parse_args()
 
+
 def write_wav(waveform, sample_rate, filename):
     y = np.array(waveform)
     librosa.output.write_wav(filename, y, sample_rate)
     print('Updated wav file at {}'.format(filename))
 
-def create_seed(filename, sample_rate, quantization_steps, percent=50):
+def create_seed(filename, sample_rate, quantization_channels, percent=50):
     audio = librosa.load(filename, sr=sample_rate, mono=True)
     audio = audio[0]
 
-    mu = quantization_steps - 1
+    mu = quantization_channels - 1
     magnitude = np.log(1 + mu * np.abs(audio)) / np.log(1. + mu)
     signal = np.sign(audio) * magnitude
     quantized = (signal + 1) / 2 * mu
@@ -64,13 +66,14 @@ def main():
     sess = tf.Session()
 
     net = WaveNet(
-        1,
-        wavenet_params['quantization_steps'],
-        wavenet_params['dilations'],
-        wavenet_params['filter_width'],
-        wavenet_params['residual_channels'],
-        wavenet_params['dilation_channels'],
-        wavenet_params['use_biases'])
+        batch_size=1,
+        dilations=wavenet_params['dilations'],
+        filter_width=wavenet_params['filter_width'],
+        residual_channels=wavenet_params['residual_channels'],
+        dilation_channels=wavenet_params['dilation_channels'],
+        quantization_channels=wavenet_params['quantization_channels'],
+        skip_channels=wavenet_params['skip_channels'],
+        use_biases=wavenet_params['use_biases'])
 
     samples = tf.placeholder(tf.int32)
 
@@ -80,13 +83,13 @@ def main():
     print('Restoring model from {}'.format(args.checkpoint))
     saver.restore(sess, args.checkpoint)
 
-    decode = net.decode(samples)
+    decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
 
-    quantization_steps = wavenet_params['quantization_steps']
+    quantization_channels = wavenet_params['quantization_channels']
     if args.wav_seed:
-        waveform = create_seed(args.wav_seed, wavenet_params['sample_rate'], quantization_steps)
+        waveform = create_seed(args.wav_seed, wavenet_params['sample_rate'], quantization_channels)
     else:
-        waveform = np.random.randint(quantization_steps, size=(1,)).tolist()
+        waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
     for step in range(args.samples):
         if len(waveform) > args.window:
             window = waveform[-args.window:]
@@ -95,7 +98,8 @@ def main():
         prediction = sess.run(
             next_sample,
             feed_dict={samples: window})
-        sample = np.random.choice(np.arange(quantization_steps), p=prediction)
+        sample = np.random.choice(np.arange(quantization_channels),
+                                  p=prediction)
         waveform.append(sample)
         print('Sample {:3<d}/{:3<d}: {}'.format(step + 1, args.samples, sample))
         if (args.wav_out_path
@@ -113,7 +117,8 @@ def main():
     tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
     summaries = tf.merge_all_summaries()
 
-    summary_out = sess.run(summaries, feed_dict={samples: np.reshape(waveform, [-1, 1])})
+    summary_out = sess.run(summaries, feed_dict={
+        samples: np.reshape(waveform, [-1, 1])})
     writer.add_summary(summary_out)
 
     if args.wav_out_path:
