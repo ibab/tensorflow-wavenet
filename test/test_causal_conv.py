@@ -33,9 +33,9 @@ class TestCausalConv(tf.test.TestCase):
         and assert that the output is not shifted at all relative to the input.
         """
         # Input to filter is a time series of values 1..10
-        x = np.arange(1,11, dtype=np.float32)
+        x = np.arange(1, 11, dtype=np.float32)
         # Reshape the input: shape is batch item x duration x channels = 1x10x1
-        x = np.reshape(x, [1,10,1])
+        x = np.reshape(x, [1, 10, 1])
         # Default shape ordering for conv filter = HWIO for 2d. Since we use
         # 1d, this just becomes WxIxO where:
         #   W = width AKA number of time steps in time series = 2
@@ -43,7 +43,7 @@ class TestCausalConv(tf.test.TestCase):
         #   O = output channels = 1
         # Since the filter is size 2, for it to be identity-preserving, one
         # value is 1.0, the other 0.0
-        filter = np.reshape(np.array([0.0,1.0], dtype=np.float32), [2,1,1])
+        filter = np.reshape(np.array([0.0, 1.0], dtype=np.float32), [2, 1, 1])
 
         # Compute the output
         out = causal_conv(x, filter, dilation=2)
