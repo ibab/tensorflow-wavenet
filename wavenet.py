@@ -237,8 +237,9 @@ class WaveNet(object):
                 
                 # L2 regularization for all trainable parameters
                 l2_loss = tf.add_n([tf.nn.l2_loss(v) 
-                                    for v in tf.trainable_variables()])
-                                        
+                                    for v in tf.trainable_variables() 
+                                    if not('bias' in v.name)])
+                
                 # Add the regularization term to the loss
                 total_loss = reduced_loss + C * l2_loss
                 
