@@ -102,6 +102,14 @@ Passing `--save_every` in addition to `--wav_out_path` will save the in-progress
 python generate.py --wav_out_path=generated.wav --save_every 2000 --samples 16000 model.ckpt-1000
 ```
 
+For fast generation:
+
+```
+python generate.py --samples 16000 model.ckpt-1000 --fast_generation=True
+```
+
+For an explanation of fast generation, see [Fast Wavenet](https://github.com/tomlepaine/fast-wavenet).
+
 ## Missing features
 
 Currently, there is no conditioning on extra information like the speaker ID.
