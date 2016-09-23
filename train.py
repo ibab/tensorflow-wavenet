@@ -43,7 +43,7 @@ def get_arguments():
                         help='Directory in which to store the logging '
                         'information for TensorBoard. '
                         'If the model already exists, it will restore '
-                        'the state and will continue training.'
+                        'the state and will continue training. '
                         'Cannot use with --logdir_root and --restore_from.')
     parser.add_argument('--logdir_root', type=str, default=None,
                         help='Root directory to place the logging '
