@@ -114,7 +114,19 @@ The fast generation algorithm uses the implementation from the [Fast Wavenet](ht
 You can follow the link for an explanation of how it works.
 This reduces the time needed to generate samples to a few minutes.
 
-## Missing features
+## Running tests
 
+Install the test requirements
+```
+pip install -r requirements_test.txt
+```
+
+Run the test suite
+```
+./ci/test.sh
+```
+
+## Missing features
+=======
 Currently, there is no conditioning on extra information like the speaker ID.
 
