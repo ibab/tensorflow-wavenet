@@ -63,7 +63,7 @@ def get_arguments():
                         help='JSON file with the network parameters.')
     parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
                         help='Concatenate and cut audio samples to this many '
-                        'samples')
+                        'samples.')
     return parser.parse_args()
 
 
@@ -215,7 +215,7 @@ def main():
             saved_global_step = -1
 
     except:
-        print("Something is wrong while restoring checkpoint. "
+        print("Something went wrong while restoring checkpoint. "
               "We will terminate training to avoid accidentally overwriting "
               "the previous model.")
         raise
