@@ -11,6 +11,7 @@ import argparse
 from datetime import datetime
 import json
 import os
+import sys
 import time
 
 import tensorflow as tf
@@ -71,6 +72,7 @@ def save(saver, sess, logdir, step):
     model_name = 'model.ckpt'
     checkpoint_path = os.path.join(logdir, model_name)
     print('Storing checkpoint to {} ...'.format(logdir), end="")
+    sys.stdout.flush()
 
     if not os.path.exists(logdir):
         os.makedirs(logdir)
@@ -224,6 +226,7 @@ def main():
     reader.start_threads(sess)
 
     try:
+        last_saved_step = saved_global_step
         for step in range(saved_global_step + 1, args.num_steps):
             start_time = time.time()
             if args.store_metadata and step % 50 == 0:
@@ -252,8 +255,15 @@ def main():
 
             if step % 50 == 0:
                 save(saver, sess, logdir, step)
+                last_saved_step = step
 
+    except KeyboardInterrupt:
+        # Introduce a line break after ^C is displayed so save message
+        # is on its own line.
+        print()
     finally:
+        if step > last_saved_step:
+            save(saver, sess, logdir, step)
         coord.request_stop()
         coord.join(threads)
 
