@@ -206,7 +206,7 @@ def main():
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     init = tf.initialize_all_variables()
     sess.run(init)
-    stop
+    
     # Saver for storing checkpoints of the model.
     saver = tf.train.Saver()
 
