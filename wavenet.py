@@ -44,6 +44,8 @@ class WaveNet(object):
                 Default: 256 (8-bit quantization).
             use_biases: Whether to add a bias layer to each convolution.
                 Default: False.
+            fast_generation: Whether to use the fast generation architecture.
+                Default: False.
         '''
         self.batch_size = batch_size
         self.dilations = dilations
@@ -54,13 +56,16 @@ class WaveNet(object):
         self.use_biases = use_biases
         self.skip_channels = skip_channels
         self.fast_generation = fast_generation
+        
         if self.fast_generation and self.use_biases:
             raise NotImplementedError(
                 'Biases not implemented for fast generation.')
 
-    # A single causal convolution layer that can change the number of channels.
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
-        '''Creates a single causal convolution layer.'''
+        '''Creates a single causal convolution layer.
+        
+        The layer can change the number of channels.
+        '''
         with tf.name_scope('causal_layer'):
             weights_filter = tf.Variable(
                 tf.truncated_normal(
@@ -71,7 +76,20 @@ class WaveNet(object):
 
     def _create_dilation_layer(self, input_batch, layer_index, dilation,
                                in_channels, dilation_channels, skip_channels):
-        '''Creates a single causal dilated convolution layer.'''
+        '''Creates a single causal dilated convolution layer.
+        
+        The layer contains a gated filter that connects to dense output
+        and to a skip connection:
+            
+               |-> [gate]   -|        |-> 1x1 conv -> skip output
+               |             |-> (*) -| 
+        input -|-> [filter] -|        |-> 1x1 conv -|
+               |                                    |-> (+) -> dense output
+               |------------------------------------|
+              
+        Where `[gate]` and `[filter]` are causal convolutions with a
+        non-linear activation at the output.
+        '''
         weights_filter = tf.Variable(
             tf.truncated_normal(
                 [self.filter_width, in_channels, dilation_channels],
@@ -100,6 +118,7 @@ class WaveNet(object):
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
+        # The 1x1 conv to produce the dense contribution.
         weights_dense = tf.Variable(
             tf.truncated_normal(
                 [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
