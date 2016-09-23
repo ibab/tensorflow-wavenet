@@ -8,9 +8,7 @@ conda update -q conda
 
 conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
 source activate test
-pip install pep8
-pip install nose
-pip install librosa
+pip install -r requirements_test.txt
 
 if [[ $TRAVIS_PYTHON_VERSION == "2.7" ]]; then
     pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-$TENSORFLOW-cp27-none-linux_x86_64.whl
