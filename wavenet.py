@@ -67,7 +67,7 @@ class WaveNet(object):
         
         The layer can change the number of channels.
         '''
-        with tf.variable_scope('causal_layer'):
+        with tf.name_scope('causal_layer'):
             weights_filter = create_variable("filter", [self.filter_width,
                                                         in_channels,
                                                         out_channels])
@@ -209,7 +209,7 @@ class WaveNet(object):
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
             for layer_index, dilation in enumerate(self.dilations):
-                with tf.variable_scope('layer{}'.format(layer_index)):
+                with tf.name_scope('layer{}'.format(layer_index)):
                     output, current_layer = self._create_dilation_layer(
                         current_layer, layer_index, dilation,
                         self.residual_channels, self.dilation_channels,
@@ -342,7 +342,7 @@ class WaveNet(object):
 
     def predict_proba(self, waveform, name='wavenet'):
         '''Computes the probability distribution of the next sample.'''
-        with tf.variable_scope(name):
+        with tf.name_scope(name):
             encoded = self._one_hot(waveform)
             if self.fast_generation:
                 if self.use_biases:
@@ -362,7 +362,7 @@ class WaveNet(object):
 
         The variables are all scoped to the given name.
         '''
-        with tf.variable_scope(name):
+        with tf.name_scope(name):
             input_batch = mu_law_encode(input_batch,
                                         self.quantization_channels)
             encoded = self._one_hot(input_batch)

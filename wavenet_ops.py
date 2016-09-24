@@ -6,8 +6,10 @@ import tensorflow as tf
 # Create a convolution filter variable with the specified name and shape,
 # and initialize it using xavier initialization.
 def create_variable(name, shape):
+    #    initializer = tf.contrib.layers.xavier_initializer_conv2d()
+    #    variable = tf.get_variable(name, shape=shape, initializer=initializer)
     initializer = tf.contrib.layers.xavier_initializer_conv2d()
-    variable = tf.get_variable(name, shape=shape, initializer=initializer)
+    variable = tf.Variable(initializer(shape=shape), name=name)
     return variable
 
 
@@ -15,7 +17,7 @@ def create_variable(name, shape):
 # it to zero.
 def create_bias_variable(name, shape):
     initializer = tf.constant_initializer(value=0.0, dtype=tf.float32)
-    return tf.get_variable(name, shape=shape, initializer=initializer)
+    return tf.Variable(initializer(shape=shape), name)
 
 
 def time_to_batch(value, dilation, name=None):
