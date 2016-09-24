@@ -23,7 +23,7 @@ def load_generic_audio(directory, sample_rate):
     for filename in files:
         audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
-        yield audio
+        yield audio, filename
 
 
 def load_vctk_audio(directory, sample_rate):
@@ -44,7 +44,9 @@ def trim_silence(audio, threshold=0.3):
     energy = librosa.feature.rmse(audio)
     frames = np.nonzero(energy > threshold)
     indices = librosa.core.frames_to_samples(frames)[1]
-    return audio[indices[0]:indices[-1]]
+
+    # Note: indices can be an empty array, if the whole audio was silence.
+    return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
 
 
 class AudioReader(object):
@@ -78,13 +80,18 @@ class AudioReader(object):
         # Go through the dataset multiple times
         while not stop:
             iterator = load_generic_audio(self.audio_dir, self.sample_rate)
-            for audio in iterator:
+            for audio, filename in iterator:
                 if self.coord.should_stop():
                     self.stop_threads()
                     stop = True
                     break
                 # Remove silence
                 audio = trim_silence(audio[:, 0])
+                if audio.size == 0:
+                    print("[!] {} was ignored as it only contains silence. \n"
+                          "    Consider decreasing trim_silence threshold, or adjust volume "
+                          "of the audio.".format(filename))
+
                 if self.sample_size:
                     # Cut samples into fixed size pieces
                     buffer_ = np.append(buffer_, audio)
