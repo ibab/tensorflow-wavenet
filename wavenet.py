@@ -57,14 +57,14 @@ class WaveNet(object):
         self.use_biases = use_biases
         self.skip_channels = skip_channels
         self.fast_generation = fast_generation
-        
+
         if self.fast_generation and self.use_biases:
             raise NotImplementedError(
                 'Biases not implemented for fast generation.')
 
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
         '''Creates a single causal convolution layer.
-        
+
         The layer can change the number of channels.
         '''
         with tf.name_scope('causal_layer'):
@@ -76,16 +76,16 @@ class WaveNet(object):
     def _create_dilation_layer(self, input_batch, layer_index, dilation,
                                in_channels, dilation_channels, skip_channels):
         '''Creates a single causal dilated convolution layer.
-        
+
         The layer contains a gated filter that connects to dense output
         and to a skip connection:
-            
+
                |-> [gate]   -|        |-> 1x1 conv -> skip output
                |             |-> (*) -| 
         input -|-> [filter] -|        |-> 1x1 conv -|
                |                                    |-> (+) -> dense output
                |------------------------------------|
-              
+
         Where `[gate]` and `[filter]` are causal convolutions with a
         non-linear activation at the output.
         '''
@@ -315,7 +315,7 @@ class WaveNet(object):
             # all up here.
             total = sum(outputs)
             transformed1 = tf.nn.relu(total)
-                        
+
             conv1 = tf.matmul(transformed1, w1[0, :, :])
             transformed2 = tf.nn.relu(conv1)
             conv2 = tf.matmul(transformed2, w2[0, :, :])
