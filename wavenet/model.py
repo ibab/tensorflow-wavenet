@@ -246,13 +246,21 @@ class WaveNetModel(object):
         output_gate = self._generator_conv(
             input_batch, state_batch, weights_gate)
 
+        if self.use_biases:
+            output_filter = output_filter + variables['filter_bias']
+            conv_gate = output_gate + variables['gate_bias']
+
         out = tf.tanh(output_filter) * tf.sigmoid(output_gate)
 
         weights_dense = variables['dense']
         transformed = tf.matmul(out, weights_dense[0, :, :])
+        if self.use_biases:
+            transformed = transformed + variables['dense_bias']
 
         weights_skip = variables['skip']
         skip_contribution = tf.matmul(out, weights_skip[0, :, :])
+        if self.use_biases:
+            skip_contribution = skip_contribution + variables['skip_bias']
 
         return skip_contribution, input_batch + transformed
 
@@ -354,18 +362,27 @@ class WaveNetModel(object):
         self.push_ops = push_ops
 
         with tf.name_scope('postprocessing'):
+            variables = self.variables['postprocessing']
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
-            w1 = self.variables['postprocessing']['postprocess1']
-            w2 = self.variables['postprocessing']['postprocess2']
+            w1 = variables['postprocess1']
+            w2 = variables['postprocess2']
+            if self.use_biases:
+                b1 = variables['postprocess1_bias']
+                b2 = variables['postprocess2_bias']
+
             # We skip connections from the outputs of each layer, adding them
             # all up here.
             total = sum(outputs)
             transformed1 = tf.nn.relu(total)
 
             conv1 = tf.matmul(transformed1, w1[0, :, :])
+            if self.use_biases:
+                conv1 = conv1 + b1
             transformed2 = tf.nn.relu(conv1)
             conv2 = tf.matmul(transformed2, w2[0, :, :])
+            if self.use_biases:
+                conv2 = conv2 + b2
 
         return conv2
 
@@ -409,9 +426,6 @@ class WaveNetModel(object):
         if self.filter_width > 2:
             raise NotImplementedError("Incremental generation does not "
                                       "support filter_width > 2.")
-        if self.use_biases:
-            raise NotImplementedError("Incremental generation does not "
-                                      "support biases.")
         with tf.name_scope(name):
 
             encoded = tf.one_hot(waveform, self.quantization_channels)
