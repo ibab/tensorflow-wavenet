@@ -17,8 +17,7 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNet
-from audio_reader import AudioReader
+from wavenet import WaveNetModel, AudioReader
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
@@ -185,7 +184,7 @@ def main():
         audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
-    net = WaveNet(
+    net = WaveNetModel(
         batch_size=args.batch_size,
         dilations=wavenet_params["dilations"],
         filter_width=wavenet_params["filter_width"],

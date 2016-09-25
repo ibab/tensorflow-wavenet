@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from wavenet_ops import mu_law_encode, mu_law_decode
+from wavenet import mu_law_encode, mu_law_decode
 
 
 # A set of mu law encode/decode functions implemented
