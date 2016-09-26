@@ -27,7 +27,7 @@ LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
-L2_REGULARIZATION_STRENGTH=0.
+L2_REGULARIZATION_STRENGTH = None
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
@@ -64,7 +64,7 @@ def get_arguments():
     parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
                         help='Concatenate and cut audio samples to this many '
                         'samples')
-    parser.add_argument('--l2_regularization_strength', type=float, 
+    parser.add_argument('--l2_regularization_strength', type=float,
                         default=L2_REGULARIZATION_STRENGTH,
                         help='L2 regularization strength ')
     return parser.parse_args()
@@ -206,7 +206,7 @@ def main():
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     init = tf.initialize_all_variables()
     sess.run(init)
-    
+
     # Saver for storing checkpoints of the model.
     saver = tf.train.Saver()
 
