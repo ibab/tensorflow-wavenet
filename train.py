@@ -27,7 +27,7 @@ LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
-L2_REGULARIZATION_STRENGTH = None
+L2_REGULARIZATION_STRENGTH = 0.
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='WaveNet example network')
@@ -191,7 +191,7 @@ def main():
         skip_channels=wavenet_params["skip_channels"],
         quantization_channels=wavenet_params["quantization_channels"],
         use_biases=wavenet_params["use_biases"])
-    loss = net.loss(audio_batch, C=args.l2_regularization_strength)
+    loss = net.loss(audio_batch, l2_regularization_strength=args.l2_regularization_strength)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
     optim = optimizer.minimize(loss, var_list=trainable)

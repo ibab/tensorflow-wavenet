@@ -210,7 +210,7 @@ class WaveNet(object):
                             [1, self.quantization_channels])
             return tf.reshape(last, [-1])
 
-    def loss(self, input_batch, l2_regularization_strength=None, name='wavenet'):
+    def loss(self, input_batch, l2_regularization_strength=0., name='wavenet'):
         '''Creates a WaveNet network and returns the autoencoding loss.
 
         The variables are all scoped to the given name.
@@ -236,7 +236,9 @@ class WaveNet(object):
                 reduced_loss = tf.reduce_mean(loss)
                 tf.scalar_summary('loss', reduced_loss)
 
-                if not(l2_regularization_strength is None):
+                if l2_regularization_strength == 0.:
+                    return reduced_loss
+                else:
                     # L2 regularization for all trainable parameters
                     l2_loss = tf.add_n([tf.nn.l2_loss(v)
                                         for v in tf.trainable_variables()
@@ -250,5 +252,3 @@ class WaveNet(object):
                     tf.scalar_summary('total_loss', total_loss)
 
                     return total_loss
-                else:
-                    return reduced_loss
