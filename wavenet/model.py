@@ -26,8 +26,8 @@ class WaveNetModel(object):
         filter_width = 2  # Convolutions just use 2 samples.
         residual_channels = 16  # Not specified in the paper.
         dilation_channels = 32  # Not specified in the paper.
-        net = WaveNet(batch_size, dilations, filter_width,
-                      residual_channels, dilation_channel)
+        net = WaveNetModel(batch_size, dilations, filter_width,
+                           residual_channels, dilation_channel)
         loss = net.loss(input_batch)
     '''
 
@@ -450,11 +450,8 @@ class WaveNetModel(object):
             # and use this as input for the first layer.
             input_batch = mu_law_encode(input_batch,
                                         self.quantization_channels)
-            network_input = tf.cast(input_batch, tf.float32)
             encoded = self._one_hot(input_batch)
-            input_batch = tf.reshape(
-                encoded, [self.batch_size, -1, self.quantization_channels])
-            raw_output = self._create_network(input_batch)
+            raw_output = self._create_network(encoded)
 
             with tf.name_scope('loss'):
                 # Shift original input left by one sample, which means that
