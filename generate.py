@@ -55,11 +55,12 @@ def get_arguments():
         type=int,
         default=SAVE_EVERY,
         help='How many samples before saving in-progress wav')
+    parser.set_defaults(fast_generation=True)
     parser.add_argument(
-        '--fast_generation',
-        type=bool,
-        default=True,
-        help='Use fast generation')
+        '--disable_fast_generation',
+        dest='fast_generation',
+        action='store_false',
+        help='Disable fast generation')
     parser.add_argument(
         '--wav_seed',
         type=str,
