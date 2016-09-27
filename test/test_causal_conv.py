@@ -3,7 +3,7 @@
 import numpy as np
 import tensorflow as tf
 
-from wavenet_ops import time_to_batch, batch_to_time, causal_conv
+from wavenet import time_to_batch, batch_to_time, causal_conv
 
 
 class TestCausalConv(tf.test.TestCase):

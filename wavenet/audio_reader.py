@@ -58,11 +58,13 @@ class AudioReader(object):
                  coord,
                  sample_rate,
                  sample_size=None,
+                 silence_threshold=0.3,
                  queue_size=256):
         self.audio_dir = audio_dir
         self.sample_rate = sample_rate
         self.coord = coord
         self.sample_size = sample_size
+        self.silence_threshold = silence_threshold
         self.threads = []
         self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
         self.queue = tf.PaddingFIFOQueue(queue_size,
@@ -86,11 +88,12 @@ class AudioReader(object):
                     stop = True
                     break
                 # Remove silence
-                audio = trim_silence(audio[:, 0])
+                audio = trim_silence(audio[:, 0], self.silence_threshold)
                 if audio.size == 0:
-                    print("[!] {} was ignored as it only contains silence. \n"
-                          "    Consider decreasing trim_silence threshold, or adjust volume "
-                          "of the audio.".format(filename))
+                    print("Warning: {} was ignored as it contains only "
+                          "silence. Consider decreasing trim_silence "
+                          "threshold, or adjust volume of the audio."
+                          .format(filename))
 
                 if self.sample_size:
                     # Cut samples into fixed size pieces
