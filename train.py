@@ -28,6 +28,7 @@ LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
+SILENCE_THRESHOLD = 0.3
 
 
 def get_arguments():
@@ -65,6 +66,8 @@ def get_arguments():
     parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
                         help='Concatenate and cut audio samples to this many '
                         'samples.')
+    parser.add_argument('--silence_threshold', type=float, default=SILENCE_THRESHOLD,
+                        help='Volume threshold below which to cut from training set')
     return parser.parse_args()
 
 
@@ -177,7 +180,8 @@ def main():
             args.data_dir,
             coord,
             sample_rate=wavenet_params['sample_rate'],
-            sample_size=args.sample_size)
+            sample_size=args.sample_size,
+            silence_threshold=args.silence_threshold)
         audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
