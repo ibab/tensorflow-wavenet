@@ -20,6 +20,12 @@ SAVE_EVERY = None
 
 
 def get_arguments():
+    def _str_to_bool(s):
+        """Convert string to bool (in argparse context)."""
+        if s.lower() not in ['true', 'false']:
+            raise ValueError('Argument needs to be a boolean, got {}'.format(s))
+        return {'true': True, 'false': False}[s.lower()]
+
     parser = argparse.ArgumentParser(description='WaveNet generation script')
     parser.add_argument(
         'checkpoint', type=str, help='Which model checkpoint to generate from')
@@ -55,12 +61,11 @@ def get_arguments():
         type=int,
         default=SAVE_EVERY,
         help='How many samples before saving in-progress wav')
-    parser.set_defaults(fast_generation=True)
     parser.add_argument(
-        '--disable_fast_generation',
-        dest='fast_generation',
-        action='store_false',
-        help='Disable fast generation')
+        '--fast_generation',
+        default=True,
+        type=_str_to_bool,
+        help='Use fast generation')
     parser.add_argument(
         '--wav_seed',
         type=str,
