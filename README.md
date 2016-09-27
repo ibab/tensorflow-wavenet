@@ -113,6 +113,18 @@ python generate.py --samples 16000 model.ckpt-1000 --fast_generation=false
 ```
 
 
+## Running tests
+
+Install the test requirements
+```
+pip install -r requirements_test.txt
+```
+
+Run the test suite
+```
+./ci/test.sh
+```
+
 ## Missing features
 
 Currently, there is no conditioning on extra information like the speaker ID.
