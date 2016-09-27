@@ -109,7 +109,7 @@ Fast generation is enabled by default. It uses the implementation from the [Fast
 
 To disable fast generation:
 ```
-python generate.py --samples 16000 model.ckpt-1000 --disable_fast_generation
+python generate.py --samples 16000 model.ckpt-1000 --fast_generation=false
 ```
 
 
