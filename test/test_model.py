@@ -56,7 +56,7 @@ class TestNet(tf.test.TestCase):
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.initialize_all_variables()
 
-        max_allowed_loss = 0.2
+        max_allowed_loss = 0.1
         loss_val = max_allowed_loss
         initial_loss = None
         with self.test_session() as sess:

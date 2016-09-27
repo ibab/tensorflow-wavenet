@@ -106,7 +106,7 @@ python generate.py --wav_out_path=generated.wav --save_every 2000 --samples 1600
 ```
 
 Fast generation is enabled by default.
-It uses the implementation from the [Fast Wavenet](https://github.com/tomlepaine/fast-wavenet) repository. You can follow the link for an explanation of how it works. This reduces the time needed to generate samples to a few minutes.
+It uses the implementation from the [Fast Wavenet](https://github.com/tomlepaine/fast-wavenet) repository.
 You can follow the link for an explanation of how it works.
 This reduces the time needed to generate samples to a few minutes.
 

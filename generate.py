@@ -144,9 +144,9 @@ def main():
         # When using the incremental generation, we need to
         # feed in all priming samples one by one before starting the
         # actual generation.
-        # TODO This can be done much more efficiently by passing the waveform
-        # to the incremental generation function and filling the queues with it
-        # instead of zeros.
+        # TODO This could be done much more efficiently by passing the waveform
+        # to the incremental generator as an optional argument, which would be
+        # used to fill the queues initially.
         outputs = [next_sample]
         outputs.extend(net.push_ops)
 
