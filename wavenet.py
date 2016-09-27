@@ -154,8 +154,8 @@ class WaveNet(object):
             weights_filter = tf.Variable(
                 tf.truncated_normal(
                     [self.filter_width, in_channels, out_channels],
-                    stddev=0.2,
-                    name="filter"))
+                    stddev=0.2),
+                    name="filter")
 
             output = self._apply_weights(input_batch, state_batch,
                                          weights_filter)
@@ -167,13 +167,13 @@ class WaveNet(object):
         weights_filter = tf.Variable(
             tf.truncated_normal(
                 [self.filter_width, in_channels, dilation_channels],
-                stddev=0.2,
-                name="filter"))
+                stddev=0.2),
+                name="filter")
         weights_gate = tf.Variable(
             tf.truncated_normal(
                 [self.filter_width, in_channels, dilation_channels],
-                stddev=0.2,
-                name="gate"))
+                stddev=0.2),
+                name="gate")
 
         output_filter = self._apply_weights(input_batch, state_batch,
                                             weights_filter)
@@ -184,7 +184,7 @@ class WaveNet(object):
 
         weights_dense = tf.Variable(
             tf.truncated_normal(
-                [1, dilation_channels, in_channels], stddev=0.2, name="dense"))
+                [1, dilation_channels, in_channels], stddev=0.2), name="dense")
         transformed = tf.matmul(out, weights_dense[0, :, :])
 
         weights_skip = tf.Variable(
@@ -303,13 +303,13 @@ class WaveNet(object):
             w1 = tf.Variable(
                 tf.truncated_normal(
                     [1, self.skip_channels, self.skip_channels],
-                    stddev=0.3,
-                    name="postprocess1"))
+                    stddev=0.3),
+                    name="postprocess1")
             w2 = tf.Variable(
                 tf.truncated_normal(
                     [1, self.skip_channels, self.quantization_channels],
-                    stddev=0.3,
-                    name="postprocess2"))
+                    stddev=0.3),
+                    name="postprocess2")
  
             # We skip connections from the outputs of each layer, adding them
             # all up here.
