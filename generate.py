@@ -11,6 +11,7 @@ import tensorflow as tf
 
 from wavenet import WaveNet
 from wavenet_ops import mu_law_decode, mu_law_encode
+from audio_reader import trim_silence
 
 SAMPLES = 16000
 LOGDIR = './logdir'
@@ -81,9 +82,12 @@ def write_wav(waveform, sample_rate, filename):
 
 def create_seed(filename, sample_rate, quantization_channels, window_size=WINDOW):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
+    audio = trim_silence(audio)
 
     quantized = mu_law_encode(audio, quantization_channels)
-    cut_index = tf.size(quantized) + tf.constant(window_size) - tf.constant(1)
+    cut_index = tf.cond(tf.size(quantized) - tf.constant(window_size) < 0,
+            lambda: tf.constant(window_size),
+            lambda: tf.size(quantized) - tf.constant(window_size))
 
     return quantized[:cut_index]
 
