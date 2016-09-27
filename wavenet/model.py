@@ -104,12 +104,12 @@ class WaveNetModel(object):
                              self.dilation_channels])
                         current['dense'] = create_variable(
                             'dense',
-                            [self.filter_width,
+                            [1,
                              self.dilation_channels,
                              self.residual_channels])
                         current['skip'] = create_variable(
                             'skip',
-                            [self.filter_width,
+                            [1,
                              self.dilation_channels,
                              self.skip_channels])
                         if self.use_biases:
