@@ -90,9 +90,10 @@ class AudioReader(object):
                 # Remove silence
                 audio = trim_silence(audio[:, 0], self.silence_threshold)
                 if audio.size == 0:
-                    print("[!] {} was ignored as it only contains silence. \n"
-                          "    Consider decreasing trim_silence threshold, or adjust volume "
-                          "of the audio.".format(filename))
+                    print("Warning: {} was ignored as it contains only "
+                          "silence. Consider decreasing trim_silence "
+                          "threshold, or adjust volume of the audio."
+                          .format(filename))
 
                 if self.sample_size:
                     # Cut samples into fixed size pieces

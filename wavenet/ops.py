@@ -3,23 +3,6 @@ from __future__ import division
 import tensorflow as tf
 
 
-# Create a convolution filter variable with the specified name and shape,
-# and initialize it using xavier initialization.
-def create_variable(name, shape):
-    #    initializer = tf.contrib.layers.xavier_initializer_conv2d()
-    #    variable = tf.get_variable(name, shape=shape, initializer=initializer)
-    initializer = tf.contrib.layers.xavier_initializer_conv2d()
-    variable = tf.Variable(initializer(shape=shape), name=name)
-    return variable
-
-
-# Create a bias variable with the specified name and shape and initialize
-# it to zero.
-def create_bias_variable(name, shape):
-    initializer = tf.constant_initializer(value=0.0, dtype=tf.float32)
-    return tf.Variable(initializer(shape=shape), name)
-
-
 def time_to_batch(value, dilation, name=None):
     with tf.name_scope('time_to_batch'):
         shape = tf.shape(value)

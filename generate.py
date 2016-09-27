@@ -9,8 +9,7 @@ import librosa
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNet
-from wavenet_ops import mu_law_decode, mu_law_encode
+from wavenet import WaveNetModel, mu_law_encode, mu_law_decode
 
 SAMPLES = 16000
 LOGDIR = './logdir'
@@ -23,7 +22,8 @@ def get_arguments():
     def _str_to_bool(s):
         """Convert string to bool (in argparse context)."""
         if s.lower() not in ['true', 'false']:
-            raise ValueError('Argument needs to be a boolean, got {}'.format(s))
+            raise ValueError('Argument needs to be a '
+                             'boolean, got {}'.format(s))
         return {'true': True, 'false': False}[s.lower()]
 
     parser = argparse.ArgumentParser(description='WaveNet generation script')
@@ -63,8 +63,8 @@ def get_arguments():
         help='How many samples before saving in-progress wav')
     parser.add_argument(
         '--fast_generation',
-        default=True,
         type=_str_to_bool,
+        default=True,
         help='Use fast generation')
     parser.add_argument(
         '--wav_seed',
@@ -79,13 +79,18 @@ def write_wav(waveform, sample_rate, filename):
     librosa.output.write_wav(filename, y, sample_rate)
     print('Updated wav file at {}'.format(filename))
 
-def create_seed(filename, sample_rate, quantization_channels, window_size=WINDOW):
+
+def create_seed(filename,
+                sample_rate,
+                quantization_channels,
+                window_size=WINDOW):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
 
     quantized = mu_law_encode(audio, quantization_channels)
     cut_index = tf.size(quantized) + tf.constant(window_size) - tf.constant(1)
 
     return quantized[:cut_index]
+
 
 def main():
     args = get_arguments()
@@ -95,7 +100,7 @@ def main():
 
     sess = tf.Session()
 
-    net = WaveNet(
+    net = WaveNetModel(
         batch_size=1,
         dilations=wavenet_params['dilations'],
         filter_width=wavenet_params['filter_width'],
@@ -103,19 +108,22 @@ def main():
         dilation_channels=wavenet_params['dilation_channels'],
         quantization_channels=wavenet_params['quantization_channels'],
         skip_channels=wavenet_params['skip_channels'],
-        use_biases=wavenet_params['use_biases'],
-        fast_generation=args.fast_generation)
+        use_biases=wavenet_params['use_biases'])
 
     samples = tf.placeholder(tf.int32)
 
-    next_sample = net.predict_proba(samples)
+    if args.fast_generation:
+        next_sample = net.predict_proba_incremental(samples)
+    else:
+        next_sample = net.predict_proba(samples)
 
     if args.fast_generation:
         sess.run(tf.initialize_all_variables())
         sess.run(net.init_ops)
 
-    variables_to_restore = {var.name[:-2]: var for var in tf.all_variables(
-    ) if not ('state_buffer' in var.name or 'pointer' in var.name)}
+    variables_to_restore = {
+        var.name[:-2]: var for var in tf.all_variables()
+        if not ('state_buffer' in var.name or 'pointer' in var.name)}
     saver = tf.train.Saver(variables_to_restore)
 
     print('Restoring model from {}'.format(args.checkpoint))
@@ -126,17 +134,34 @@ def main():
     quantization_channels = wavenet_params['quantization_channels']
     if args.wav_seed:
         seed = create_seed(args.wav_seed,
-                    wavenet_params['sample_rate'],
-                    quantization_channels)
+                           wavenet_params['sample_rate'],
+                           quantization_channels)
         waveform = sess.run(seed).tolist()
     else:
         waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
 
+    if args.fast_generation and args.wav_seed:
+        # When using the incremental generation, we need to
+        # feed in all priming samples one by one before starting the
+        # actual generation.
+        # TODO This could be done much more efficiently by passing the waveform
+        # to the incremental generator as an optional argument, which would be
+        # used to fill the queues initially.
+        outputs = [next_sample]
+        outputs.extend(net.push_ops)
+
+        print('Priming generation...')
+        for i, x in enumerate(waveform[:-(args.window + 1)]):
+            if i % 100 == 0:
+                print('Priming sample {}'.format(i))
+            sess.run(outputs, feed_dict={samples: x})
+        print('Done.')
+
     for step in range(args.samples):
         if args.fast_generation:
-            window = waveform[-1]
             outputs = [next_sample]
             outputs.extend(net.push_ops)
+            window = waveform[-1]
         else:
             if len(waveform) > args.window:
                 window = waveform[-args.window:]

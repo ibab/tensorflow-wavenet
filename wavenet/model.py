@@ -1,10 +1,24 @@
 import tensorflow as tf
 
-from wavenet_ops import causal_conv, mu_law_encode, create_variable, \
-                        create_bias_variable
+from .ops import causal_conv, mu_law_encode
 
 
-class WaveNet(object):
+def create_variable(name, shape):
+    '''Create a convolution filter variable with the specified name and shape,
+    and initialize it using Xavier initialition.'''
+    initializer = tf.contrib.layers.xavier_initializer_conv2d()
+    variable = tf.Variable(initializer(shape=shape), name=name)
+    return variable
+
+
+def create_bias_variable(name, shape):
+    '''Create a bias variable with the specified name and shape and initialize
+    it to zero.'''
+    initializer = tf.constant_initializer(value=0.0, dtype=tf.float32)
+    return tf.Variable(initializer(shape=shape), name)
+
+
+class WaveNetModel(object):
     '''Implements the WaveNet network for generative audio.
 
     Usage (with the architecture as in the DeepMind paper):
@@ -12,8 +26,8 @@ class WaveNet(object):
         filter_width = 2  # Convolutions just use 2 samples.
         residual_channels = 16  # Not specified in the paper.
         dilation_channels = 32  # Not specified in the paper.
-        net = WaveNet(batch_size, dilations, filter_width,
-                      residual_channels, dilation_channel)
+        net = WaveNetModel(batch_size, dilations, filter_width,
+                           residual_channels, dilation_channel)
         loss = net.loss(input_batch)
     '''
 
@@ -25,8 +39,7 @@ class WaveNet(object):
                  dilation_channels,
                  skip_channels,
                  quantization_channels=2**8,
-                 use_biases=False,
-                 fast_generation=False):
+                 use_biases=False):
         '''Initializes the WaveNet model.
 
         Args:
@@ -45,8 +58,6 @@ class WaveNet(object):
                 Default: 256 (8-bit quantization).
             use_biases: Whether to add a bias layer to each convolution.
                 Default: False.
-            fast_generation: Whether to use the fast generation architecture.
-                Default: False.
         '''
         self.batch_size = batch_size
         self.dilations = dilations
@@ -56,11 +67,85 @@ class WaveNet(object):
         self.quantization_channels = quantization_channels
         self.use_biases = use_biases
         self.skip_channels = skip_channels
-        self.fast_generation = fast_generation
 
-        if self.fast_generation and self.use_biases:
-            raise NotImplementedError(
-                'Biases not implemented for fast generation.')
+        self.variables = self._create_variables()
+
+    def _create_variables(self):
+        '''This function creates all variables used by the network.
+        This allows us to share them between multiple calls to the loss
+        function and generation function.'''
+
+        var = dict()
+
+        with tf.variable_scope('wavenet'):
+            with tf.variable_scope('causal_layer'):
+                layer = dict()
+                layer['filter'] = create_variable(
+                    'filter',
+                    [self.filter_width,
+                     self.quantization_channels,
+                     self.residual_channels])
+                var['causal_layer'] = layer
+
+            var['dilated_stack'] = list()
+            with tf.variable_scope('dilated_stack'):
+                for i, dilation in enumerate(self.dilations):
+                    with tf.variable_scope('layer{}'.format(i)):
+                        current = dict()
+                        current['filter'] = create_variable(
+                            'filter',
+                            [self.filter_width,
+                             self.residual_channels,
+                             self.dilation_channels])
+                        current['gate'] = create_variable(
+                            'gate',
+                            [self.filter_width,
+                             self.residual_channels,
+                             self.dilation_channels])
+                        current['dense'] = create_variable(
+                            'dense',
+                            [1,
+                             self.dilation_channels,
+                             self.residual_channels])
+                        current['skip'] = create_variable(
+                            'skip',
+                            [1,
+                             self.dilation_channels,
+                             self.skip_channels])
+                        if self.use_biases:
+                            current['filter_bias'] = create_bias_variable(
+                                'filter_bias',
+                                [self.dilation_channels])
+                            current['gate_bias'] = create_bias_variable(
+                                'gate_bias',
+                                [self.dilation_channels])
+                            current['dense_bias'] = create_bias_variable(
+                                'dense_bias',
+                                [self.residual_channels])
+                            current['skip_bias'] = create_bias_variable(
+                                'slip_bias',
+                                [self.skip_channels])
+
+                        var['dilated_stack'].append(current)
+
+            with tf.variable_scope('postprocessing'):
+                current = dict()
+                current['postprocess1'] = create_variable(
+                    'postprocess1',
+                    [1, self.skip_channels, self.skip_channels])
+                current['postprocess2'] = create_variable(
+                    'postprocess2',
+                    [1, self.skip_channels, self.quantization_channels])
+                if self.use_biases:
+                    current['postprocess1_bias'] = create_bias_variable(
+                        'postprocess1_bias',
+                        [self.skip_channels])
+                    current['postprocess2_bias'] = create_bias_variable(
+                        'postprocess2_bias',
+                        [self.quantization_channels])
+                var['postprocessing'] = current
+
+        return var
 
     def _create_causal_layer(self, input_batch, in_channels, out_channels):
         '''Creates a single causal convolution layer.
@@ -68,9 +153,7 @@ class WaveNet(object):
         The layer can change the number of channels.
         '''
         with tf.name_scope('causal_layer'):
-            weights_filter = create_variable("filter", [self.filter_width,
-                                                        in_channels,
-                                                        out_channels])
+            weights_filter = self.variables['causal_layer']['filter']
             return causal_conv(input_batch, weights_filter, 1)
 
     def _create_dilation_layer(self, input_batch, layer_index, dilation,
@@ -81,7 +164,7 @@ class WaveNet(object):
         and to a skip connection:
 
                |-> [gate]   -|        |-> 1x1 conv -> skip output
-               |             |-> (*) -| 
+               |             |-> (*) -|
         input -|-> [filter] -|        |-> 1x1 conv -|
                |                                    |-> (+) -> dense output
                |------------------------------------|
@@ -89,43 +172,37 @@ class WaveNet(object):
         Where `[gate]` and `[filter]` are causal convolutions with a
         non-linear activation at the output.
         '''
-        weights_filter = create_variable("filter", [self.filter_width,
-                                                    in_channels,
-                                                    dilation_channels])
-        weights_gate = create_variable("gate", [self.filter_width,
-                                                in_channels,
-                                                dilation_channels])
+        variables = self.variables['dilated_stack'][layer_index]
+
+        weights_filter = variables['filter']
+        weights_gate = variables['gate']
 
         conv_filter = causal_conv(input_batch, weights_filter, dilation)
         conv_gate = causal_conv(input_batch, weights_gate, dilation)
 
         if self.use_biases:
-            biases_filter = create_bias_variable("filter_biases",
-                                                 [dilation_channels])
-            biases_gate = create_bias_variable("filter_biases",
-                                               [dilation_channels])
-            conv_filter = tf.add(conv_filter, biases_filter)
-            conv_gate = tf.add(conv_gate, biases_gate)
+            filter_bias = variables['filter_bias']
+            gate_bias = variables['gate_bias']
+            conv_filter = tf.add(conv_filter, filter_bias)
+            conv_gate = tf.add(conv_gate, gate_bias)
 
         out = tf.tanh(conv_filter) * tf.sigmoid(conv_gate)
 
-        # The 1x1 conv to produce the dense contribution.
-        weights_dense = create_variable("dense", [1, dilation_channels,
-                                                     in_channels])
+        # The 1x1 conv to produce the residual output
+        weights_dense = variables['dense']
         transformed = tf.nn.conv1d(
             out, weights_dense, stride=1, padding="SAME", name="dense")
 
-        # The 1x1 conv to produce the skip contribution.
-        weights_skip = create_variable("skip", [1, dilation_channels,
-                                                skip_channels])
+        # The 1x1 conv to produce the skip output
+        weights_skip = variables['skip']
         skip_contribution = tf.nn.conv1d(
             out, weights_skip, stride=1, padding="SAME", name="skip")
 
         if self.use_biases:
-            biases_dense = create_bias_variable("dense_biases", [in_channels])
-            transformed = tf.add(transformed, biases_dense)
-            biases_skip = create_bias_variable("skip_biases", [skip_channels])
-            skip_contribution = tf.add(skip_contribution, biases_skip)
+            dense_bias = variables['dense_bias']
+            skip_bias = variables['skip_bias']
+            transformed = transformed + dense_bias
+            skip_contribution = skip_contribution + skip_bias
 
         layer = 'layer{}'.format(layer_index)
         tf.histogram_summary(layer + '_filter', weights_filter)
@@ -133,72 +210,62 @@ class WaveNet(object):
         tf.histogram_summary(layer + '_dense', weights_dense)
         tf.histogram_summary(layer + '_skip', weights_skip)
         if self.use_biases:
-            tf.histogram_summary(layer + '_biases_filter', biases_filter)
-            tf.histogram_summary(layer + '_biases_gate', biases_gate)
-            tf.histogram_summary(layer + '_biases_dense', biases_dense)
-            tf.histogram_summary(layer + '_biases_skip', biases_skip)
+            tf.histogram_summary(layer + '_biases_filter', filter_bias)
+            tf.histogram_summary(layer + '_biases_gate', gate_bias)
+            tf.histogram_summary(layer + '_biases_dense', dense_bias)
+            tf.histogram_summary(layer + '_biases_skip', skip_bias)
 
         return skip_contribution, input_batch + transformed
 
-    def _apply_weights(self, input_batch, state_batch, weights):
-        weights_recurrent = weights[0, :, :]
-        weights_embedding = weights[1, :, :]
-
-        output = (tf.matmul(input_batch, weights_embedding) + tf.matmul(
-            state_batch, weights_recurrent))
+    def _generator_conv(self, input_batch, state_batch, weights):
+        '''Perform convolution for a single convolutional processing step.'''
+        # TODO generalize to filter_width > 2
+        past_weights = weights[0, :, :]
+        curr_weights = weights[1, :, :]
+        output = tf.matmul(state_batch, past_weights) + tf.matmul(
+            input_batch, curr_weights)
         return output
 
     def _generator_causal_layer(self, input_batch, state_batch, in_channels,
                                 out_channels):
         with tf.name_scope('causal_layer'):
-            weights_filter = tf.Variable(
-                tf.truncated_normal(
-                    [self.filter_width, in_channels, out_channels],
-                    stddev=0.2),
-                    name="filter")
-
-            output = self._apply_weights(input_batch, state_batch,
-                                         weights_filter)
+            weights_filter = self.variables['causal_layer']['filter']
+            output = self._generator_conv(
+                input_batch, state_batch, weights_filter)
         return output
 
     def _generator_dilation_layer(self, input_batch, state_batch, layer_index,
                                   dilation, in_channels, dilation_channels,
                                   skip_channels):
-        weights_filter = tf.Variable(
-            tf.truncated_normal(
-                [self.filter_width, in_channels, dilation_channels],
-                stddev=0.2),
-                name="filter")
-        weights_gate = tf.Variable(
-            tf.truncated_normal(
-                [self.filter_width, in_channels, dilation_channels],
-                stddev=0.2),
-                name="gate")
+        variables = self.variables['dilated_stack'][layer_index]
 
-        output_filter = self._apply_weights(input_batch, state_batch,
-                                            weights_filter)
-        output_gate = self._apply_weights(input_batch, state_batch,
-                                          weights_gate)
+        weights_filter = variables['filter']
+        weights_gate = variables['gate']
+        output_filter = self._generator_conv(
+            input_batch, state_batch, weights_filter)
+        output_gate = self._generator_conv(
+            input_batch, state_batch, weights_gate)
+
+        if self.use_biases:
+            output_filter = output_filter + variables['filter_bias']
+            conv_gate = output_gate + variables['gate_bias']
 
         out = tf.tanh(output_filter) * tf.sigmoid(output_gate)
 
-        weights_dense = tf.Variable(
-            tf.truncated_normal(
-                [1, dilation_channels, in_channels], stddev=0.2), name="dense")
+        weights_dense = variables['dense']
         transformed = tf.matmul(out, weights_dense[0, :, :])
+        if self.use_biases:
+            transformed = transformed + variables['dense_bias']
 
-        weights_skip = tf.Variable(
-            tf.truncated_normal(
-                [1, dilation_channels, skip_channels], stddev=0.1),
-                name="skip")
+        weights_skip = variables['skip']
         skip_contribution = tf.matmul(out, weights_skip[0, :, :])
-
-        layer = 'layer{}'.format(layer_index)
+        if self.use_biases:
+            skip_contribution = skip_contribution + variables['skip_bias']
 
         return skip_contribution, input_batch + transformed
 
     def _create_network(self, input_batch):
-        '''Creates a WaveNet network.'''
+        '''Construct the WaveNet network.'''
         outputs = []
         current_layer = input_batch
 
@@ -219,15 +286,11 @@ class WaveNet(object):
         with tf.name_scope('postprocessing'):
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
-            w1 = create_variable("postprocess1", [1, self.skip_channels,
-                                                  self.skip_channels])
-            w2 = create_variable("postprocess2", [1, self.skip_channels,
-                                                  self.quantization_channels])
+            w1 = self.variables['postprocessing']['postprocess1']
+            w2 = self.variables['postprocessing']['postprocess2']
             if self.use_biases:
-                b1 = create_bias_variable("postprocess1_bias",
-                                          [self.skip_channels])
-                b2 = create_bias_variable("postprocess2_bias",
-                                          [self.quantization_channels])
+                b1 = self.variables['postprocessing']['postprocess1_bias']
+                b2 = self.variables['postprocessing']['postprocess2_bias']
 
             tf.histogram_summary('postprocess1_weights', w1)
             tf.histogram_summary('postprocess2_weights', w2)
@@ -250,6 +313,7 @@ class WaveNet(object):
         return conv2
 
     def _create_generator(self, input_batch):
+        '''Construct an efficient incremental generator.'''
         init_ops = []
         push_ops = []
         outputs = []
@@ -298,27 +362,27 @@ class WaveNet(object):
         self.push_ops = push_ops
 
         with tf.name_scope('postprocessing'):
+            variables = self.variables['postprocessing']
             # Perform (+) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
             # postprocess the output.
-            w1 = tf.Variable(
-                tf.truncated_normal(
-                    [1, self.skip_channels, self.skip_channels],
-                    stddev=0.3),
-                    name="postprocess1")
-            w2 = tf.Variable(
-                tf.truncated_normal(
-                    [1, self.skip_channels, self.quantization_channels],
-                    stddev=0.3),
-                    name="postprocess2")
- 
+            w1 = variables['postprocess1']
+            w2 = variables['postprocess2']
+            if self.use_biases:
+                b1 = variables['postprocess1_bias']
+                b2 = variables['postprocess2_bias']
+
             # We skip connections from the outputs of each layer, adding them
             # all up here.
             total = sum(outputs)
             transformed1 = tf.nn.relu(total)
 
             conv1 = tf.matmul(transformed1, w1[0, :, :])
+            if self.use_biases:
+                conv1 = conv1 + b1
             transformed2 = tf.nn.relu(conv1)
             conv2 = tf.matmul(transformed2, w2[0, :, :])
+            if self.use_biases:
+                conv2 = conv2 + b2
 
         return conv2
 
@@ -333,36 +397,60 @@ class WaveNet(object):
                 input_batch,
                 depth=self.quantization_channels,
                 dtype=tf.float32)
-            if self.fast_generation:
-                shape = [self.batch_size, self.quantization_channels]
-            else:
-                shape = [self.batch_size, -1, self.quantization_channels]
+            shape = [self.batch_size, -1, self.quantization_channels]
             encoded = tf.reshape(encoded, shape)
         return encoded
 
     def predict_proba(self, waveform, name='wavenet'):
-        '''Computes the probability distribution of the next sample.'''
+        '''Computes the probability distribution of the next sample based on
+        all samples in the input waveform.
+        If you want to generate audio by feeding the output of the network back
+        as an input, see predict_proba_incremental for a faster alternative.'''
         with tf.name_scope(name):
             encoded = self._one_hot(waveform)
-            if self.fast_generation:
-                if self.use_biases:
-                    raise RuntimeError("Fast generation does not support" \
-                                       " biases.")
-                raw_output = self._create_generator(encoded)
-            else:
-                raw_output = self._create_network(encoded)
+            raw_output = self._create_network(encoded)
             out = tf.reshape(raw_output, [-1, self.quantization_channels])
-            proba = tf.nn.softmax(tf.cast(out, tf.float64))
-            last = tf.slice(proba, [tf.shape(proba)[0] - 1, 0],
-                            [1, self.quantization_channels])
+            # Cast to float64 to avoid bug in TensorFlow
+            proba = tf.cast(
+                tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
+            last = tf.slice(
+                proba,
+                [tf.shape(proba)[0] - 1, 0],
+                [1, self.quantization_channels])
             return tf.reshape(last, [-1])
 
-    def loss(self, input_batch, name='wavenet'):
+    def predict_proba_incremental(self, waveform, name='wavenet'):
+        '''Computes the probability distribution of the next sample
+        incrementally, based on a single sample and all previously passed
+        samples.'''
+        if self.filter_width > 2:
+            raise NotImplementedError("Incremental generation does not "
+                                      "support filter_width > 2.")
+        with tf.name_scope(name):
+
+            encoded = tf.one_hot(waveform, self.quantization_channels)
+            encoded = tf.reshape(encoded, [-1, self.quantization_channels])
+            raw_output = self._create_generator(encoded)
+            out = tf.reshape(raw_output, [-1, self.quantization_channels])
+            proba = tf.cast(
+                tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
+            last = tf.slice(
+                proba,
+                [tf.shape(proba)[0] - 1, 0],
+                [1, self.quantization_channels])
+            return tf.reshape(last, [-1])
+
+    def loss(self,
+             input_batch,
+             l2_regularization_strength=None,
+             name='wavenet'):
         '''Creates a WaveNet network and returns the autoencoding loss.
 
         The variables are all scoped to the given name.
         '''
         with tf.name_scope(name):
+            # We mu-law encode and quantize the input audioform,
+            # and use this as input for the first layer.
             input_batch = mu_law_encode(input_batch,
                                         self.quantization_channels)
             encoded = self._one_hot(input_batch)
@@ -384,4 +472,19 @@ class WaveNet(object):
 
                 tf.scalar_summary('loss', reduced_loss)
 
-        return reduced_loss
+                if l2_regularization_strength is None:
+                    return reduced_loss
+                else:
+                    # L2 regularization for all trainable parameters
+                    l2_loss = tf.add_n([tf.nn.l2_loss(v)
+                                        for v in tf.trainable_variables()
+                                        if not('bias' in v.name)])
+
+                    # Add the regularization term to the loss
+                    total_loss = (reduced_loss +
+                                  l2_regularization_strength * l2_loss)
+
+                    tf.scalar_summary('l2_loss', l2_loss)
+                    tf.scalar_summary('total_loss', total_loss)
+
+                    return total_loss

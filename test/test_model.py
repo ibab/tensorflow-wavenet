@@ -5,8 +5,7 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNet
-from wavenet_ops import time_to_batch, batch_to_time, causal_conv
+from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv
 
 
 def MakeSineWaves():
@@ -30,14 +29,14 @@ def MakeSineWaves():
 class TestNet(tf.test.TestCase):
 
     def setUp(self):
-        self.net = WaveNet(batch_size=1,
-                           dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                      1, 2, 4, 8, 16, 32, 64, 128, 256],
-                           filter_width=2,
-                           residual_channels=16,
-                           dilation_channels=16,
-                           quantization_channels=256,
-                           skip_channels=32)
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                filter_width=2,
+                                residual_channels=16,
+                                dilation_channels=16,
+                                quantization_channels=256,
+                                skip_channels=32)
 
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
@@ -65,7 +64,7 @@ class TestNet(tf.test.TestCase):
             initial_loss = sess.run(loss)
             for i in range(50):
                 loss_val, _ = sess.run([loss, optim])
-                # print "i: %d loss: %f" % (i, loss_val)
+                # print("i: %d loss: %f" % (i, loss_val))
 
         # Sanity check the initial loss was larger.
         self.assertGreater(initial_loss, max_allowed_loss)
@@ -81,15 +80,15 @@ class TestNet(tf.test.TestCase):
 class TestNetWithBiases(TestNet):
 
     def setUp(self):
-        self.net = WaveNet(batch_size=1,
-                           dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                      1, 2, 4, 8, 16, 32, 64, 128, 256],
-                           filter_width=2,
-                           residual_channels=16,
-                           dilation_channels=16,
-                           quantization_channels=256,
-                           use_biases=True,
-                           skip_channels=32)
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                filter_width=2,
+                                residual_channels=16,
+                                dilation_channels=16,
+                                quantization_channels=256,
+                                use_biases=True,
+                                skip_channels=32)
 
 if __name__ == '__main__':
     tf.test.main()
