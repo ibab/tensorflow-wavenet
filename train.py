@@ -27,6 +27,7 @@ LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
+L2_REGULARIZATION_STRENGTH = 0
 SILENCE_THRESHOLD = 0.3
 
 
@@ -65,6 +66,10 @@ def get_arguments():
     parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
                         help='Concatenate and cut audio samples to this many '
                         'samples.')
+    parser.add_argument('--l2_regularization_strength', type=float,
+                        default=L2_REGULARIZATION_STRENGTH,
+                        help='Coefficient in the L2 regularization. '
+                        'Disabled by default')
     parser.add_argument('--silence_threshold', type=float, default=SILENCE_THRESHOLD,
                         help='Volume threshold below which to cut from training set')
     return parser.parse_args()
@@ -193,7 +198,9 @@ def main():
         skip_channels=wavenet_params["skip_channels"],
         quantization_channels=wavenet_params["quantization_channels"],
         use_biases=wavenet_params["use_biases"])
-    loss = net.loss(audio_batch)
+    if args.l2_regularization_strength == 0:
+        args.l2_regularization_strength = None
+    loss = net.loss(audio_batch, args.l2_regularization_strength)
     optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
     trainable = tf.trainable_variables()
     optim = optimizer.minimize(loss, var_list=trainable)
