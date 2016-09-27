@@ -199,10 +199,8 @@ class WaveNetModel(object):
             out, weights_skip, stride=1, padding="SAME", name="skip")
 
         if self.use_biases:
-            dense_bias = variables['dense_bias']
-            skip_bias = variables['skip_bias']
-            transformed = tf.add(transformed, dense_bias)
-            skip_contribution = tf.add(skip_contribution, skip_bias)
+            transformed = transformed + variables['dense_bias']
+            skip_contribution = skip_contribution + variables['skip_bias']
 
         layer = 'layer{}'.format(layer_index)
         tf.histogram_summary(layer + '_filter', weights_filter)
