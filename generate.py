@@ -181,7 +181,8 @@ def main():
         current_sample_timestamp = datetime.now()
         time_since_print = current_sample_timestamp - last_sample_timestamp
         if time_since_print.total_seconds() > 1.:
-            print('Sample {:3<d}/{:3<d}'.format(step + 1, args.samples))
+            print('Sample {:3<d}/{:3<d}'.format(step + 1, args.samples),
+                  end='\r')
             last_sample_timestamp = current_sample_timestamp
 
         # If we have partial writing, save the result so far.
@@ -190,16 +191,20 @@ def main():
             out = sess.run(decode, feed_dict={samples: waveform})
             write_wav(out, wavenet_params['sample_rate'], args.wav_out_path)
 
+    # Introduce a newline to clear the carriage return from the progress.
+    print()
+
+    # Save the result as an audio summary.
     datestring = str(datetime.now()).replace(' ', 'T')
     writer = tf.train.SummaryWriter(
         os.path.join(logdir, 'generation', datestring))
     tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
     summaries = tf.merge_all_summaries()
-
     summary_out = sess.run(summaries,
                            feed_dict={samples: np.reshape(waveform, [-1, 1])})
     writer.add_summary(summary_out)
 
+    # Save the result as a wav file.
     if args.wav_out_path:
         out = sess.run(decode, feed_dict={samples: waveform})
         write_wav(out, wavenet_params['sample_rate'], args.wav_out_path)
