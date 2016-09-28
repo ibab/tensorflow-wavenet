@@ -90,5 +90,20 @@ class TestNetWithBiases(TestNet):
                                 use_biases=True,
                                 skip_channels=32)
 
+class TestNetWithScalarInput(TestNet):
+
+    def setUp(self):
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                filter_width=2,
+                                residual_channels=16,
+                                dilation_channels=16,
+                                quantization_channels=256,
+                                use_biases=False,
+                                skip_channels=32,
+                                scalar_input=True,
+                                initial_filter_width=16)
+
 if __name__ == '__main__':
     tf.test.main()
