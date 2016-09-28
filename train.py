@@ -72,7 +72,7 @@ def get_arguments():
                         'Disabled by default')
     parser.add_argument('--silence_threshold', type=float,
                         default=SILENCE_THRESHOLD,
-                        help='Volume threshold below which to trim the start'
+                        help='Volume threshold below which to trim the start '
                         'and the end from the training set samples.')
     return parser.parse_args()
 
