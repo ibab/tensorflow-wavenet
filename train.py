@@ -22,6 +22,7 @@ from wavenet import WaveNetModel, AudioReader
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR_ROOT = './logdir'
+CHECKPOINT_EVERY = 50
 NUM_STEPS = 4000
 LEARNING_RATE = 0.02
 WAVENET_PARAMS = './wavenet_params.json'
@@ -57,6 +58,8 @@ def get_arguments():
                         'This creates the new model under the dated directory '
                         'in --logdir_root. '
                         'Cannot use with --logdir.')
+    parser.add_argument('--checkpoint_every', type=int, default=CHECKPOINT_EVERY,
+                        help='How many steps to save each checkpoint after')
     parser.add_argument('--num_steps', type=int, default=NUM_STEPS,
                         help='Number of training steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
@@ -265,7 +268,7 @@ def main():
             print('step {:d} - loss = {:.3f}, ({:.3f} sec/step)'
                   .format(step, loss_value, duration))
 
-            if step % 50 == 0:
+            if step % args.checkpoint_every == 0:
                 save(saver, sess, logdir, step)
                 last_saved_step = step
 
