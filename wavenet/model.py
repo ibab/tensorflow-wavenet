@@ -26,8 +26,10 @@ class WaveNetModel(object):
         filter_width = 2  # Convolutions just use 2 samples.
         residual_channels = 16  # Not specified in the paper.
         dilation_channels = 32  # Not specified in the paper.
+        skip_channels = 16      # Not specified in the paper.
         net = WaveNetModel(batch_size, dilations, filter_width,
-                           residual_channels, dilation_channel)
+                           residual_channels, dilation_channels,
+                           skip_channels)
         loss = net.loss(input_batch)
     '''
 
