@@ -88,9 +88,9 @@ def create_seed(filename,
     audio = audio_reader.trim_silence(audio)
 
     quantized = mu_law_encode(audio, quantization_channels)
-    cut_index = tf.cond(tf.size(quantized) - tf.constant(window_size) < 0,
-            lambda: tf.constant(window_size),
-            lambda: tf.size(quantized) - tf.constant(window_size))
+    cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
+            lambda: tf.size(quantized),
+            lambda: tf.constant(window_size))
 
     return quantized[:cut_index]
 
