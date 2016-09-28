@@ -9,7 +9,7 @@ import librosa
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNetModel, mu_law_encode, mu_law_decode
+from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
 SAMPLES = 16000
 LOGDIR = './logdir'
@@ -85,9 +85,12 @@ def create_seed(filename,
                 quantization_channels,
                 window_size=WINDOW):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
+    audio = audio_reader.trim_silence(audio)
 
     quantized = mu_law_encode(audio, quantization_channels)
-    cut_index = tf.size(quantized) + tf.constant(window_size) - tf.constant(1)
+    cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
+            lambda: tf.size(quantized),
+            lambda: tf.constant(window_size))
 
     return quantized[:cut_index]
 
