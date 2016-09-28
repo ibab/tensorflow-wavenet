@@ -22,7 +22,7 @@ class TestFp16(tf.test.TestCase):
 
         with self.test_session() as sess:
             result = sess.run(mat3_fp16)
-        print ("result: ", result)
+        print("result: ", result)
 
 if __name__ == '__main__':
     tf.test.main()
