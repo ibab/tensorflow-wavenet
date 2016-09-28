@@ -70,8 +70,10 @@ def get_arguments():
                         default=L2_REGULARIZATION_STRENGTH,
                         help='Coefficient in the L2 regularization. '
                         'Disabled by default')
-    parser.add_argument('--silence_threshold', type=float, default=SILENCE_THRESHOLD,
-                        help='Volume threshold below which to cut from training set')
+    parser.add_argument('--silence_threshold', type=float,
+                        default=SILENCE_THRESHOLD,
+                        help='Volume threshold below which to trim the start '
+                        'and the end from the training set samples.')
     return parser.parse_args()
 
 
