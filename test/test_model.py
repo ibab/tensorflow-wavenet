@@ -90,6 +90,7 @@ class TestNetWithBiases(TestNet):
                                 use_biases=True,
                                 skip_channels=32)
 
+
 class TestNetWithScalarInput(TestNet):
 
     def setUp(self):
