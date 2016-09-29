@@ -1,4 +1,5 @@
 from __future__ import division
+from __future__ import print_function
 
 import argparse
 from datetime import datetime
@@ -185,7 +186,7 @@ def main():
         time_since_print = current_sample_timestamp - last_sample_timestamp
         if time_since_print.total_seconds() > 1.:
             print('Sample {:3<d}/{:3<d}'.format(step + 1, args.samples),
-                  end='\r')
+               end='\r')
             last_sample_timestamp = current_sample_timestamp
 
         # If we have partial writing, save the result so far.
