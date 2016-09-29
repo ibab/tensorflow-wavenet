@@ -62,7 +62,7 @@ class TestNet(tf.test.TestCase):
         init = tf.initialize_all_variables()
 
         max_allowed_loss = 0.1
-        val = max_allowed_loss
+        loss_val = max_allowed_loss
         initial_loss = None
         with self.test_session() as sess:
             sess.run(init)
