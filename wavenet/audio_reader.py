@@ -39,8 +39,10 @@ def load_vctk_audio(directory, sample_rate):
         yield audio, speaker_id
 
 
-def trim_silence(audio, threshold=0.3):
+def trim_silence(audio, threshold):
     '''Removes silence at the beginning and end of a sample.'''
+    if threshold is None:
+        raise ValueError('Missing silence trimming threshold.')
     energy = librosa.feature.rmse(audio)
     frames = np.nonzero(energy > threshold)
     indices = librosa.core.frames_to_samples(frames)[1]
@@ -58,7 +60,7 @@ class AudioReader(object):
                  coord,
                  sample_rate,
                  sample_size=None,
-                 silence_threshold=0.3,
+                 silence_threshold=None,
                  queue_size=256):
         self.audio_dir = audio_dir
         self.sample_rate = sample_rate
