@@ -200,8 +200,7 @@ def main():
 
     # Save the result as an audio summary.
     datestring = str(datetime.now()).replace(' ', 'T')
-    writer = tf.train.SummaryWriter(
-        os.path.join(logdir, 'generation', datestring))
+    writer = tf.train.SummaryWriter(logdir)
     tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
     summaries = tf.merge_all_summaries()
     summary_out = sess.run(summaries,
