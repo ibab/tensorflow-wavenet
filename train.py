@@ -30,6 +30,7 @@ STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
 L2_REGULARIZATION_STRENGTH = 0
 SILENCE_THRESHOLD = 0.3
+EPSILON = 0.001
 
 
 def get_arguments():
@@ -185,6 +186,10 @@ def main():
 
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
+        # Allow silence trimming to be skipped by specifying a threshold near
+        # zero.
+        silence_threshold = args.silence_threshold if args.silence_threshold > \
+                                                      EPSILON else None
         reader = AudioReader(
             args.data_dir,
             coord,
