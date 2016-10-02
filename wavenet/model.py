@@ -18,6 +18,39 @@ def create_bias_variable(name, shape):
     return tf.Variable(initializer(shape=shape), name)
 
 
+def MakeLoss(labels, logits, quantization_channels, receptive_field_size):
+    '''Create the loss function from the net's raw output (softmax logits)
+    and the labels (as probs).
+    Arguments:
+        labels: Target probability tensor, shape: [batch size,
+                duration in time steps, channels (quantization levels)]
+
+        logits: Tensor containing raw output of the net, which feeds the
+                softmax to create the discrete probability distribution.
+                shape: same as labels.
+
+        quantization_channels: Number of possible one-hot values for which the
+                               softmax gives us a discrete probability
+                               distribution.
+
+        receptive_field_size: The integer size of the receptive field of the
+                              wavenet, as determined by the dilations and
+                              filter_size config params.
+    '''
+
+    if receptive_field_size > 0:
+        # Skip the portion of the time history where the receptive
+        # field of the output is not yet entirely filled.
+        labels = tf.slice(labels, [0, receptive_field_size, 0], [-1, -1, -1])
+        logits = tf.slice(logits, [0, receptive_field_size, 0], [-1, -1, -1])
+
+    prediction = tf.reshape(logits, [-1, quantization_channels])
+
+    loss = tf.nn.softmax_cross_entropy_with_logits(
+        prediction, tf.reshape(labels, [-1, quantization_channels]))
+    return loss
+
+
 class WaveNetModel(object):
     '''Implements the WaveNet network for generative audio.
 
