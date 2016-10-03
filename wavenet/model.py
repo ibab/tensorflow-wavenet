@@ -51,6 +51,27 @@ def MakeLoss(labels, logits, quantization_channels, receptive_field_size):
     return loss
 
 
+def ComputeReceptiveFieldSize(dilations):
+    '''Given the list of dilations, return the receptive field size of the
+    net.
+    WARNING: this implemenation is only exactly correct for dilations list
+    of the following form:
+        [1, 2, 4, 8, ... 2**m,
+         1, 2, 4, 8, ... 2**m,
+         ...
+         1, 2, 4, 8, ... 2**m]
+    That is, it assumes the most usual form, where the dilations list ends
+    with the largest dilation value, filter width is 2 etc. A formula
+    that is generally correct is deferred for now.
+
+    Returns the receptive field size in sample counts.
+    '''
+    M = max(dilations)
+    N = dilations.count(M)
+    size = M*2 + (N-1)*(M*2-1)
+    return size
+
+
 class WaveNetModel(object):
     '''Implements the WaveNet network for generative audio.
 
@@ -535,11 +556,9 @@ class WaveNetModel(object):
                                    [-1, tf.shape(encoded)[1] - 1, -1])
                 shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
 
-                prediction = tf.reshape(raw_output,
-                                        [-1, self.quantization_channels])
-                loss = tf.nn.softmax_cross_entropy_with_logits(
-                    prediction,
-                    tf.reshape(shifted, [-1, self.quantization_channels]))
+                loss = MakeLoss(shifted, raw_output,
+                                self.quantization_channels,
+                                ComputeReceptiveFieldSize(self.dilations))
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)
