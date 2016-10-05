@@ -2,6 +2,26 @@ from __future__ import division
 
 import tensorflow as tf
 
+ADAM_OPTIMIZER = 'adam'
+SGD_OPTIMIZER = 'sgd'
+RMSPROP_OPTIMIZER = 'rmsprop'
+
+
+def MakeOptimizer(args):
+    if args.optimizer == ADAM_OPTIMIZER:
+        optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
+    elif args.optimizer == SGD_OPTIMIZER:
+        optimizer = tf.train.MomentumOptimizer(
+            learning_rate=args.learning_rate, momentum=args.momentum)
+    elif args.optimizer == RMSPROP_OPTIMIZER:
+        optimizer = tf.train.RMSPropOptimizer(learning_rate=args.learning_rate,
+                                              momentum=args.momentum)
+    else:
+        # This shouldn't happen, given the choices specified in argument
+        # specification.
+        raise RuntimeError('Invalid optimizer option.')
+    return optimizer
+
 
 def time_to_batch(value, dilation, name=None):
     with tf.name_scope('time_to_batch'):
