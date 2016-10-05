@@ -9,8 +9,8 @@ from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
 TRAIN_ITERATIONS = 400
-LEARN_RATE = 0.02
-SAMPLE_DURATION = 0.2  # Seconds
+LEARN_RATE = 0.01
+CLIP_DURATION = 0.2  # Seconds
 MOMENTUM = 0.9
 
 
@@ -22,7 +22,7 @@ def MakeSineWaves():
     f2 = 196.00  # G
     f3 = 233.08  # B-flat
     sample_period = 1.0/SAMPLE_RATE_HZ
-    times = np.arange(0.0, SAMPLE_DURATION, sample_period)
+    times = np.arange(0.0, CLIP_DURATION, sample_period)
 
     amplitudes = (np.sin(times * 2.0 * np.pi * f1) / 3.0 +
                   np.cos(times * 2.0 * np.pi * f2) / 3.0 +
@@ -34,8 +34,8 @@ def MakeSineWaves():
 class TestNet(tf.test.TestCase):
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
-                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
                                 filter_width=2,
                                 residual_channels=32,
                                 dilation_channels=32,
@@ -69,8 +69,8 @@ class TestNet(tf.test.TestCase):
             initial_loss = sess.run(loss)
             for i in range(TRAIN_ITERATIONS):
                 loss_val, _ = sess.run([loss, optim])
-                # if i % 10 == 0:
-                #     print("i: %d loss: %f" % (i, loss_val))
+                if i % 10 == 0:
+                    print("i: %d loss: %f" % (i, loss_val))
 
         # Sanity check the initial loss was larger.
         self.assertGreater(initial_loss, max_allowed_loss)
@@ -87,8 +87,8 @@ class TestNetWithBiases(TestNet):
 
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
-                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
                                 filter_width=2,
                                 residual_channels=32,
                                 dilation_channels=32,
@@ -101,8 +101,8 @@ class TestNetWithScalarInput(TestNet):
 
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
-                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
                                 filter_width=2,
                                 residual_channels=32,
                                 dilation_channels=32,
