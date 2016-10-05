@@ -5,8 +5,7 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv, \
-    MakeOptimizer
+from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv
 
 
 def MakeSineWaves():
@@ -59,7 +58,7 @@ class TestNet(tf.test.TestCase):
             optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001,
                                                   momentum=0.9)
         elif self.optimizer_type == 'sgd':
-            optimizer = tf.train.SgdOptimizer(learning_rate=0.02)
+            optimizer = tf.train.SgdOptimizer(learning_rate=0.01)
         else:
             raise RuntimeError('Invalid optimizer type.')
         trainable = tf.trainable_variables()
