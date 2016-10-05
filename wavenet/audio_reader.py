@@ -84,7 +84,6 @@ class AudioReader(object):
             iterator = load_generic_audio(self.audio_dir, self.sample_rate)
             for audio, filename in iterator:
                 if self.coord.should_stop():
-                    self.stop_threads()
                     stop = True
                     break
                 if self.silence_threshold is not None:
@@ -107,10 +106,6 @@ class AudioReader(object):
                 else:
                     sess.run(self.enqueue,
                              feed_dict={self.sample_placeholder: audio})
-
-    def stop_threads():
-        for t in self.threads:
-            t.stop()
 
     def start_threads(self, sess, n_threads=1):
         for _ in range(n_threads):
