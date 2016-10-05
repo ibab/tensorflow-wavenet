@@ -112,8 +112,8 @@ class AudioReader(object):
                             piece = np.reshape(buffer_[:self.sample_size],
                                                [-1, 1])
                             sess.run(self.enqueue,
-                                     feed_dict=
-                                     {self.sample_placeholder: piece})
+                                     feed_dict={self.sample_placeholder:
+                                                piece})
                             buffer_ = buffer_[self.sample_size:]
                     else:
                         sess.run(self.enqueue,
