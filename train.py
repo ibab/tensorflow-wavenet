@@ -247,7 +247,7 @@ def main():
     sess.run(init)
 
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(var_list=tf.trainable_variables())
 
     try:
         saved_global_step = load(saver, sess, restore_from)
