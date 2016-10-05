@@ -69,8 +69,8 @@ class TestNet(tf.test.TestCase):
             initial_loss = sess.run(loss)
             for i in range(TRAIN_ITERATIONS):
                 loss_val, _ = sess.run([loss, optim])
-                if i % 10 == 0:
-                    print("i: %d loss: %f" % (i, loss_val))
+                # if i % 10 == 0:
+                #     print("i: %d loss: %f" % (i, loss_val))
 
         # Sanity check the initial loss was larger.
         self.assertGreater(initial_loss, max_allowed_loss)

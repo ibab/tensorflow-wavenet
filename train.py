@@ -17,7 +17,7 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader
+from wavenet import WaveNetModel, AudioReader, compute_receptive_field_size
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
@@ -170,6 +170,18 @@ def validate_directories(args):
     }
 
 
+def check_sample_size(dilations, sample_size):
+    '''Check that the sample size is greater than the receptive field size and
+       raise an exception if not.'''
+
+    receptive_field_size = compute_receptive_field_size(dilations)
+    if sample_size is not None:
+        if sample_size <= receptive_field_size:
+            raise ValueError('Sample size {} must be greater than the '
+                             'receptive field size {}.'. \
+                             format(sample_size,receptive_field_size))
+
+
 def main():
     args = get_arguments()
 
@@ -200,12 +212,17 @@ def main():
         # zero.
         silence_threshold = args.silence_threshold if args.silence_threshold > \
                                                       EPSILON else None
+        check_sample_size(wavenet_params['dilations'], args.sample_size)
+        receptive_field_size = \
+            compute_receptive_field_size(wavenet_params['dilations'])
+
         reader = AudioReader(
             args.data_dir,
             coord,
             sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
-            silence_threshold=args.silence_threshold)
+            silence_threshold=silence_threshold,
+            receptive_field_size=receptive_field_size)
         audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
