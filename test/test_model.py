@@ -5,7 +5,8 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv
+from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv, \
+    MakeOptimizer
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
 TRAIN_ITERATIONS = 400
@@ -41,6 +42,7 @@ class TestNet(tf.test.TestCase):
                                 dilation_channels=32,
                                 quantization_channels=256,
                                 skip_channels=32)
+        self.optimizer_type = 'adam'
 
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
@@ -55,8 +57,15 @@ class TestNet(tf.test.TestCase):
 
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
         loss = self.net.loss(audio_tensor)
-        optimizer = tf.train.MomentumOptimizer(learning_rate=LEARN_RATE,
-                                               momentum=MOMENTUM)
+        if self.optimizer_type == 'adam':
+            optimizer = tf.train.AdamOptimizer(learning_rate=0.02)
+        elif self.optimizer_type == 'rmsprop':
+            optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001,
+                                                  momentum=0.9)
+        elif self.optimizer_type == 'sgd':
+            optimizer = tf.train.SgdOptimizer(learning_rate=0.02)
+        else:
+            raise RuntimeError('Invalid optimizer type.')
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.initialize_all_variables()
@@ -95,6 +104,22 @@ class TestNetWithBiases(TestNet):
                                 quantization_channels=256,
                                 use_biases=True,
                                 skip_channels=32)
+        self.optimizer_type = 'adam'
+
+
+class TestNetWithRMSProp(TestNet):
+
+    def setUp(self):
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                filter_width=2,
+                                residual_channels=16,
+                                dilation_channels=16,
+                                quantization_channels=256,
+                                skip_channels=32)
+        self.optimizer_type = 'rmsprop'
+
 
 
 class TestNetWithScalarInput(TestNet):
