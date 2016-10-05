@@ -7,34 +7,38 @@ import tensorflow as tf
 
 from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv
 
+SAMPLE_RATE_HZ = 2000.0  # Hz
+TRAIN_ITERATIONS = 400
+LEARN_RATE = 0.02
+SAMPLE_DURATION = 0.2  # Seconds
+MOMENTUM = 0.9
+
 
 def MakeSineWaves():
     """Creates a time-series of audio amplitudes corresponding to 3
     superimposed sine waves."""
-    sample_rate = 1.0 / 16000.0
-    # The period of the sine wave is the inverse of the frequency in Hz.
-    p1 = 1.0 / 155.56  # E-flat
-    p2 = 1.0 / 196.00  # G
-    p3 = 1.0 / 233.08  # B-flat
-    # The duration is 100 milliseconds.
-    times = np.arange(0.0, 0.10, sample_rate)
+    # Frequencies of the sine waves in Hz.
+    f1 = 155.56  # E-flat
+    f2 = 196.00  # G
+    f3 = 233.08  # B-flat
+    sample_period = 1.0/SAMPLE_RATE_HZ
+    times = np.arange(0.0, SAMPLE_DURATION, sample_period)
 
-    amplitudes = (np.sin(times * 2.0 * np.pi / p1) / 3.0 +
-                  np.sin(times * 2.0 * np.pi / p2) / 3.0 +
-                  np.sin(times * 2.0 * np.pi / p3) / 3.0)
+    amplitudes = (np.sin(times * 2.0 * np.pi * f1) / 3.0 +
+                  np.cos(times * 2.0 * np.pi * f2) / 3.0 +
+                  np.sin(times * 2.0 * np.pi * f3) / 3.0)
 
     return amplitudes
 
 
 class TestNet(tf.test.TestCase):
-
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
                                 dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
                                            1, 2, 4, 8, 16, 32, 64, 128, 256],
                                 filter_width=2,
-                                residual_channels=16,
-                                dilation_channels=16,
+                                residual_channels=32,
+                                dilation_channels=32,
                                 quantization_channels=256,
                                 skip_channels=32)
 
@@ -51,7 +55,8 @@ class TestNet(tf.test.TestCase):
 
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
         loss = self.net.loss(audio_tensor)
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.02)
+        optimizer = tf.train.MomentumOptimizer(learning_rate=LEARN_RATE,
+                                               momentum=MOMENTUM)
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.initialize_all_variables()
@@ -62,9 +67,10 @@ class TestNet(tf.test.TestCase):
         with self.test_session() as sess:
             sess.run(init)
             initial_loss = sess.run(loss)
-            for i in range(50):
+            for i in range(TRAIN_ITERATIONS):
                 loss_val, _ = sess.run([loss, optim])
-                # print("i: %d loss: %f" % (i, loss_val))
+                # if i % 10 == 0:
+                #     print("i: %d loss: %f" % (i, loss_val))
 
         # Sanity check the initial loss was larger.
         self.assertGreater(initial_loss, max_allowed_loss)
@@ -84,11 +90,27 @@ class TestNetWithBiases(TestNet):
                                 dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
                                            1, 2, 4, 8, 16, 32, 64, 128, 256],
                                 filter_width=2,
-                                residual_channels=16,
-                                dilation_channels=16,
+                                residual_channels=32,
+                                dilation_channels=32,
                                 quantization_channels=256,
                                 use_biases=True,
                                 skip_channels=32)
+
+
+class TestNetWithScalarInput(TestNet):
+
+    def setUp(self):
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
+                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                filter_width=2,
+                                residual_channels=32,
+                                dilation_channels=32,
+                                quantization_channels=256,
+                                use_biases=True,
+                                skip_channels=32,
+                                scalar_input=True,
+                                initial_filter_width=32)
 
 if __name__ == '__main__':
     tf.test.main()

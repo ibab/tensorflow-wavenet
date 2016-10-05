@@ -207,7 +207,9 @@ def main():
         dilation_channels=wavenet_params["dilation_channels"],
         skip_channels=wavenet_params["skip_channels"],
         quantization_channels=wavenet_params["quantization_channels"],
-        use_biases=wavenet_params["use_biases"])
+        use_biases=wavenet_params["use_biases"],
+        scalar_input=wavenet_params["scalar_input"],
+        initial_filter_width=wavenet_params["initial_filter_width"])
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)

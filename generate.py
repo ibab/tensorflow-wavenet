@@ -113,7 +113,9 @@ def main():
         dilation_channels=wavenet_params['dilation_channels'],
         quantization_channels=wavenet_params['quantization_channels'],
         skip_channels=wavenet_params['skip_channels'],
-        use_biases=wavenet_params['use_biases'])
+        use_biases=wavenet_params['use_biases'],
+        scalar_input=wavenet_params['scalar_input'],
+        initial_filter_width=wavenet_params['initial_filter_width'])
 
     samples = tf.placeholder(tf.int32)
 
