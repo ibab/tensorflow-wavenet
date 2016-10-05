@@ -18,9 +18,10 @@ def create_bias_variable(name, shape):
     return tf.Variable(initializer(shape=shape), name)
 
 
-def MakeLoss(labels, logits, quantization_channels, receptive_field_size):
+def make_loss(labels, logits, quantization_channels, receptive_field_size):
     '''Create the loss function from the net's raw output (softmax logits)
     and the labels (as probs).
+
     Arguments:
         labels: Target probability tensor, shape: [batch size,
                 duration in time steps, channels (quantization levels)]
@@ -29,15 +30,14 @@ def MakeLoss(labels, logits, quantization_channels, receptive_field_size):
                 softmax to create the discrete probability distribution.
                 shape: same as labels.
 
-        quantization_channels: Number of possible one-hot values for which the
-                               softmax gives us a discrete probability
-                               distribution.
+        quantization_channels:
+                Number of possible one-hot values for which the softmax gives
+                us a discrete probability distribution.
 
-        receptive_field_size: The integer size of the receptive field of the
-                              wavenet, as determined by the dilations and
-                              filter_size config params.
+        receptive_field_size:
+                The integer size of the receptive field of the wavenet, as
+                determined by the dilations and filter_size config params.
     '''
-
     if receptive_field_size > 0:
         # Skip the portion of the time history where the receptive
         # field of the output is not yet entirely filled.
@@ -51,9 +51,13 @@ def MakeLoss(labels, logits, quantization_channels, receptive_field_size):
     return loss
 
 
-def ComputeReceptiveFieldSize(dilations):
+def compute_receptive_field_size(dilations):
     '''Given the list of dilations, return the receptive field size of the
     net.
+
+    Arguments:
+        dilations: List of dilation values used by the dilated convolutions.
+
     WARNING: this implemenation is only exactly correct for dilations list
     of the following form:
         [1, 2, 4, 8, ... 2**m,
@@ -556,9 +560,9 @@ class WaveNetModel(object):
                                    [-1, tf.shape(encoded)[1] - 1, -1])
                 shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
 
-                loss = MakeLoss(shifted, raw_output,
-                                self.quantization_channels,
-                                ComputeReceptiveFieldSize(self.dilations))
+                loss = make_loss(shifted, raw_output,
+                                 self.quantization_channels,
+                                 compute_receptive_field_size(self.dilations))
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)

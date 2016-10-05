@@ -3,10 +3,10 @@ from __future__ import print_function
 import json
 import numpy as np
 import tensorflow as tf
-from wavenet import MakeLoss, ComputeReceptiveFieldSize
+from wavenet import make_loss, compute_receptive_field_size
 
 
-def MakeLogits():
+def make_logits():
     # 1 batch item
     # 5 time steps in duration
     # 3 channels (quantization levels)
@@ -19,7 +19,7 @@ def MakeLogits():
     return tf.convert_to_tensor(array, tf.float32)
 
 
-def MakeLabels():
+def make_labels():
     # 1 batch item
     # 5 time steps in duration
     # 3 channels (quantization levels)
@@ -35,24 +35,24 @@ class TestLoss(tf.test.TestCase):
     def setUp(self):
         pass
 
-    def testZeroReceptiveFieldSize(self):
-        logits = MakeLogits()
-        labels = MakeLabels()
+    def test_zero_receptive_field_size(self):
+        logits = make_logits()
+        labels = make_labels()
 
-        loss = MakeLoss(labels, logits, quantization_channels=3,
-                        receptive_field_size=0)
+        loss = make_loss(labels, logits, quantization_channels=3,
+                         receptive_field_size=0)
         with self.test_session() as sess:
             loss_array = sess.run([loss])
         expected = np.array([[15.0, 20.0, 10.0, 20.0, 30.0]])
         EPSILON = 0.001
         np.testing.assert_allclose(expected, loss_array, rtol=EPSILON)
 
-    def testNonZeroReceptiveFieldSize(self):
-        logits = MakeLogits()
-        labels = MakeLabels()
+    def test_non_zero_receptive_field_size(self):
+        logits = make_logits()
+        labels = make_labels()
 
-        loss = MakeLoss(labels, logits, quantization_channels=3,
-                        receptive_field_size=2)
+        loss = make_loss(labels, logits, quantization_channels=3,
+                         receptive_field_size=2)
         with self.test_session() as sess:
             loss_array = sess.run([loss])
 
@@ -65,16 +65,16 @@ class TestLoss(tf.test.TestCase):
         EPSILON = 0.001
         np.testing.assert_allclose(expected, loss_array, rtol=EPSILON)
 
-    def testComputeReceptiveFieldSize_4(self):
+    def test_compute_receptive_field_size_4(self):
         dilations = [1, 2, 4]
-        computed_size = ComputeReceptiveFieldSize(dilations)
+        computed_size = compute_receptive_field_size(dilations)
         self.assertEqual(computed_size, 8)
 
-    def testComputeReceptiveFieldSize_256_256_256(self):
+    def test_compute_receptive_field_size_256_256_256(self):
         dilations = [1, 2, 4, 8, 16, 32, 64, 128, 256,
                      1, 2, 4, 8, 16, 32, 64, 128, 256,
                      1, 2, 4, 8, 16, 32, 64, 128, 256]
-        computed_size = ComputeReceptiveFieldSize(dilations)
+        computed_size = compute_receptive_field_size(dilations)
         self.assertEqual(computed_size, 512 + 511 + 511)
 
 
