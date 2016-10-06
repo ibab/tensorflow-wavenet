@@ -101,11 +101,11 @@ class AudioReader(object):
                               "trimming, it was shorter than the receptive "
                               "field of the net. ".format(filename))
 
-                # If the trimmed audio is less than the receptive field size,
-                # then tf.slice performed by loss will fail. So skip the file
-                # if this is the case.
+                # If the trimmed audio is shorter than the receptive field
+                # size, then tf.slice performed by loss will fail. Skip the
+                # file if this is the case.
                 if audio.size > self.receptive_field_size:
-                    if self.sample_size:
+                    if self.sample_size > 0:
                         # Cut samples into fixed size pieces
                         buffer_ = np.append(buffer_, audio)
                         while len(buffer_) > self.sample_size:

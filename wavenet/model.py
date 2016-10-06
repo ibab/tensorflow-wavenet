@@ -22,18 +22,17 @@ def make_loss(labels, logits, quantization_channels, receptive_field_size):
     '''Create the loss function from the net's raw output (softmax logits)
     and the labels (as probs).
 
-    Arguments:
-        labels: Target probability tensor, shape: [batch size,
-                duration in time steps, channels (quantization levels)]
-
+    Args:
+        labels: Target probability tensor, shape:
+                [batch size, duration, quantization levels]
+                where duration is in time steps and quantization levels is
+                the number of channels.
         logits: Tensor containing raw output of the net, which feeds the
                 softmax to create the discrete probability distribution.
                 shape: same as labels.
-
         quantization_channels:
                 Number of possible one-hot values for which the softmax gives
                 us a discrete probability distribution.
-
         receptive_field_size:
                 The integer size of the receptive field of the wavenet, as
                 determined by the dilations and filter_size config params.
@@ -51,12 +50,9 @@ def make_loss(labels, logits, quantization_channels, receptive_field_size):
     return loss
 
 
-def compute_receptive_field_size(dilations):
+def compute_receptive_field(dilations):
     '''Given the list of dilations, return the receptive field size of the
     net.
-
-    Arguments:
-        dilations: List of dilation values used by the dilated convolutions.
 
     WARNING: this implemenation is only exactly correct for dilations list
     of the following form:
@@ -69,10 +65,14 @@ def compute_receptive_field_size(dilations):
     that is generally correct is deferred for now.
 
     Returns the receptive field size in sample counts.
+
+    Args:
+          dilations: List of dilation values used by the dilated convolutions.
+
     '''
-    M = max(dilations)
-    N = dilations.count(M)
-    size = M*2 + (N-1)*(M*2-1)
+    max_dilation = max(dilations)
+    num_stacks = dilations.count(max_dilation)
+    size = max_dilation*2 + (num_stacks-1)*(max_dilation*2-1)
     return size
 
 
@@ -562,7 +562,7 @@ class WaveNetModel(object):
 
                 loss = make_loss(shifted, raw_output,
                                  self.quantization_channels,
-                                 compute_receptive_field_size(self.dilations))
+                                 compute_receptive_field(self.dilations))
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)

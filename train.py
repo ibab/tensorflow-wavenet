@@ -17,7 +17,7 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader, compute_receptive_field_size
+from wavenet import WaveNetModel, AudioReader, compute_receptive_field
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
@@ -170,16 +170,23 @@ def validate_directories(args):
     }
 
 
-def check_sample_size(dilations, sample_size):
-    '''Check that the sample size is greater than the receptive field size and
-       raise an exception if not.'''
+def assert_sample_size(dilations, sample_size):
+    '''Check that the sample size is greater than the receptive field size.
 
-    receptive_field_size = compute_receptive_field_size(dilations)
-    if sample_size is not None:
-        if sample_size <= receptive_field_size:
-            raise ValueError('Sample size {} must be greater than the '
-                             'receptive field size {}.'. \
-                             format(sample_size,receptive_field_size))
+    Args:
+        dilations: Dilation list used to construct dilation filters.
+        sample_size: sample_size specified on the command line.
+
+    Raises:
+        ValueError if sample_size is not greater than receptive_field_size of
+        implied by the dilations.
+    '''
+
+    receptive_field = compute_receptive_field(dilations)
+    if (sample_size > 0) and (sample_size <= receptive_field):
+        raise ValueError("Sample size {} must be greater than the "
+                         "receptive field size {}.".format(
+                              sample_size,receptive_field))
 
 
 def main():
@@ -212,9 +219,8 @@ def main():
         # zero.
         silence_threshold = args.silence_threshold if args.silence_threshold > \
                                                       EPSILON else None
-        check_sample_size(wavenet_params['dilations'], args.sample_size)
-        receptive_field_size = \
-            compute_receptive_field_size(wavenet_params['dilations'])
+        assert_sample_size(wavenet_params['dilations'], args.sample_size)
+        receptive_field = compute_receptive_field(wavenet_params['dilations'])
 
         reader = AudioReader(
             args.data_dir,
@@ -222,7 +228,7 @@ def main():
             sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
             silence_threshold=silence_threshold,
-            receptive_field_size=receptive_field_size)
+            receptive_field_size=receptive_field)
         audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
