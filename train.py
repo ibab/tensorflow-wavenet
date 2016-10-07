@@ -230,7 +230,7 @@ def main():
                                               momentum=args.momentum)
     elif args.optimizer == SGD_OPTIMIZER:
         optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate,
-                                          momentum=args.momentum)
+                                               momentum=args.momentum)
     else:
         raise RuntimeError('Invalid optimizer type.')
     trainable = tf.trainable_variables()

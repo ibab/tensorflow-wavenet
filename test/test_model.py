@@ -34,8 +34,8 @@ def MakeSineWaves():
 class TestNet(tf.test.TestCase):
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
-                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
                                 filter_width=2,
                                 residual_channels=32,
                                 dilation_channels=32,
@@ -78,7 +78,7 @@ class TestNet(tf.test.TestCase):
             initial_loss = sess.run(loss)
             for i in range(TRAIN_ITERATIONS):
                 loss_val, _ = sess.run([loss, optim])
-                # if i % 10 == 0:
+                # if i % 10 == 0 or i == TRAIN_ITERATIONS-1:
                 #    print("i: %d loss: %f" % (i, loss_val))
 
         # Sanity check the initial loss was larger.
@@ -96,8 +96,8 @@ class TestNetWithBiases(TestNet):
 
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
-                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
                                 filter_width=2,
                                 residual_channels=32,
                                 dilation_channels=32,
@@ -111,8 +111,8 @@ class TestNetWithRMSProp(TestNet):
 
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
-                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
                                 filter_width=2,
                                 residual_channels=32,
                                 dilation_channels=32,
@@ -125,8 +125,8 @@ class TestNetWithScalarInput(TestNet):
 
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
-                                dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
-                                           1, 2, 4, 8, 16, 32, 64, 128, 256],
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
                                 filter_width=2,
                                 residual_channels=32,
                                 dilation_channels=32,
