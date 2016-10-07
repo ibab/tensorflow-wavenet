@@ -41,7 +41,7 @@ class TestNet(tf.test.TestCase):
                                 dilation_channels=32,
                                 quantization_channels=256,
                                 skip_channels=32)
-        self.optimizer_type = 'adam'
+        self.optimizer_type = 'sgd'
 
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
@@ -57,12 +57,13 @@ class TestNet(tf.test.TestCase):
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
         loss = self.net.loss(audio_tensor)
         if self.optimizer_type == 'adam':
-            optimizer = tf.train.AdamOptimizer(learning_rate=0.02)
+            optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
         elif self.optimizer_type == 'rmsprop':
             optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001,
                                                   momentum=0.9)
         elif self.optimizer_type == 'sgd':
-            optimizer = tf.train.SgdOptimizer(learning_rate=0.01)
+            optimizer = tf.train.MomentumOptimizer(learning_rate=0.02,
+                                                   momentum=0.9)
         else:
             raise RuntimeError('Invalid optimizer type.')
         trainable = tf.trainable_variables()
@@ -78,7 +79,7 @@ class TestNet(tf.test.TestCase):
             for i in range(TRAIN_ITERATIONS):
                 loss_val, _ = sess.run([loss, optim])
                 # if i % 10 == 0:
-                #     print("i: %d loss: %f" % (i, loss_val))
+                #    print("i: %d loss: %f" % (i, loss_val))
 
         # Sanity check the initial loss was larger.
         self.assertGreater(initial_loss, max_allowed_loss)
@@ -103,7 +104,7 @@ class TestNetWithBiases(TestNet):
                                 quantization_channels=256,
                                 use_biases=True,
                                 skip_channels=32)
-        self.optimizer_type = 'adam'
+        self.optimizer_type = 'sgd'
 
 
 class TestNetWithRMSProp(TestNet):
@@ -113,12 +114,11 @@ class TestNetWithRMSProp(TestNet):
                                 dilations=[1, 2, 4, 8, 16, 32, 64, 128, 256,
                                            1, 2, 4, 8, 16, 32, 64, 128, 256],
                                 filter_width=2,
-                                residual_channels=16,
-                                dilation_channels=16,
+                                residual_channels=32,
+                                dilation_channels=32,
                                 quantization_channels=256,
                                 skip_channels=32)
         self.optimizer_type = 'rmsprop'
-
 
 
 class TestNetWithScalarInput(TestNet):
@@ -134,7 +134,9 @@ class TestNetWithScalarInput(TestNet):
                                 use_biases=True,
                                 skip_channels=32,
                                 scalar_input=True,
-                                initial_filter_width=32)
+                                initial_filter_width=4)
+        self.optimizer_type = 'sgd'
+
 
 if __name__ == '__main__':
     tf.test.main()
