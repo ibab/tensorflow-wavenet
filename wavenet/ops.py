@@ -2,6 +2,10 @@ from __future__ import division
 
 import tensorflow as tf
 
+ADAM_OPTIMIZER = 'adam'
+SGD_OPTIMIZER = 'sgd'
+RMSPROP_OPTIMIZER = 'rmsprop'
+
 
 def time_to_batch(value, dilation, name=None):
     with tf.name_scope('time_to_batch'):
