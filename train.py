@@ -227,7 +227,7 @@ def main():
         optimizer = tf.train.RMSPropOptimizer(learning_rate=args.learning_rate,
                                               momentum=args.momentum)
     elif args.optimizer == SGD_OPTIMIZER:
-        optimizer = tf.train.SgdOptimizer(learning_rate=args.learning_rate,
+        optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate,
                                           momentum=args.momentum)
     else:
         raise RuntimeError('Invalid optimizer type.')
