@@ -266,7 +266,7 @@ class WaveNetModel(object):
 
         if self.use_biases:
             output_filter = output_filter + variables['filter_bias']
-            conv_gate = output_gate + variables['gate_bias']
+            output_gate = output_gate + variables['gate_bias']
 
         out = tf.tanh(output_filter) * tf.sigmoid(output_gate)
 
