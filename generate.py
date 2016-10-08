@@ -186,8 +186,8 @@ def main():
         # Run the WaveNet to predict the next sample.
         prediction = sess.run(outputs, feed_dict={samples: window})[0]
 
-        # Scale sample distribution using temperature, if other than 1.0
-        if args.temp != 1.0:
+        # Scale sample distribution using temperature, if applicable.
+        if (args.temp != 1.0 and args.temp > 0):
             np.seterr(divide='ignore')
             prediction = np.log(prediction) / args.temp
             prediction[np.isneginf(prediction)] = 0
