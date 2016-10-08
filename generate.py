@@ -13,6 +13,7 @@ import tensorflow as tf
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
 SAMPLES = 16000
+TEMPERATURE = 1.0
 LOGDIR = './logdir'
 WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
@@ -35,6 +36,11 @@ def get_arguments():
         type=int,
         default=SAMPLES,
         help='How many waveform samples to generate')
+    parser.add_argument(
+        '--temp',
+        type=float,
+        default=TEMPERATURE,
+        help='Sampling temperature')
     parser.add_argument(
         '--logdir',
         type=str,
@@ -179,6 +185,15 @@ def main():
 
         # Run the WaveNet to predict the next sample.
         prediction = sess.run(outputs, feed_dict={samples: window})[0]
+
+        # Scale sample distribution using temperature, if other than 1.0
+        if args.temp != 1.0:
+            np.seterr(divide='ignore')
+            prediction = np.log(prediction) / args.temp
+            prediction[np.isneginf(prediction)] = 0
+            prediction = np.exp(prediction) / np.sum(np.exp(prediction))
+            np.seterr(divide='warn')
+
         sample = np.random.choice(
             np.arange(quantization_channels), p=prediction)
         waveform.append(sample)
