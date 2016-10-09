@@ -165,7 +165,7 @@ class WaveNetModel(object):
 
         return var
 
-    def _create_causal_layer(self, input_batch, in_channels, out_channels):
+    def _create_causal_layer(self, input_batch):
         '''Creates a single causal convolution layer.
 
         The layer can change the number of channels.
@@ -174,8 +174,7 @@ class WaveNetModel(object):
             weights_filter = self.variables['causal_layer']['filter']
             return causal_conv(input_batch, weights_filter, 1)
 
-    def _create_dilation_layer(self, input_batch, layer_index, dilation,
-                               in_channels, dilation_channels, skip_channels):
+    def _create_dilation_layer(self, input_batch, layer_index, dilation):
         '''Creates a single causal dilated convolution layer.
 
         The layer contains a gated filter that connects to dense output
@@ -244,8 +243,7 @@ class WaveNetModel(object):
             input_batch, curr_weights)
         return output
 
-    def _generator_causal_layer(self, input_batch, state_batch, in_channels,
-                                out_channels):
+    def _generator_causal_layer(self, input_batch, state_batch):
         with tf.name_scope('causal_layer'):
             weights_filter = self.variables['causal_layer']['filter']
             output = self._generator_conv(
@@ -253,8 +251,7 @@ class WaveNetModel(object):
         return output
 
     def _generator_dilation_layer(self, input_batch, state_batch, layer_index,
-                                  dilation, in_channels, dilation_channels,
-                                  skip_channels):
+                                  dilation):
         variables = self.variables['dilated_stack'][layer_index]
 
         weights_filter = variables['filter']
@@ -293,19 +290,14 @@ class WaveNetModel(object):
         else:
             initial_channels = self.quantization_channels
 
-        current_layer = self._create_causal_layer(
-            current_layer,
-            initial_channels,
-            self.residual_channels)
+        current_layer = self._create_causal_layer(current_layer)
 
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
             for layer_index, dilation in enumerate(self.dilations):
                 with tf.name_scope('layer{}'.format(layer_index)):
                     output, current_layer = self._create_dilation_layer(
-                        current_layer, layer_index, dilation,
-                        self.residual_channels, self.dilation_channels,
-                        self.skip_channels)
+                        current_layer, layer_index, dilation)
                     outputs.append(output)
 
         with tf.name_scope('postprocessing'):
@@ -357,8 +349,7 @@ class WaveNetModel(object):
         push_ops.append(push)
 
         current_layer = self._generator_causal_layer(
-            current_layer, current_state, self.quantization_channels,
-            self.residual_channels)
+                            current_layer, current_state)
 
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
@@ -379,9 +370,7 @@ class WaveNetModel(object):
                     push_ops.append(push)
 
                     output, current_layer = self._generator_dilation_layer(
-                        current_layer, current_state, layer_index, dilation,
-                        self.residual_channels, self.dilation_channels,
-                        self.skip_channels)
+                        current_layer, current_state, layer_index, dilation)
                     outputs.append(output)
         self.init_ops = init_ops
         self.push_ops = push_ops
