@@ -7,6 +7,8 @@ import json
 import os
 
 import librosa
+import scipy.misc
+
 import numpy as np
 import tensorflow as tf
 
@@ -188,11 +190,9 @@ def main():
 
         # Scale sample distribution using temperature, if applicable.
         if (args.temp != 1.0 and args.temp > 0):
-            np.seterr(divide='ignore')
             prediction = np.log(prediction) / args.temp
-            prediction[np.isneginf(prediction)] = 0
-            prediction = np.exp(prediction) / np.sum(np.exp(prediction))
-            np.seterr(divide='warn')
+            prediction = prediction - scipy.misc.logsumexp(prediction)
+            prediction = np.exp(prediction)
 
         sample = np.random.choice(
             np.arange(quantization_channels), p=prediction)
