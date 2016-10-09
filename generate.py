@@ -190,9 +190,11 @@ def main():
 
         # Scale sample distribution using temperature, if applicable.
         if (args.temp != 1.0 and args.temp > 0):
+            np.seterr(divide='ignore')
             prediction = np.log(prediction) / args.temp
             prediction = prediction - scipy.misc.logsumexp(prediction)
             prediction = np.exp(prediction)
+            np.seterr(divide='warn')
 
         sample = np.random.choice(
             np.arange(quantization_channels), p=prediction)
