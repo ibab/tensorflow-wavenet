@@ -2,6 +2,7 @@ import fnmatch
 import os
 import re
 import threading
+import random
 
 import librosa
 import numpy as np
@@ -99,6 +100,8 @@ class AudioReader(object):
                     # Cut samples into fixed size pieces
                     buffer_ = np.append(buffer_, audio)
                     while len(buffer_) > self.sample_size:
+                        skip = random.randrange(0,len(buffer_) - self.sample_size)
+                        buffer_ = buffer_[skip:]
                         piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
                         sess.run(self.enqueue,
                                  feed_dict={self.sample_placeholder: piece})
