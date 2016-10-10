@@ -18,6 +18,64 @@ def create_bias_variable(name, shape):
     return tf.Variable(initializer(shape=shape), name)
 
 
+def make_loss(labels, logits, quantization_channels, receptive_field_size):
+    '''Create the loss function from the net's raw output (softmax logits)
+    and the labels (as probs).
+
+    Args:
+        labels: Target probability tensor, shape:
+                [batch size, duration, quantization levels]
+                where duration is in time steps and quantization levels is
+                the number of channels.
+        logits: Tensor containing raw output of the net, which feeds the
+                softmax to create the discrete probability distribution.
+                shape: same as labels.
+        quantization_channels:
+                Number of possible one-hot values for which the softmax gives
+                us a discrete probability distribution.
+        receptive_field_size:
+                The integer size of the receptive field of the wavenet, as
+                determined by the dilations and filter_size config params.
+    '''
+    if receptive_field_size > 0:
+        # Skip the portion of the time history where the receptive
+        # field of the output is not yet entirely filled.
+        labels = tf.slice(labels, [0, receptive_field_size, 0], [-1, -1, -1])
+        logits = tf.slice(logits, [0, receptive_field_size, 0], [-1, -1, -1])
+
+    prediction = tf.reshape(logits, [-1, quantization_channels])
+
+    loss = tf.nn.softmax_cross_entropy_with_logits(
+        prediction, tf.reshape(labels, [-1, quantization_channels]))
+    return loss
+
+
+def compute_receptive_field(dilations):
+    '''Given the list of dilations, return the receptive field size of the
+    net.
+
+    WARNING: this implemenation is only exactly correct for dilations list
+    of the following form:
+        [1, 2, 4, 8, ... 2**m,
+         1, 2, 4, 8, ... 2**m,
+         ...
+         1, 2, 4, 8, ... 2**m]
+    That is, it assumes the most usual form, where the dilations list ends
+    with the largest dilation value, filter width is 2 etc. A formula
+    that is generally correct is deferred for now.
+
+    Returns the receptive field size in sample counts.
+
+    Args:
+          dilations: List of dilation values used by the dilated convolutions.
+
+    '''
+    max_dilation = max(dilations)
+    num_stacks = dilations.count(max_dilation)
+    size = max_dilation*2 + (num_stacks-1)*(max_dilation*2-1)
+    return size
+
+
 class WaveNetModel(object):
     '''Implements the WaveNet network for generative audio.
 
@@ -491,11 +549,9 @@ class WaveNetModel(object):
                                    [-1, tf.shape(encoded)[1] - 1, -1])
                 shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
 
-                prediction = tf.reshape(raw_output,
-                                        [-1, self.quantization_channels])
-                loss = tf.nn.softmax_cross_entropy_with_logits(
-                    prediction,
-                    tf.reshape(shifted, [-1, self.quantization_channels]))
+                loss = make_loss(shifted, raw_output,
+                                 self.quantization_channels,
+                                 compute_receptive_field(self.dilations))
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)

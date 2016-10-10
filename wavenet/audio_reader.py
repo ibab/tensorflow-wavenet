@@ -57,6 +57,7 @@ class AudioReader(object):
                  audio_dir,
                  coord,
                  sample_rate,
+                 receptive_field_size,
                  sample_size=None,
                  silence_threshold=None,
                  queue_size=256):
@@ -71,6 +72,7 @@ class AudioReader(object):
                                          ['float32'],
                                          shapes=[(None, 1)])
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
+        self.receptive_field_size = receptive_field_size
 
     def dequeue(self, num_elements):
         output = self.queue.dequeue_many(num_elements)
@@ -94,18 +96,28 @@ class AudioReader(object):
                               "silence. Consider decreasing trim_silence "
                               "threshold, or adjust volume of the audio."
                               .format(filename))
+                    if audio.size <= self.receptive_field_size:
+                        print("Warning: {} was ignored since, after silence "
+                              "trimming, it was shorter than the receptive "
+                              "field of the net. ".format(filename))
 
-                if self.sample_size:
-                    # Cut samples into fixed size pieces
-                    buffer_ = np.append(buffer_, audio)
-                    while len(buffer_) > self.sample_size:
-                        piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
+                # If the trimmed audio is shorter than the receptive field
+                # size, then tf.slice performed by loss will fail. Skip the
+                # file if this is the case.
+                if audio.size > self.receptive_field_size:
+                    if self.sample_size > 0:
+                        # Cut samples into fixed size pieces
+                        buffer_ = np.append(buffer_, audio)
+                        while len(buffer_) > self.sample_size:
+                            piece = np.reshape(buffer_[:self.sample_size],
+                                               [-1, 1])
+                            sess.run(self.enqueue,
+                                     feed_dict={self.sample_placeholder:
+                                                piece})
+                            buffer_ = buffer_[self.sample_size:]
+                    else:
                         sess.run(self.enqueue,
-                                 feed_dict={self.sample_placeholder: piece})
-                        buffer_ = buffer_[self.sample_size:]
-                else:
-                    sess.run(self.enqueue,
-                             feed_dict={self.sample_placeholder: audio})
+                                 feed_dict={self.sample_placeholder: audio})
 
     def start_threads(self, sess, n_threads=1):
         for _ in range(n_threads):
