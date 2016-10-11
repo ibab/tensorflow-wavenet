@@ -6,7 +6,11 @@ import numpy as np
 import sys
 import tensorflow as tf
 # import matplotlib.pyplot as plt
+<<<<<<< HEAD
 # import librosa
+=======
+import librosa
+>>>>>>> Add generation test.
 
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
                      optimizer_factory, mu_law_decode)
@@ -116,8 +120,8 @@ class TestNet(tf.test.TestCase):
                                 dilation_channels=32,
                                 quantization_channels=256,
                                 skip_channels=32)
-        self.optimizer_type = 'adam'
-        self.learning_rate = 0.002
+        self.optimizer_type = 'sgd'
+        self.learning_rate = 0.02
         self.generate = False
         self.momentum = MOMENTUM
 
@@ -186,7 +190,6 @@ class TestNet(tf.test.TestCase):
 
 
 class TestNetWithBiases(TestNet):
-
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
@@ -234,8 +237,8 @@ class TestNetWithScalarInput(TestNet):
                                 skip_channels=32,
                                 scalar_input=True,
                                 initial_filter_width=4)
-        self.optimizer_type = 'rmsprop'
-        self.learning_rate = 0.001
+        self.optimizer_type = 'sgd'
+        self.learning_rate = 0.02
         self.generate = False
         self.momentum = MOMENTUM_SCALAR_INPUT
 
