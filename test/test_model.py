@@ -6,7 +6,7 @@ import numpy as np
 import sys
 import tensorflow as tf
 # import matplotlib.pyplot as plt
-import librosa
+# import librosa
 
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
                      optimizer_factory)
