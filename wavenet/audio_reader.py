@@ -60,11 +60,13 @@ class AudioReader(object):
                  sample_rate,
                  sample_size=None,
                  silence_threshold=None,
-                 queue_size=256):
+                 queue_size=256,
+                 random_crop=False):
         self.audio_dir = audio_dir
         self.sample_rate = sample_rate
         self.coord = coord
         self.sample_size = sample_size
+        self.random_crop = random_crop
         self.silence_threshold = silence_threshold
         self.threads = []
         self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
@@ -100,8 +102,9 @@ class AudioReader(object):
                     # Cut samples into fixed size pieces
                     buffer_ = np.append(buffer_, audio)
                     while len(buffer_) > self.sample_size:
-                        skip = random.randrange(0,len(buffer_) - self.sample_size)
-                        buffer_ = buffer_[skip:]
+                        if self.random_crop:
+                            skip = random.randrange(0,len(buffer_) - self.sample_size)
+                            buffer_ = buffer_[skip:]
                         piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
                         sess.run(self.enqueue,
                                  feed_dict={self.sample_placeholder: piece})

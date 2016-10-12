@@ -91,6 +91,8 @@ def get_arguments():
                         'adam optimizer.')
     parser.add_argument('--num_gpus', type=int, default=NUM_GPUS,
                         help='number of gpus to use')
+    parser.add_argument('--random_crop', type=bool, default=False,
+                        help='Whether to crop randomly')
     return parser.parse_args()
 
 
@@ -208,6 +210,7 @@ def main():
             coord,
             sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
+            random_crop=args.random_crop,
             silence_threshold=args.silence_threshold)
         audio_batch = reader.dequeue(args.batch_size)
 
