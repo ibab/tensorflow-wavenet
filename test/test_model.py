@@ -37,26 +37,35 @@ def make_sine_waves():
     return amplitudes
 
 
-def generate_waveform(sess, net):
+def generate_waveform(sess, net, fast_generation):
     samples = tf.placeholder(tf.int32)
-    next_sample_probs = net.predict_proba(samples)
+    if fast_generation:
+        next_sample_probs = net.predict_proba_incremental(samples)
+        sess.run(net.init_ops)
+        operations = [next_sample_probs]
+        operations.extend(net.push_ops)
+    else:
+        next_sample_probs = net.predict_proba(samples)
+        operations = [next_sample_probs]
+
     waveform = [128]
     decode = mu_law_decode(samples, QUANTIZATION_CHANNELS)
     for i in range(GENERATE_SAMPLES):
-        if len(waveform) > 256:
-            window = waveform[-256:]
+        if fast_generation:
+            window = waveform[-1]
         else:
-            window = waveform
+            if len(waveform) > 256:
+                window = waveform[-256:]
+            else:
+                window = waveform
 
         # Run the WaveNet to predict the next sample.
-        prediction = sess.run([next_sample_probs],
-                              feed_dict={samples: window})[0]
+        prediction = sess.run(operations, feed_dict={samples: window})[0]
         sample = np.random.choice(
            np.arange(QUANTIZATION_CHANNELS), p=prediction)
-        # sample = np.argmax(prediction)
         waveform.append(sample)
-        # print("Generated {} of {}: {}".format(i,GENERATE_SAMPLES, sample))
-        # sys.stdout.flush()
+        print("Generated {} of {}: {}".format(i, GENERATE_SAMPLES, sample))
+        sys.stdout.flush()
 
     # Skip the first number of samples equal to the size of the receptive
     # field.
@@ -69,6 +78,32 @@ def find_nearest(freqs, power_spectrum, frequency):
     # Return the power of the bin nearest to the target frequency.
     index = (np.abs(freqs - frequency)).argmin()
     return power_spectrum[index]
+
+
+def check_waveform(assertion, generated_waveform):
+    # librosa.output.write_wav('/tmp/sine_test.wav',
+    #                          generated_waveform,
+    #                          SAMPLE_RATE_HZ)
+    power_spectrum = np.abs(np.fft.fft(generated_waveform))**2
+    freqs = np.fft.fftfreq(generated_waveform.size, SAMPLE_PERIOD_SECS)
+    indices = np.argsort(freqs)
+    indices = [index for index in indices if freqs[index] >= 0 and
+               freqs[index] <= 500.0]
+    power_spectrum = power_spectrum[indices]
+    freqs = freqs[indices]
+    # plt.plot(freqs[indices], power_spectrum[indices])
+    # plt.show()
+    power_sum = np.sum(power_spectrum)
+    f1_power = find_nearest(freqs, power_spectrum, F1)
+    f2_power = find_nearest(freqs, power_spectrum, F2)
+    f3_power = find_nearest(freqs, power_spectrum, F3)
+    expected_power = f1_power + f2_power + f3_power
+    # print("Power sum {}, F1 power:{}, F2 power:{}, F3 power:{}".
+    #       format(power_sum, f1_power, f2_power, f3_power))
+
+    # Expect most of the power to be at the 3 frequencies we trained
+    # on.
+    assertion(expected_power, 0.9 * power_sum)
 
 
 class TestNet(tf.test.TestCase):
@@ -141,31 +176,13 @@ class TestNet(tf.test.TestCase):
             # saver = tf.train.Saver(var_list=tf.trainable_variables())
             # saver.save(sess, '/tmp/sine_test_model.ckpt', global_step=i)
             if self.generate:
-                generated_waveform = generate_waveform(sess, self.net)
+                # Check non-incremental generation
+                generated_waveform = generate_waveform(sess, self.net, False)
+                check_waveform(self.assertGreater, generated_waveform)
 
-        if generated_waveform is not None:
-            # librosa.output.write_wav('/tmp/sine_test.wav',
-            #                          generated_waveform,
-            #                          SAMPLE_RATE_HZ)
-            power_spectrum = np.abs(np.fft.fft(generated_waveform))**2
-            freqs = np.fft.fftfreq(generated_waveform.size, SAMPLE_PERIOD_SECS)
-            indices = np.argsort(freqs)
-            indices = [index for index in indices if freqs[index] >= 0 and
-                       freqs[index] <= 500.0]
-            power_spectrum = power_spectrum[indices]
-            freqs = freqs[indices]
-            # plt.plot(freqs[indices], power_spectrum[indices])
-            # plt.show()
-            power_sum = np.sum(power_spectrum)
-            f1_power = find_nearest(freqs, power_spectrum, F1)
-            f2_power = find_nearest(freqs, power_spectrum, F2)
-            f3_power = find_nearest(freqs, power_spectrum, F3)
-            expected_power = f1_power + f2_power + f3_power
-            # print("Power sum {}, F1 power:{}, F2 power:{}, F3 power:{}".
-            #       format(power_sum, f1_power, f2_power, f3_power))
-            # Expect most of the power to be at the 3 frequencies we trained
-            # on.
-            self.assertGreater(expected_power, 0.9 * power_sum)
+                # Check incremental generation
+                generated_waveform = generate_waveform(sess, self.net, True)
+                check_waveform(self.assertGreater, generated_waveform)
 
 
 class TestNetWithBiases(TestNet):
