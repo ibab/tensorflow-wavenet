@@ -99,7 +99,7 @@ def check_waveform(assertion, generated_waveform):
     f3_power = find_nearest(freqs, power_spectrum, F3)
     expected_power = f1_power + f2_power + f3_power
     # print("Power sum {}, F1 power:{}, F2 power:{}, F3 power:{}".
-    #        format(power_sum, f1_power, f2_power, f3_power))
+    #       format(power_sum, f1_power, f2_power, f3_power))
 
     # Expect most of the power to be at the 3 frequencies we trained
     # on.
