@@ -5,7 +5,8 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNetModel, time_to_batch, batch_to_time, causal_conv
+from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
+                     optimizer_factory)
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
 TRAIN_ITERATIONS = 400
@@ -42,6 +43,7 @@ class TestNet(tf.test.TestCase):
                                 quantization_channels=256,
                                 skip_channels=32)
         self.optimizer_type = 'sgd'
+        self.learning_rate = 0.02
 
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
@@ -56,16 +58,8 @@ class TestNet(tf.test.TestCase):
 
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
         loss = self.net.loss(audio_tensor)
-        if self.optimizer_type == 'adam':
-            optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
-        elif self.optimizer_type == 'rmsprop':
-            optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001,
-                                                  momentum=0.9)
-        elif self.optimizer_type == 'sgd':
-            optimizer = tf.train.MomentumOptimizer(learning_rate=0.02,
-                                                   momentum=0.9)
-        else:
-            raise RuntimeError('Invalid optimizer type.')
+        optimizer = optimizer_factory[self.optimizer_type](
+                      learning_rate=self.learning_rate, momentum=MOMENTUM)
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.initialize_all_variables()
@@ -105,6 +99,7 @@ class TestNetWithBiases(TestNet):
                                 use_biases=True,
                                 skip_channels=32)
         self.optimizer_type = 'sgd'
+        self.learning_rate = 0.02
 
 
 class TestNetWithRMSProp(TestNet):
@@ -119,6 +114,7 @@ class TestNetWithRMSProp(TestNet):
                                 quantization_channels=256,
                                 skip_channels=32)
         self.optimizer_type = 'rmsprop'
+        self.learning_rate = 0.001
 
 
 class TestNetWithScalarInput(TestNet):
@@ -136,6 +132,7 @@ class TestNetWithScalarInput(TestNet):
                                 scalar_input=True,
                                 initial_filter_width=4)
         self.optimizer_type = 'sgd'
+        self.learning_rate = 0.02
 
 
 if __name__ == '__main__':
