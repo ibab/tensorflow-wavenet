@@ -215,6 +215,7 @@ def main():
         audio_batch = reader.dequeue(args.batch_size)
 
     tower_grads = []
+    tower_losses = []
     for device_index in xrange(args.num_gpus):
         with tf.device('/gpu:%d' % device_index):
             with tf.name_scope('tower_%d' % device_index) as scope:
@@ -244,10 +245,12 @@ def main():
                     raise RuntimeError('Invalid optimizer option.')
                 trainable = tf.trainable_variables()
                 grads = optimizer.compute_gradients(loss, var_list=trainable)
+                tower_losses.append(loss)
                 tower_grads.append(grads)
                 summaries = tf.get_collection(tf.GraphKeys.SUMMARIES, scope)
                 tf.get_variable_scope().reuse_variables()
 
+    loss = tf.reduce_mean(tower_losses)
     average_grads = []
     for grad_and_vars in zip(*tower_grads):
         grads = []
