@@ -17,7 +17,7 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader
+from wavenet import WaveNetModel, AudioReader, optimizer_factory
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
@@ -31,9 +31,7 @@ SAMPLE_SIZE = 100000
 L2_REGULARIZATION_STRENGTH = 0
 SILENCE_THRESHOLD = 0.3
 EPSILON = 0.001
-ADAM_OPTIMIZER = 'adam'
-SGD_OPTIMIZER = 'sgd'
-SGD_MOMENTUM = 0.9
+MOMENTUM = 0.9
 
 
 def get_arguments():
@@ -81,12 +79,12 @@ def get_arguments():
                         default=SILENCE_THRESHOLD,
                         help='Volume threshold below which to trim the start '
                         'and the end from the training set samples.')
-    parser.add_argument('--optimizer', type=str, default=ADAM_OPTIMIZER,
-                         choices=[ADAM_OPTIMIZER, SGD_OPTIMIZER],
-                         help='Select the optimizer specified by this option.')
-    parser.add_argument('--sgd_momentum', type=float,
-                        default=SGD_MOMENTUM, help='Specify the momentum to be '
-                        'used by sgd optimizer. Ignored by the '
+    parser.add_argument('--optimizer', type=str, default='adam',
+                        choices=optimizer_factory.keys(),
+                        help='Select the optimizer specified by this option.')
+    parser.add_argument('--momentum', type=float,
+                        default=MOMENTUM, help='Specify the momentum to be '
+                        'used by sgd or rmsprop optimizer. Ignored by the '
                         'adam optimizer.')
     return parser.parse_args()
 
@@ -223,15 +221,9 @@ def main():
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)
-    if args.optimizer == ADAM_OPTIMIZER:
-        optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
-    elif args.optimizer == SGD_OPTIMIZER:
-        optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate,
-                                               momentum=args.sgd_momentum)
-    else:
-        # This shouldn't happen, given the choices specified in argument
-        # specification.
-        raise RuntimeError('Invalid optimizer option.')
+    optimizer = optimizer_factory[args.optimizer](
+                    learning_rate=args.learning_rate,
+                    momentum=args.momentum)
     trainable = tf.trainable_variables()
     optim = optimizer.minimize(loss, var_list=trainable)
 
