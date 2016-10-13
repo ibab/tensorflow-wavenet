@@ -1,2 +1,1 @@
 librosa>=0.4.3
-scipy>=0.18

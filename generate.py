@@ -7,7 +7,6 @@ import json
 import os
 
 import librosa
-import scipy.misc
 
 import numpy as np
 import tensorflow as tf
@@ -30,6 +29,12 @@ def get_arguments():
                              'boolean, got {}'.format(s))
         return {'true': True, 'false': False}[s.lower()]
 
+    def _ensure_positive_float(f):
+        """Sampling temperature must be a positive float."""
+        if float(f) < 0:
+            raise argparse.ArgumentTypeError('Sampling temperature must be positive.')
+        return float(f)
+
     parser = argparse.ArgumentParser(description='WaveNet generation script')
     parser.add_argument(
         'checkpoint', type=str, help='Which model checkpoint to generate from')
@@ -39,8 +44,8 @@ def get_arguments():
         default=SAMPLES,
         help='How many waveform samples to generate')
     parser.add_argument(
-        '--temp',
-        type=float,
+        '--temperature',
+        type=_ensure_positive_float,
         default=TEMPERATURE,
         help='Sampling temperature')
     parser.add_argument(
@@ -188,16 +193,19 @@ def main():
         # Run the WaveNet to predict the next sample.
         prediction = sess.run(outputs, feed_dict={samples: window})[0]
 
-        # Scale sample distribution using temperature, if applicable.
-        if (args.temp != 1.0 and args.temp > 0):
-            np.seterr(divide='ignore')
-            prediction = np.log(prediction) / args.temp
-            prediction = prediction - scipy.misc.logsumexp(prediction)
-            prediction = np.exp(prediction)
-            np.seterr(divide='warn')
+        # Scale prediction distribution using temperature.
+        np.seterr(divide='ignore')
+        scaled_prediction = np.log(prediction) / args.temperature
+        scaled_prediction = scaled_prediction - np.logaddexp.reduce(scaled_prediction)
+        scaled_prediction = np.exp(scaled_prediction)
+        np.seterr(divide='warn')
+
+        # Prediction distribution at temperature=1.0 should be unchanged after scaling.
+        if args.temperature == 1.0:
+            np.testing.assert_allclose(prediction, scaled_prediction, atol=1e-5, err_msg='Prediction scaling at temperature=1.0 is not working as intended.')
 
         sample = np.random.choice(
-            np.arange(quantization_channels), p=prediction)
+            np.arange(quantization_channels), p=scaled_prediction)
         waveform.append(sample)
 
         # Show progress only once per second.
