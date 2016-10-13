@@ -17,6 +17,7 @@ LOGDIR = './logdir'
 WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
 SAVE_EVERY = None
+SILENCE_THRESHOLD = 0.1
 
 
 def get_arguments():
@@ -84,9 +85,10 @@ def write_wav(waveform, sample_rate, filename):
 def create_seed(filename,
                 sample_rate,
                 quantization_channels,
-                window_size=WINDOW):
+                window_size=WINDOW,
+                silence_threshold=SILENCE_THRESHOLD):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
-    audio = audio_reader.trim_silence(audio)
+    audio = audio_reader.trim_silence(audio, silence_threshold)
 
     quantized = mu_law_encode(audio, quantization_channels)
     cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
