@@ -4,7 +4,8 @@ import tensorflow as tf
 
 
 def create_adam_optimizer(learning_rate, momentum):
-    return tf.train.AdamOptimizer(learning_rate=learning_rate)
+    return tf.train.AdamOptimizer(learning_rate=learning_rate,
+                                  epsilon=1e-4)
 
 
 def create_sgd_optimizer(learning_rate, momentum):
