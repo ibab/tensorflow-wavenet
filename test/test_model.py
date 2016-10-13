@@ -10,7 +10,6 @@ from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
 TRAIN_ITERATIONS = 400
-LEARN_RATE = 0.02
 SAMPLE_DURATION = 0.2  # Seconds
 MOMENTUM = 0.9
 
