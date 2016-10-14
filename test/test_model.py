@@ -41,8 +41,8 @@ class TestNet(tf.test.TestCase):
                                 dilation_channels=32,
                                 quantization_channels=256,
                                 skip_channels=32)
-        self.optimizer_type = 'sgd'
-        self.learning_rate = 0.02
+        self.optimizer_type = 'adam'
+        self.learning_rate = 0.002
 
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
@@ -72,7 +72,7 @@ class TestNet(tf.test.TestCase):
             for i in range(TRAIN_ITERATIONS):
                 loss_val, _ = sess.run([loss, optim])
                 # if i % 10 == 0 or i == TRAIN_ITERATIONS-1:
-                #    print("i: %d loss: %f" % (i, loss_val))
+                #     print("i: %d loss: %f" % (i, loss_val))
 
         # Sanity check the initial loss was larger.
         self.assertGreater(initial_loss, max_allowed_loss)
