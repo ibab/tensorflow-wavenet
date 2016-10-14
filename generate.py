@@ -7,7 +7,6 @@ import json
 import os
 
 import librosa
-
 import numpy as np
 import tensorflow as tf
 
@@ -30,9 +29,9 @@ def get_arguments():
         return {'true': True, 'false': False}[s.lower()]
 
     def _ensure_positive_float(f):
-        """Sampling temperature must be a positive float."""
+        """Ensure argument is a positive float."""
         if float(f) < 0:
-            raise argparse.ArgumentTypeError('Sampling temperature must be positive.')
+            raise argparse.ArgumentTypeError('Argument must be greater than zero')
         return float(f)
 
     parser = argparse.ArgumentParser(description='WaveNet generation script')
