@@ -9,12 +9,12 @@ import tensorflow as tf
 # import librosa
 
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
-                     optimizer_factory)
+                     optimizer_factory, mu_law_decode)
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
 TRAIN_ITERATIONS = 400
-SAMPLE_DURATION = 0.2  # Seconds
-SAMPLE_DURATION = 0.5  # Duration of the training sample. Seconds
+SAMPLE_DURATION = 0.5  # Seconds
+SAMPLE_PERIOD_SECS = 1.0 / SAMPLE_RATE_HZ
 MOMENTUM = 0.95
 MOMENTUM_SCALAR_INPUT = 0.9
 GENERATE_SAMPLES = 1000
@@ -64,8 +64,8 @@ def generate_waveform(sess, net, fast_generation):
         sample = np.random.choice(
            np.arange(QUANTIZATION_CHANNELS), p=prediction)
         waveform.append(sample)
-        print("Generated {} of {}: {}".format(i, GENERATE_SAMPLES, sample))
-        sys.stdout.flush()
+        # print("Generated {} of {}: {}".format(i, GENERATE_SAMPLES, sample))
+        # sys.stdout.flush()
 
     # Skip the first number of samples equal to the size of the receptive
     # field.
@@ -99,7 +99,7 @@ def check_waveform(assertion, generated_waveform):
     f3_power = find_nearest(freqs, power_spectrum, F3)
     expected_power = f1_power + f2_power + f3_power
     # print("Power sum {}, F1 power:{}, F2 power:{}, F3 power:{}".
-    #       format(power_sum, f1_power, f2_power, f3_power))
+    #        format(power_sum, f1_power, f2_power, f3_power))
 
     # Expect most of the power to be at the 3 frequencies we trained
     # on.
@@ -146,7 +146,7 @@ class TestNet(tf.test.TestCase):
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
         loss = self.net.loss(audio_tensor)
         optimizer = optimizer_factory[self.optimizer_type](
-                      learning_rate=self.learning_rate, momentum=MOMENTUM)
+                      learning_rate=self.learning_rate, momentum=self.momentum)
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.initialize_all_variables()
@@ -161,7 +161,7 @@ class TestNet(tf.test.TestCase):
             for i in range(TRAIN_ITERATIONS):
                 loss_val, _ = sess.run([loss, optim])
                 # if i % 10 == 0:
-                #    print("i: %d loss: %f" % (i, loss_val))
+                #     print("i: %d loss: %f" % (i, loss_val))
 
             # Sanity check the initial loss was larger.
             self.assertGreater(initial_loss, max_allowed_loss)
@@ -186,6 +186,7 @@ class TestNet(tf.test.TestCase):
 
 
 class TestNetWithBiases(TestNet):
+
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
@@ -198,6 +199,8 @@ class TestNetWithBiases(TestNet):
                                 skip_channels=32)
         self.optimizer_type = 'sgd'
         self.learning_rate = 0.02
+        self.generate = False
+        self.momentum = MOMENTUM
 
 
 class TestNetWithRMSProp(TestNet):
@@ -231,8 +234,8 @@ class TestNetWithScalarInput(TestNet):
                                 skip_channels=32,
                                 scalar_input=True,
                                 initial_filter_width=4)
-        self.optimizer_type = 'sgd'
-        self.learning_rate = 0.02
+        self.optimizer_type = 'rmsprop'
+        self.learning_rate = 0.001
         self.generate = False
         self.momentum = MOMENTUM_SCALAR_INPUT
 
