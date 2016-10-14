@@ -99,7 +99,7 @@ def check_waveform(assertion, generated_waveform):
     f3_power = find_nearest(freqs, power_spectrum, F3)
     expected_power = f1_power + f2_power + f3_power
     # print("Power sum {}, F1 power:{}, F2 power:{}, F3 power:{}".
-    #       format(power_sum, f1_power, f2_power, f3_power))
+    #        format(power_sum, f1_power, f2_power, f3_power))
 
     # Expect most of the power to be at the 3 frequencies we trained
     # on.
@@ -186,6 +186,7 @@ class TestNet(tf.test.TestCase):
 
 
 class TestNetWithBiases(TestNet):
+
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
@@ -233,8 +234,8 @@ class TestNetWithScalarInput(TestNet):
                                 skip_channels=32,
                                 scalar_input=True,
                                 initial_filter_width=4)
-        self.optimizer_type = 'sgd'
-        self.learning_rate = 0.02
+        self.optimizer_type = 'rmsprop'
+        self.learning_rate = 0.001
         self.generate = False
         self.momentum = MOMENTUM_SCALAR_INPUT
 
