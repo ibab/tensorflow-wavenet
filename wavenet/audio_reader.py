@@ -72,6 +72,12 @@ class AudioReader(object):
                                          shapes=[(None, 1)])
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
 
+        # TODO Find a better way to check this.
+        # Checking inside the AudioReader's thread makes it hard to terminate
+        # the execution of the script, so we do it in the constructor for now.
+        if not find_files(audio_dir):
+            raise ValueError("No audio files found in '{}'.".format(audio_dir))
+
     def dequeue(self, num_elements):
         output = self.queue.dequeue_many(num_elements)
         return output
