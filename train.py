@@ -257,6 +257,7 @@ def main():
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     reader.start_threads(sess)
 
+    step = None
     try:
         last_saved_step = saved_global_step
         for step in range(saved_global_step + 1, args.num_steps):
