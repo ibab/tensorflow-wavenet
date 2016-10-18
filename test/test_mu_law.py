@@ -1,8 +1,10 @@
 import numpy as np
 import tensorflow as tf
+import scipy.optimize as spo
 
 from wavenet import mu_law_encode, mu_law_decode
 
+QUANT_LEVELS = 256
 
 # A set of mu law encode/decode functions implemented
 # in numpy
@@ -15,6 +17,7 @@ def manual_mu_law_encode(signal, quantization_channels):
 
     # Map signal from [-1, +1] to [0, mu-1]
     signal = (signal + 1) / 2 * mu + 0.5
+    # signal = ((signal + 1) * mu) / 2
     quantized_signal = signal.astype(np.int32)
 
     return quantized_signal
@@ -31,6 +34,56 @@ def manual_mu_law_decode(signal, quantization_channels):
 
 
 class TestMuLaw(tf.test.TestCase):
+
+    def testDecodeEncode(self):
+        # generate every possible quantized level.
+        x = range(QUANT_LEVELS)
+
+        # Encoded then decode every value.
+        with self.test_session() as sess:
+            # Decode into floating-point scalar.
+            decoded = mu_law_decode(x, QUANT_LEVELS)
+            # Encode back into an integer quantization level.
+            encoded = mu_law_encode(decoded, QUANT_LEVELS)
+            round_tripped = sess.run(encoded)
+
+        # decoding then encoding every level should produce what we started
+        # with.
+        self.assertAllEqual(x, round_tripped)
+
+    def testMinMaxRange(self):
+        # generate every possible quantized level.
+        x = range(QUANT_LEVELS)
+
+        # Encoded then decode every value.
+        with self.test_session() as sess:
+            # Decode into floating-point scalar.
+            decoded = mu_law_decode(x, QUANT_LEVELS)
+            all_scalars = sess.run(decoded)
+
+        # We should be able to encode between [-1,1].
+        max_val = np.max(all_scalars)
+        min_val = np.min(all_scalars)
+        EPSILON = 1e-10
+        self.assertNear(max_val, 1.0, EPSILON)
+        self.assertNear(min_val, -1.0, EPSILON)
+
+    def testEncodeDecodeShift(self):
+        x = np.linspace(-1, 1, 1000).astype(np.float32)
+        with self.test_session() as sess:
+            encoded = mu_law_encode(x, QUANT_LEVELS)
+            decoded = mu_law_decode(encoded, QUANT_LEVELS)
+            roundtripped = sess.run(decoded)
+
+        # Detect non-unity scaling and non-zero shift in the roundtripped
+        # signal by asserting that slope = 1 and y-intercept = 0 of line fit to
+        # roundtripped vs x values.
+        def line(x, slope, y_intercept):
+            return slope*x + y_intercept
+        slope, y_intercept = spo.curve_fit(line, x, roundtripped)[0]
+        EPSILON = 1e-4
+        self.assertNear(slope, 1.0, EPSILON)
+        self.assertNear(y_intercept, 0.0, EPSILON)
 
     def testEncodeDecode(self):
         x = np.linspace(-1, 1, 1000).astype(np.float32)
@@ -50,6 +103,7 @@ class TestMuLaw(tf.test.TestCase):
             x2 = sess.run(mu_law_decode(encoded, channels))
 
         self.assertAllClose(x1, x2)
+
 
     def testEncodeIsSurjective(self):
         x = np.linspace(-1, 1, 10000).astype(np.float32)
