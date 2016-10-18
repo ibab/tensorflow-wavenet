@@ -1,6 +1,5 @@
 import numpy as np
 import tensorflow as tf
-import scipy.optimize as spo
 
 from wavenet import mu_law_encode, mu_law_decode
 
@@ -37,7 +36,7 @@ class TestMuLaw(tf.test.TestCase):
 
     def testDecodeEncode(self):
         # generate every possible quantized level.
-        x = range(QUANT_LEVELS)
+        x = np.array(range(QUANT_LEVELS), dtype=np.int)
 
         # Encoded then decode every value.
         with self.test_session() as sess:
@@ -53,7 +52,7 @@ class TestMuLaw(tf.test.TestCase):
 
     def testMinMaxRange(self):
         # generate every possible quantized level.
-        x = range(QUANT_LEVELS)
+        x = np.array(range(QUANT_LEVELS), dtype=np.int)
 
         # Encoded then decode every value.
         with self.test_session() as sess:
@@ -78,9 +77,10 @@ class TestMuLaw(tf.test.TestCase):
         # Detect non-unity scaling and non-zero shift in the roundtripped
         # signal by asserting that slope = 1 and y-intercept = 0 of line fit to
         # roundtripped vs x values.
-        def line(x, slope, y_intercept):
-            return slope*x + y_intercept
-        slope, y_intercept = spo.curve_fit(line, x, roundtripped)[0]
+        #slope, y_intercept = spo.curve_fit(line, x, roundtripped)[0]
+        coeffs = np.polyfit(x, roundtripped, 1)
+        slope = coeffs[0]
+        y_intercept = coeffs[1]
         EPSILON = 1e-4
         self.assertNear(slope, 1.0, EPSILON)
         self.assertNear(y_intercept, 0.0, EPSILON)
