@@ -77,7 +77,6 @@ class TestMuLaw(tf.test.TestCase):
         # Detect non-unity scaling and non-zero shift in the roundtripped
         # signal by asserting that slope = 1 and y-intercept = 0 of line fit to
         # roundtripped vs x values.
-        #slope, y_intercept = spo.curve_fit(line, x, roundtripped)[0]
         coeffs = np.polyfit(x, roundtripped, 1)
         slope = coeffs[0]
         y_intercept = coeffs[1]
