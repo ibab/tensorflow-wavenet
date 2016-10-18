@@ -6,6 +6,7 @@ from wavenet import mu_law_encode, mu_law_decode
 
 QUANT_LEVELS = 256
 
+
 # A set of mu law encode/decode functions implemented
 # in numpy
 def manual_mu_law_encode(signal, quantization_channels):
@@ -17,7 +18,6 @@ def manual_mu_law_encode(signal, quantization_channels):
 
     # Map signal from [-1, +1] to [0, mu-1]
     signal = (signal + 1) / 2 * mu + 0.5
-    # signal = ((signal + 1) * mu) / 2
     quantized_signal = signal.astype(np.int32)
 
     return quantized_signal
@@ -103,7 +103,6 @@ class TestMuLaw(tf.test.TestCase):
             x2 = sess.run(mu_law_decode(encoded, channels))
 
         self.assertAllClose(x1, x2)
-
 
     def testEncodeIsSurjective(self):
         x = np.linspace(-1, 1, 10000).astype(np.float32)
