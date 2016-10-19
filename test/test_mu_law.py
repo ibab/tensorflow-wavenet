@@ -51,16 +51,16 @@ class TestMuLaw(tf.test.TestCase):
         self.assertAllEqual(x, round_tripped)
 
     def testMinMaxRange(self):
-        # generate every possible quantized level.
+        # Generate every possible quantized level.
         x = np.array(range(QUANT_LEVELS), dtype=np.int)
 
-        # Encoded then decode every value.
+        # Decode back into float scalars.
         with self.test_session() as sess:
             # Decode into floating-point scalar.
             decoded = mu_law_decode(x, QUANT_LEVELS)
             all_scalars = sess.run(decoded)
 
-        # We should be able to encode between [-1,1].
+        # Our range should be exactly [-1,1].
         max_val = np.max(all_scalars)
         min_val = np.min(all_scalars)
         EPSILON = 1e-10
