@@ -38,7 +38,7 @@ function to transform the outputs into a categorical distribution.
 The loss function is the cross-entropy between the output for each timestep and the input at the next timestep.
 </p>
 <p>
-In this repository, the network implementation can be found in <a href="./wavenet.py">wavenet.py</a>.
+In this repository, the network implementation can be found in <a href="./wavenet/model.py">model.py</a>.
 </p>
 </td>
 <td width="300">
