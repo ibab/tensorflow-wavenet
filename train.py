@@ -94,8 +94,8 @@ def get_arguments():
                         default=MOMENTUM, help='Specify the momentum to be '
                         'used by sgd or rmsprop optimizer. Ignored by the '
                         'adam optimizer.')
-    parser.add_argument('--summary', type=_str_to_bool, default=True,
-                         help='Whether to store summaries in Tensorboard.')
+    parser.add_argument('--histograms', type=_str_to_bool, default=False,
+                         help='Whether to store histogram summaries.')
     return parser.parse_args()
 
 
@@ -228,7 +228,7 @@ def main():
         use_biases=wavenet_params["use_biases"],
         scalar_input=wavenet_params["scalar_input"],
         initial_filter_width=wavenet_params["initial_filter_width"],
-        summary=args.summary)
+        histograms=args.histograms)
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)

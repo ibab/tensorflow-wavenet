@@ -44,7 +44,7 @@ class WaveNetModel(object):
                  use_biases=False,
                  scalar_input=False,
                  initial_filter_width=32,
-                 summary=True):
+                 histograms=False):
         '''Initializes the WaveNet model.
 
         Args:
@@ -69,7 +69,8 @@ class WaveNetModel(object):
             initial_filter_width: The width of the initial filter of the
                 convolution applied to the scalar input. This is only relevant
                 if scalar_input=True.
-            summary: Whether to store summaries. Default: True.
+            histograms: Whether to store histograms in the summary.
+                Default: False.
         '''
         self.batch_size = batch_size
         self.dilations = dilations
@@ -81,7 +82,7 @@ class WaveNetModel(object):
         self.skip_channels = skip_channels
         self.scalar_input = scalar_input
         self.initial_filter_width = initial_filter_width
-        self.summary = summary
+        self.histograms = histograms
 
         self.variables = self._create_variables()
 
@@ -224,7 +225,7 @@ class WaveNetModel(object):
             transformed = transformed + dense_bias
             skip_contribution = skip_contribution + skip_bias
 
-        if self.summary:
+        if self.histograms:
             layer = 'layer{}'.format(layer_index)
             tf.histogram_summary(layer + '_filter', weights_filter)
             tf.histogram_summary(layer + '_gate', weights_gate)
@@ -313,7 +314,7 @@ class WaveNetModel(object):
                 b1 = self.variables['postprocessing']['postprocess1_bias']
                 b2 = self.variables['postprocessing']['postprocess2_bias']
 
-            if self.summary:
+            if self.histograms:
                 tf.histogram_summary('postprocess1_weights', w1)
                 tf.histogram_summary('postprocess2_weights', w2)
                 if self.use_biases:
