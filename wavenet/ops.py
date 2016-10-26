@@ -16,19 +16,21 @@ def FileReader(data_dir, coord, sample_rate, sample_size,
         # threshold near zero.
         silence_threshold = silence_threshold if silence_threshold > \
                                                       EPSILON else None
-        reader = audio_reader.AudioReader(data_dir, coord, sample_rate=sample_rate,
-                             sample_size=sample_size,
-                             silence_threshold=silence_threshold,
-                             quantization_channels=quantization_channels,
-                             pattern=pattern)
+        reader = audio_reader.AudioReader(
+                 data_dir, coord,
+                 sample_rate=sample_rate,
+                 sample_size=sample_size,
+                 silence_threshold=silence_threshold,
+                 quantization_channels=quantization_channels,
+                 pattern=pattern)
     elif raw_type == "Text":
         reader = text_reader.TextReader(data_dir, coord,
-                            sample_size=sample_size,
-                            pattern=pattern)
+                                        sample_size=sample_size,
+                                        pattern=pattern)
     elif raw_type == "Image":
         reader = image_reader.ImageReader(data_dir, coord,
-                             sample_size=sample_size,
-                             pattern=pattern)
+                                          sample_size=sample_size,
+                                          pattern=pattern)
     return reader
 
 
