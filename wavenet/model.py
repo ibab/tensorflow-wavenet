@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from .ops import causal_conv, mu_law_encode
+from .ops import causal_conv
 
 
 def create_variable(name, shape):
@@ -476,10 +476,6 @@ class WaveNetModel(object):
         The variables are all scoped to the given name.
         '''
         with tf.name_scope(name):
-            # We mu-law encode and quantize the input audioform.
-            input_batch = mu_law_encode(input_batch,
-                                        self.quantization_channels)
-
             encoded = self._one_hot(input_batch)
             if self.scalar_input:
                 network_input = tf.reshape(
