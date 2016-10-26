@@ -43,7 +43,8 @@ class WaveNetModel(object):
                  quantization_channels=2**8,
                  use_biases=False,
                  scalar_input=False,
-                 initial_filter_width=32):
+                 initial_filter_width=32,
+                 histograms=False):
         '''Initializes the WaveNet model.
 
         Args:
@@ -68,6 +69,8 @@ class WaveNetModel(object):
             initial_filter_width: The width of the initial filter of the
                 convolution applied to the scalar input. This is only relevant
                 if scalar_input=True.
+            histograms: Whether to store histograms in the summary.
+                Default: False.
         '''
         self.batch_size = batch_size
         self.dilations = dilations
@@ -79,6 +82,7 @@ class WaveNetModel(object):
         self.skip_channels = skip_channels
         self.scalar_input = scalar_input
         self.initial_filter_width = initial_filter_width
+        self.histograms = histograms
 
         self.variables = self._create_variables()
 
@@ -221,16 +225,17 @@ class WaveNetModel(object):
             transformed = transformed + dense_bias
             skip_contribution = skip_contribution + skip_bias
 
-        layer = 'layer{}'.format(layer_index)
-        tf.histogram_summary(layer + '_filter', weights_filter)
-        tf.histogram_summary(layer + '_gate', weights_gate)
-        tf.histogram_summary(layer + '_dense', weights_dense)
-        tf.histogram_summary(layer + '_skip', weights_skip)
-        if self.use_biases:
-            tf.histogram_summary(layer + '_biases_filter', filter_bias)
-            tf.histogram_summary(layer + '_biases_gate', gate_bias)
-            tf.histogram_summary(layer + '_biases_dense', dense_bias)
-            tf.histogram_summary(layer + '_biases_skip', skip_bias)
+        if self.histograms:
+            layer = 'layer{}'.format(layer_index)
+            tf.histogram_summary(layer + '_filter', weights_filter)
+            tf.histogram_summary(layer + '_gate', weights_gate)
+            tf.histogram_summary(layer + '_dense', weights_dense)
+            tf.histogram_summary(layer + '_skip', weights_skip)
+            if self.use_biases:
+                tf.histogram_summary(layer + '_biases_filter', filter_bias)
+                tf.histogram_summary(layer + '_biases_gate', gate_bias)
+                tf.histogram_summary(layer + '_biases_dense', dense_bias)
+                tf.histogram_summary(layer + '_biases_skip', skip_bias)
 
         return skip_contribution, input_batch + transformed
 
@@ -309,11 +314,12 @@ class WaveNetModel(object):
                 b1 = self.variables['postprocessing']['postprocess1_bias']
                 b2 = self.variables['postprocessing']['postprocess2_bias']
 
-            tf.histogram_summary('postprocess1_weights', w1)
-            tf.histogram_summary('postprocess2_weights', w2)
-            if self.use_biases:
-                tf.histogram_summary('postprocess1_biases', b1)
-                tf.histogram_summary('postprocess2_biases', b2)
+            if self.histograms:
+                tf.histogram_summary('postprocess1_weights', w1)
+                tf.histogram_summary('postprocess2_weights', w2)
+                if self.use_biases:
+                    tf.histogram_summary('postprocess1_biases', b1)
+                    tf.histogram_summary('postprocess2_biases', b2)
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.

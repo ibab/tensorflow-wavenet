@@ -35,6 +35,14 @@ MOMENTUM = 0.9
 
 
 def get_arguments():
+    def _str_to_bool(s):
+        """Convert string to bool (in argparse context)."""
+        if s.lower() not in ['true', 'false']:
+            raise ValueError('Argument needs to be a '
+                             'boolean, got {}'.format(s))
+        return {'true': True, 'false': False}[s.lower()]
+
+
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
                         help='How many wav files to process at once.')
@@ -86,6 +94,8 @@ def get_arguments():
                         default=MOMENTUM, help='Specify the momentum to be '
                         'used by sgd or rmsprop optimizer. Ignored by the '
                         'adam optimizer.')
+    parser.add_argument('--histograms', type=_str_to_bool, default=False,
+                         help='Whether to store histogram summaries.')
     return parser.parse_args()
 
 
@@ -217,7 +227,8 @@ def main():
         quantization_channels=wavenet_params["quantization_channels"],
         use_biases=wavenet_params["use_biases"],
         scalar_input=wavenet_params["scalar_input"],
-        initial_filter_width=wavenet_params["initial_filter_width"])
+        initial_filter_width=wavenet_params["initial_filter_width"],
+        histograms=args.histograms)
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)
