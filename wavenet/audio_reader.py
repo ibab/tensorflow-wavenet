@@ -5,7 +5,7 @@ import threading
 import librosa
 import numpy as np
 import tensorflow as tf
-from .ops import mu_law_encode
+from .ops import *
 
 
 def find_files(directory, pattern):
