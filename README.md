@@ -93,7 +93,7 @@ The only thing it has to be done is change two parameters in the [`wavenet_param
 }
 ```
 
-In this way, you can train the model in texts by just copying a folder with texts and setting the params in [`wavenet_params.json`](./wavenet_params.json) to:
+In this way, you can train the model with texts by just copying a folder with texts and setting these two parameters in [`wavenet_params.json`](./wavenet_params.json) to:
 
 ```
 {
