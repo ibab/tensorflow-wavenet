@@ -2,9 +2,9 @@ from __future__ import division
 import librosa
 import numpy as np
 import tensorflow as tf
-from audio_reader import AudioReader
-from text_reader import TextReader
-from image_reader import ImageReader
+import audio_reader
+import text_reader
+import image_reader
 from PIL import Image
 
 
@@ -16,17 +16,17 @@ def FileReader(data_dir, coord, sample_rate, sample_size,
         # threshold near zero.
         silence_threshold = silence_threshold if silence_threshold > \
                                                       EPSILON else None
-        reader = AudioReader(data_dir, coord, sample_rate=sample_rate,
+        reader = audio_reader.AudioReader(data_dir, coord, sample_rate=sample_rate,
                              sample_size=sample_size,
                              silence_threshold=silence_threshold,
                              quantization_channels=quantization_channels,
                              pattern=pattern)
     elif raw_type == "Text":
-        reader = TextReader(data_dir, coord,
+        reader = text_reader.TextReader(data_dir, coord,
                             sample_size=sample_size,
                             pattern=pattern)
     elif raw_type == "Image":
-        reader = ImageReader(data_dir, coord,
+        reader = image_reader.ImageReader(data_dir, coord,
                              sample_size=sample_size,
                              pattern=pattern)
     return reader
