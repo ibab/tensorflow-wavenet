@@ -102,7 +102,7 @@ In this way, you can train the model with texts by just copying a folder with te
 "file_ext": "*.txt"
 }
 ```
-- A version of this WaveNet text generator has been used for Poem generation here: [Wavenet for Poem Generation](http://bdp.glia.ca/wavenet-for-poem-generation-preliminary-results/)
+- A version of this WaveNet text generator has been used for poem generation here: [Wavenet for Poem Generation](http://bdp.glia.ca/wavenet-for-poem-generation-preliminary-results/)
 
 For image training:
 
