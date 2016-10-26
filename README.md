@@ -84,7 +84,9 @@ These need to stay the same between training and generation.
 You can train and generate not only wav files but also texts and images:
 
 The only thing it has to be done is change two parameters in the [`wavenet_params.json`](./wavenet_params.json):
-```{
+
+```
+{
 ....
 "raw_type": "Audio",
 "file_ext": "*.wav"
@@ -92,7 +94,9 @@ The only thing it has to be done is change two parameters in the [`wavenet_param
 ```
 
 In this way, you can train the model in texts by just copying a folder with texts and setting the params in [`wavenet_params.json`](./wavenet_params.json) to:
-```{
+
+```
+{
 ....
 "raw_type": "Text",
 "file_ext": "*.txt"
@@ -100,7 +104,9 @@ In this way, you can train the model in texts by just copying a folder with text
 ```
 
 For image training:
-```{
+
+```
+{
 ....
 "raw_type": "Image",
 "file_ext": "*.jpg"
