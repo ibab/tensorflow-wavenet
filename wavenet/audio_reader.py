@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 import ops
 
+
 def find_files(directory, pattern):
     '''Recursively finds all files matching the pattern.'''
     files = []
@@ -63,7 +64,7 @@ class AudioReader(object):
                  pattern='*.wav'):
         self.audio_dir = audio_dir
         self.pattern = pattern
-        self.quantization_channels=quantization_channels
+        self.quantization_channels = quantization_channels
         self.sample_rate = sample_rate
         self.coord = coord
         self.sample_size = sample_size
@@ -76,8 +77,9 @@ class AudioReader(object):
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
 
         # TODO Find a better way to check this.
-        # Checking inside the AudioReader's thread makes it hard to terminate
-        # the execution of the script, so we do it in the constructor for now.
+        # Checking inside the AudioReader's thread makes it
+        # hard to terminate the execution of the script, so
+        # we do it in the constructor for now.
         if not find_files(audio_dir, self.pattern):
             raise ValueError("No audio files found in '{}'.".format(audio_dir))
 
@@ -92,7 +94,9 @@ class AudioReader(object):
         stop = False
         # Go through the dataset multiple times
         while not stop:
-            iterator = load_generic_audio(self.audio_dir, self.sample_rate, self.pattern)
+            iterator = load_generic_audio(self.audio_dir,
+                                          self.sample_rate,
+                                          self.pattern)
             for audio, filename in iterator:
                 if self.coord.should_stop():
                     stop = True
