@@ -12,5 +12,7 @@
     "skip_channels": 512,
     "use_biases": true,
     "scalar_input": false,
-    "initial_filter_width": 32
+    "initial_filter_width": 32,
+    "raw_type": "Audio",
+    "file_ext": "*.wav"
 }
