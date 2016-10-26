@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 
+
 def find_files(directory, pattern='*.jpg'):
     '''Recursively finds all files matching the pattern.'''
     files = []
@@ -14,15 +15,17 @@ def find_files(directory, pattern='*.jpg'):
             files.append(os.path.join(root, filename))
     return files
 
+
 def _read_image(filename):
-  return Image.open(filename).convert('L')
+    return Image.open(filename).convert('L')
+
 
 def load_generic_image(directory, pattern):
     '''Generator that yields text raw from the directory.'''
     files = find_files(directory, pattern)
     for filename in files:
         pic = _read_image(filename)
-        pic = pic.resize((64,64), Image.ANTIALIAS)
+        pic = pic.resize((64, 64), Image.ANTIALIAS)
         img = np.array(pic)
         img = np.array(img, dtype='float32')
         img = img.reshape(-1, 1)
@@ -37,7 +40,7 @@ class ImageReader(object):
                  image_dir,
                  coord,
                  sample_size=None,
-                 queue_size=256, 
+                 queue_size=256,
                  pattern='*.jpg'):
         self.image_dir = image_dir
         self.pattern = pattern
