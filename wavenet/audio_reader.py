@@ -5,7 +5,7 @@ import threading
 import librosa
 import numpy as np
 import tensorflow as tf
-import ops
+from .ops import mu_law_encode
 
 
 def find_files(directory, pattern):
@@ -86,7 +86,7 @@ class AudioReader(object):
     def dequeue(self, num_elements):
         output = self.queue.dequeue_many(num_elements)
         # We mu-law encode and quantize the input audioform.
-        encode_output = ops.mu_law_encode(output, self.quantization_channels)
+        encode_output = mu_law_encode(output, self.quantization_channels)
         return encode_output
 
     def thread_main(self, sess):
