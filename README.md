@@ -81,28 +81,31 @@ python train.py --help
 You can find the configuration of the model parameters in [`wavenet_params.json`](./wavenet_params.json).
 These need to stay the same between training and generation.
 
-You can train and generate not only wav files but also texts and images (#117 and #129):
+You can train and generate not only wav files but also texts and images:
 
 The only thing it has to be done is change two parameters in the [`wavenet_params.json`](./wavenet_params.json):
-{
+```{
 ....
 "raw_type": "Audio",
 "file_ext": "*.wav"
 }
+```
 
 In this way, you can train the model in texts by just copying a folder with texts and setting the params in [`wavenet_params.json`](./wavenet_params.json) to:
-{
+```{
 ....
 "raw_type": "Text",
 "file_ext": "*.txt"
 }
+```
 
 For image training:
-{
+```{
 ....
 "raw_type": "Image",
 "file_ext": "*.jpg"
 }
+```
 
 The file_ext parameter can be changed to any pattern like ".gif", ".mp3", etc.
 
