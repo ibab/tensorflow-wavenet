@@ -115,7 +115,6 @@ To disable fast generation:
 python generate.py --samples 16000 model.ckpt-1000 --fast_generation=false
 ```
 
-
 ## Running tests
 
 Install the test requirements
@@ -132,3 +131,8 @@ Run the test suite
 
 Currently, there is no conditioning on extra information like the speaker ID.
 
+
+## Related projects
+
+- [tex-wavenet](https://github.com/Zeta36/tensorflow-tex-wavenet), a WaveNet for text generation.
+- [image-wavenet](https://github.com/Zeta36/tensorflow-image-wavenet), a WaveNet for image generation.
