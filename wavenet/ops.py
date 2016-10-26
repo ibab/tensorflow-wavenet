@@ -1,7 +1,70 @@
 from __future__ import division
-
+import librosa
+import numpy as np
 import tensorflow as tf
+from audio_reader import AudioReader
+from text_reader import TextReader
+from image_reader import ImageReader
+from PIL import Image
 
+def FileReader(data_dir, coord, sample_rate, sample_size, silence_threshold, quantization_channels, 
+               pattern, EPSILON = 0.001, raw_type="Audio"):
+    if raw_type == "Audio":
+        # Allow silence trimming to be skipped by specifying a threshold near zero.
+        silence_threshold = silence_threshold if silence_threshold > EPSILON else None
+        reader = AudioReader(data_dir, coord, sample_rate=sample_rate, sample_size=sample_size, 
+                             silence_threshold=silence_threshold, quantization_channels=quantization_channels, pattern=pattern)
+    elif raw_type == "Text":
+        reader = TextReader(data_dir, coord, sample_size=sample_size, pattern=pattern)
+    elif raw_type == "Image":
+        reader = ImageReader(data_dir, coord, sample_size=sample_size, pattern=pattern)
+    return reader
+
+def write_output(waveform, filename, sample_rate, raw_type="Audio"):
+    if raw_type == "Image":
+        write_img(waveform, filename)
+    elif raw_type == "Text":
+        write_text(waveform, filename)
+    else:
+        write_wav(waveform, sample_rate, filename)
+
+def write_img(waveform, filename):
+    img = waveform[:-1]
+    img = np.array(img)
+    img = img.reshape(-1, 1)
+    img = img.reshape(64, 64)
+    new_img = Image.fromarray(img)
+    new_img = new_img.convert('RGB')
+    new_img.save(filename)
+    print('Updated image file at {}'.format(filename))
+    
+def write_text(waveform, filename):
+    text = waveform
+    y = []
+    for index, item in enumerate(text):
+        y.append(chr(text[index]))
+    print('Prediction is: ', ''.join(str(e) for e in y))
+    y = np.array(y)
+    np.savetxt(filename, y.reshape(1, y.shape[0]), delimiter="", newline="\n", fmt="%s")
+    print('Updated text file at {}'.format(filename))
+    
+def write_wav(waveform, sample_rate, filename):
+    y = np.array(waveform)
+    librosa.output.write_wav(filename, y, sample_rate)
+    print('Updated wav file at {}'.format(filename))
+
+def create_seed_audio(filename,
+                sample_rate,
+                quantization_channels,
+                window_size=8000,
+                silence_threshold=0.1):
+    audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
+    audio = audio_reader.trim_silence(audio, silence_threshold)
+    quantized = mu_law_encode(audio, quantization_channels)
+    cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
+            lambda: tf.size(quantized),
+            lambda: tf.constant(window_size))
+    return quantized[:cut_index]
 
 def create_adam_optimizer(learning_rate, momentum):
     return tf.train.AdamOptimizer(learning_rate=learning_rate,
