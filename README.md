@@ -172,3 +172,5 @@ Currently, there is no conditioning on extra information like the speaker ID.
 
 - [tex-wavenet](https://github.com/Zeta36/tensorflow-tex-wavenet), a WaveNet for text generation.
 - [image-wavenet](https://github.com/Zeta36/tensorflow-image-wavenet), a WaveNet for image generation.
+- [Wavenet-for-Poem-Generation
+](https://github.com/jhave/Wavenet-for-Poem-Generation), a WaveNet for text generation.
