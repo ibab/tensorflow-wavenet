@@ -4,6 +4,7 @@ import threading
 import numpy as np
 import tensorflow as tf
 
+
 def find_files(directory, pattern):
     '''Recursively finds all files matching the pattern.'''
     files = []
@@ -12,9 +13,11 @@ def find_files(directory, pattern):
             files.append(os.path.join(root, filename))
     return files
 
+
 def _read_text(filename):
-  with tf.gfile.GFile(filename, "r") as f:
-    return list(f.read().decode("utf-8").replace("\n", ""))
+    with tf.gfile.GFile(filename, "r") as f:
+        return list(f.read().decode("utf-8").replace("\n", ""))
+
 
 def load_generic_text(directory, pattern):
     '''Generator that yields text raw from the directory.'''
@@ -27,6 +30,7 @@ def load_generic_text(directory, pattern):
         text = text.reshape(-1, 1)
         yield text, filename
 
+
 class TextReader(object):
     '''Generic background text reader that preprocesses text files
     and enqueues them into a TensorFlow queue.'''
@@ -35,7 +39,7 @@ class TextReader(object):
                  text_dir,
                  coord,
                  sample_size=None,
-                 queue_size=256, 
+                 queue_size=256,
                  pattern='*.txt'):
         self.text_dir = text_dir
         self.pattern = pattern
