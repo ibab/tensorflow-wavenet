@@ -2,9 +2,9 @@ from __future__ import division
 import librosa
 import numpy as np
 import tensorflow as tf
-import audio_reader
-import text_reader
-import image_reader
+from .audio_reader import (AudioReader, trim_silence)
+from .text_reader import TextReader
+from .image_reader import ImageReader
 from PIL import Image
 
 
@@ -16,21 +16,19 @@ def FileReader(data_dir, coord, sample_rate, sample_size,
         # threshold near zero.
         silence_threshold = silence_threshold if silence_threshold > \
                                                       EPSILON else None
-        reader = audio_reader.AudioReader(
-                 data_dir, coord,
-                 sample_rate=sample_rate,
-                 sample_size=sample_size,
-                 silence_threshold=silence_threshold,
-                 quantization_channels=quantization_channels,
-                 pattern=pattern)
+        reader = AudioReader(data_dir, coord, sample_rate=sample_rate,
+                             sample_size=sample_size,
+                             silence_threshold=silence_threshold,
+                             quantization_channels=quantization_channels,
+                             pattern=pattern)
     elif raw_type == "Text":
-        reader = text_reader.TextReader(data_dir, coord,
-                                        sample_size=sample_size,
-                                        pattern=pattern)
+        reader = TextReader(data_dir, coord,
+                            sample_size=sample_size,
+                            pattern=pattern)
     elif raw_type == "Image":
-        reader = image_reader.ImageReader(data_dir, coord,
-                                          sample_size=sample_size,
-                                          pattern=pattern)
+        reader = ImageReader(data_dir, coord,
+                             sample_size=sample_size,
+                             pattern=pattern)
     return reader
 
 
@@ -78,7 +76,7 @@ def create_seed_audio(filename,
                       window_size=8000,
                       silence_threshold=0.1):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
-    audio = audio_reader.trim_silence(audio, silence_threshold)
+    audio = trim_silence(audio, silence_threshold)
     quantized = mu_law_encode(audio, quantization_channels)
     cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
                         lambda: tf.size(quantized),
