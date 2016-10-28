@@ -95,6 +95,7 @@ class AudioReader(object):
                 if self.silence_threshold is not None:
                     # Remove silence
                     audio = trim_silence(audio[:, 0], self.silence_threshold)
+                    audio = audio.reshape(-1, 1)
                     if audio.size == 0:
                         print("Warning: {} was ignored as it contains only "
                               "silence. Consider decreasing trim_silence "
