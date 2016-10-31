@@ -5,8 +5,8 @@ import json
 import numpy as np
 import sys
 import tensorflow as tf
-import matplotlib.pyplot as plt
-import librosa
+# import matplotlib.pyplot as plt
+# import librosa
 import random
 
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
@@ -134,9 +134,9 @@ def find_nearest(freqs, power_spectrum, frequency):
 
 
 def check_waveform(assertion, generated_waveform, gc_category):
-    librosa.output.write_wav('/tmp/sine_test{}.wav'.format(gc_category),
-                             generated_waveform,
-                             SAMPLE_RATE_HZ)
+    # librosa.output.write_wav('/tmp/sine_test{}.wav'.format(gc_category),
+    #                          generated_waveform,
+    #                          SAMPLE_RATE_HZ)
     power_spectrum = np.abs(np.fft.fft(generated_waveform))**2
     freqs = np.fft.fftfreq(generated_waveform.size, SAMPLE_PERIOD_SECS)
     indices = np.argsort(freqs)
@@ -156,7 +156,7 @@ def check_waveform(assertion, generated_waveform, gc_category):
         expected_power = f1_power + f2_power + f3_power
         assertion(expected_power, 0.7 * power_sum)
     else:
-        # We expect spectral power only at the selected frequency
+        # We expect spectral power at the selected frequency
         # corresponding to the gc_category to be much higher than at the other
         # two frequencies.
         frequency_lut = {0: f1_power, 1: f2_power, 2: f3_power}
