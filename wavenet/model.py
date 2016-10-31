@@ -11,6 +11,7 @@ def create_variable(name, shape):
     variable = tf.Variable(initializer(shape=shape), name=name)
     return variable
 
+
 def create_embedding_table(name, shape):
     if shape[0] == shape[1]:
         # Make a one-hot encoding as the initial value.
@@ -18,6 +19,7 @@ def create_embedding_table(name, shape):
         return tf.Variable(initial_val, name=name)
     else:
         return create_variable(name, shape)
+
 
 def create_bias_variable(name, shape):
     '''Create a bias variable with the specified name and shape and initialize
@@ -271,10 +273,10 @@ class WaveNetModel(object):
                                                      name="gc_filter")
             weights_gc_gate = variables['gc_gateweights']
             conv_gate = conv_gate + tf.nn.conv1d(global_condition_batch,
-                                                     weights_gc_gate,
-                                                     stride=1,
-                                                     padding="SAME",
-                                                     name="gc_gate")
+                                                 weights_gc_gate,
+                                                 stride=1,
+                                                 padding="SAME",
+                                                 name="gc_gate")
 
         if self.use_biases:
             filter_bias = variables['filter_bias']
@@ -518,24 +520,26 @@ class WaveNetModel(object):
             # ... else the global_condition (if any) is already provided
             # as an embedding.
 
-            # In this case, the number of global_embedding channels must be equal
-            # to the the last dimension of the global_condition tensor.
-            gc_batch_dim_rank = len(global_condition.shape)
-            if global_condition.get_shape()[gc_batch_dim_rank - 1] !=  \
-                self.global_condition_channels:
-                    raise ValueError('Shape of global_condition {} does not match '
-                        ' global_condition_channels {}.'.format(
-                        self.global_condition.get_shape(),
-                        self.global_condition_channels))
+            # In this case, the number of global_embedding channels must be
+            # equal to the the last dimension of the global_condition tensor.
+            gc_batch_rank = len(global_condition.get_shape)
+            dims_match = (global_condition.get_shape()[gc_batch_rank - 1] ==
+                          self.global_condition_channels)
+            if not dims_match:
+                raise ValueError('Shape of global_condition {} does not'
+                                 ' match global_condition_channels {}.'.
+                                 format(self.global_condition.get_shape(),
+                                        self.global_condition_channels))
             embedding = global_condition
 
         if embedding is not None:
-            embedding = tf.reshape(embedding, [self.batch_size,
-                1, self.global_condition_channels])
+            embedding = tf.reshape(
+                embedding,
+                [self.batch_size, 1, self.global_condition_channels])
 
         return embedding
 
-    def predict_proba(self, waveform, global_condition, name='wavenet'):
+    def predict_proba(self, waveform, global_condition=None, name='wavenet'):
         '''Computes the probability distribution of the next sample based on
         all samples in the input waveform.
         If you want to generate audio by feeding the output of the network back
@@ -559,8 +563,8 @@ class WaveNetModel(object):
                 [1, self.quantization_channels])
             return tf.reshape(last, [-1])
 
-    def predict_proba_incremental(self, waveform, global_condition,
-            name='wavenet'):
+    def predict_proba_incremental(self, waveform, global_condition=None,
+                                  name='wavenet'):
         '''Computes the probability distribution of the next sample
         incrementally, based on a single sample and all previously passed
         samples.'''

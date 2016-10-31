@@ -13,7 +13,7 @@ from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
                      optimizer_factory, mu_law_decode)
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
-TRAIN_ITERATIONS = 600
+TRAIN_ITERATIONS = 400
 SAMPLE_DURATION = 0.5  # Seconds
 SAMPLE_PERIOD_SECS = 1.0 / SAMPLE_RATE_HZ
 MOMENTUM = 0.95
@@ -34,18 +34,22 @@ def make_sine_waves(global_conditioning):
 
     if global_conditioning:
         LEADING_SILENCE = random.randint(10, 128)
-        amplitudes = np.zeros(shape=(NUM_SPEAKERS,len(times)))
-        amplitudes[0,0:LEADING_SILENCE] = 0.0
-        amplitudes[1,0:LEADING_SILENCE] = 0.0
-        amplitudes[2,0:LEADING_SILENCE] = 0.0
-        start_time = LEADING_SILENCE/SAMPLE_RATE_HZ
-        amplitudes[0,LEADING_SILENCE:] = 0.6 * np.sin((times[LEADING_SILENCE:]-start_time) * 2.0 * np.pi * F1)
-        amplitudes[1,LEADING_SILENCE:] = 0.5 * np.sin((times[LEADING_SILENCE:]-start_time) * 2.0 * np.pi * F2)
-        amplitudes[2,LEADING_SILENCE:] = 0.4 * np.sin((times[LEADING_SILENCE:]-start_time) * 2.0 * np.pi * F3)
-        speaker_ids = np.zeros((NUM_SPEAKERS,1), dtype=np.int)
-        speaker_ids[0,0] = 0
-        speaker_ids[1,0] = 1
-        speaker_ids[2,0] = 2
+        amplitudes = np.zeros(shape=(NUM_SPEAKERS, len(times)))
+        amplitudes[0, 0:LEADING_SILENCE] = 0.0
+        amplitudes[1, 0:LEADING_SILENCE] = 0.0
+        amplitudes[2, 0:LEADING_SILENCE] = 0.0
+        start_time = LEADING_SILENCE / SAMPLE_RATE_HZ
+        times = times[LEADING_SILENCE:] - start_time
+        amplitudes[0, LEADING_SILENCE:] = 0.6 * np.sin(times *
+                                                       2.0 * np.pi * F1)
+        amplitudes[1, LEADING_SILENCE:] = 0.5 * np.sin(times *
+                                                       2.0 * np.pi * F2)
+        amplitudes[2, LEADING_SILENCE:] = 0.4 * np.sin(times *
+                                                       2.0 * np.pi * F3)
+        speaker_ids = np.zeros((NUM_SPEAKERS, 1), dtype=np.int)
+        speaker_ids[0, 0] = 0
+        speaker_ids[1, 0] = 1
+        speaker_ids[2, 0] = 2
     else:
         amplitudes = (np.sin(times * 2.0 * np.pi * F1) / 3.0 +
                       np.sin(times * 2.0 * np.pi * F2) / 3.0 +
@@ -53,6 +57,7 @@ def make_sine_waves(global_conditioning):
         speaker_ids = None
 
     return amplitudes, speaker_ids
+
 
 def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
                       gc_placeholder, operations):
@@ -69,7 +74,7 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
                 window = waveform
 
         # Run the WaveNet to predict the next sample.
-        feed_dict = {samples_placeholder: window }
+        feed_dict = {samples_placeholder: window}
         if gc is not None:
             feed_dict[gc_placeholder] = gc
         results = sess.run(operations, feed_dict=feed_dict)
@@ -85,8 +90,9 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
     waveform = waveform[RECEPTIVE_FIELD:]
     decode = mu_law_decode(samples_placeholder, QUANTIZATION_CHANNELS)
     decoded_waveform = sess.run(decode,
-        feed_dict={samples_placeholder: waveform})
+                                feed_dict={samples_placeholder: waveform})
     return decoded_waveform
+
 
 def generate_waveforms(sess, net, fast_generation, global_condition):
     samples_placeholder = tf.placeholder(tf.int32)
@@ -97,13 +103,13 @@ def generate_waveforms(sess, net, fast_generation, global_condition):
 
     if fast_generation:
         next_sample_probs = net.predict_proba_incremental(samples_placeholder,
-            global_condition)
+                                                          global_condition)
         sess.run(net.init_ops)
         operations = [next_sample_probs]
         operations.extend(net.push_ops)
     else:
         next_sample_probs = net.predict_proba(samples_placeholder,
-            gc_placeholder)
+                                              gc_placeholder)
         operations = [next_sample_probs]
 
     num_waveforms = 1 if global_condition is None else  \
@@ -114,16 +120,18 @@ def generate_waveforms(sess, net, fast_generation, global_condition):
         if global_condition is not None:
             gc = global_condition[waveform_index, :]
         # Generate a waveform for each speaker id.
-        waveforms[waveform_index] = generate_waveform(sess, net,
-            fast_generation, gc, samples_placeholder, gc_placeholder,
-            operations)
+        waveforms[waveform_index] = generate_waveform(
+            sess, net, fast_generation, gc, samples_placeholder,
+            gc_placeholder, operations)
 
     return waveforms, global_condition
+
 
 def find_nearest(freqs, power_spectrum, frequency):
     # Return the power of the bin nearest to the target frequency.
     index = (np.abs(freqs - frequency)).argmin()
     return power_spectrum[index]
+
 
 def check_waveform(assertion, generated_waveform, gc_category):
     librosa.output.write_wav('/tmp/sine_test{}.wav'.format(gc_category),
@@ -146,24 +154,26 @@ def check_waveform(assertion, generated_waveform, gc_category):
         # We are not globally conditioning to select one of the three sine
         # waves, so expect it across all three.
         expected_power = f1_power + f2_power + f3_power
+        assertion(expected_power, 0.7 * power_sum)
     else:
-        # We expect spectral power only at the frequency corresponding to the
-        # gc_category.
+        # We expect spectral power only at the selected frequency
+        # corresponding to the gc_category to be much higher than at the other
+        # two frequencies.
         frequency_lut = {0: f1_power, 1: f2_power, 2: f3_power}
         other_freqs_lut = {0: f2_power + f3_power,
                            1: f1_power + f3_power,
                            2: f1_power + f2_power}
         expected_power = frequency_lut[gc_category]
+        # Power at the selected frequency should be at least 10 times greater
+        # than at other frequences.
+        # This is a weak criterion, but still detects implementation errors
+        # in the code.
+        assertion(expected_power, 10.0*other_freqs_lut[gc_category])
 
     # print("gc category:", gc_category)
     # print("Power sum {}, F1 power:{}, F2 power:{}, F3 power:{}".
     #        format(power_sum, f1_power, f2_power, f3_power))
-    assertion(expected_power, 0.7 * power_sum)
-    if gc_category is not None:
-        # Power at the selected frequency should be at least 10 times greater
-        # than at other frequences.
-       assertion(expected_power, 10.0*other_freqs_lut[gc_category])
-    # print("power at selected freq:", expected_power, ", pwr sum:", power_sum)
+
 
 class TestNet(tf.test.TestCase):
     def setUp(self):
@@ -188,16 +198,14 @@ class TestNet(tf.test.TestCase):
         saver = tf.train.Saver(var_list=tf.trainable_variables())
         saver.save(sess, '\tmp\test.ckpt')
 
-
-    def _assign_feed_dict(self, speaker_ids, audio, index,
-                          audio_tensor,
-                          gc_tensor):
-        if speaker_ids is None:
-            return {audio_tensor: audio}
-        num_frequencies = speaker_ids.shape[0]
-        feed_dict = {audio_tensor: audio[index % num_frequencies,:]}
-        feed_dict[gc_tensor] = speaker_ids[index % num_frequencies,:]
-        return feed_dict
+#    def _assign_feed_dict(self, speaker_ids, audio, index, audio_tensor,
+#                          gc_tensor):
+#        if speaker_ids is None:
+#            return {audio_tensor: audio}
+#        num_frequencies = speaker_ids.shape[0]
+#        feed_dict = {audio_tensor: audio[index % num_frequencies, :]}
+#        feed_dict[gc_tensor] = speaker_ids[index % num_frequencies, :]
+#        return feed_dict
 
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
@@ -214,8 +222,8 @@ class TestNet(tf.test.TestCase):
                 # No global conditioning.
                 feed_dict = {audio_placeholder: audio}
             else:
-                feed_dict = { audio_placeholder: audio,
-                              gc_placeholder: speaker_ids }
+                feed_dict = {audio_placeholder: audio,
+                             gc_placeholder: speaker_ids}
             return feed_dict, speaker_index
 
         np.random.seed(42)
@@ -224,13 +232,16 @@ class TestNet(tf.test.TestCase):
         # if self.generate:
         #     if len(audio.shape) == 2:
         #       for i in range(audio.shape[0]):
-        #            librosa.output.write_wav('/tmp/sine_train{}.wav'.format(i), audio[i,:],
-        #                                      SAMPLE_RATE_HZ)
+        #            librosa.output.write_wav(
+        #                  '/tmp/sine_train{}.wav'.format(i), audio[i,:],
+        #                  SAMPLE_RATE_HZ)
         #            power_spectrum = np.abs(np.fft.fft(audio[i,:]))**2
-        #            freqs = np.fft.fftfreq(audio[i,:].size, SAMPLE_PERIOD_SECS)
+        #            freqs = np.fft.fftfreq(audio[i,:].size,
+        #                                   SAMPLE_PERIOD_SECS)
         #            indices = np.argsort(freqs)
-        #            indices = [index for index in indices if freqs[index] >= 0 and
-        #                                                     freqs[index] <= 500.0]
+        #            indices = [index for index in indices if
+        #                         freqs[index] >= 0 and
+        #                         freqs[index] <= 500.0]
         #            plt.plot(freqs[indices], power_spectrum[indices])
         #            plt.show()
 
@@ -252,13 +263,13 @@ class TestNet(tf.test.TestCase):
         initial_loss = None
         operations = [loss, optim]
         with self.test_session() as sess:
-            feed_dict, speaker_index = CreateTrainingFeedDict(audio, speaker_ids,
-                audio_placeholder, gc_placeholder, 0)
+            feed_dict, speaker_index = CreateTrainingFeedDict(
+                audio, speaker_ids, audio_placeholder, gc_placeholder, 0)
             sess.run(init)
             initial_loss = sess.run(loss, feed_dict=feed_dict)
             for i in range(self.train_iters):
-                feed_dict, speaker_index = CreateTrainingFeedDict(audio, speaker_ids,
-                    audio_placeholder, gc_placeholder, i)
+                feed_dict, speaker_index = CreateTrainingFeedDict(
+                    audio, speaker_ids, audio_placeholder, gc_placeholder, i)
                 [results] = sess.run([operations], feed_dict=feed_dict)
                 # if i % 10 == 0 or self.global_conditioning:
                 #    print("i: %d loss: %f, gc id: %d" % (i, results[0],
@@ -276,16 +287,14 @@ class TestNet(tf.test.TestCase):
             # than before training.
             self.assertLess(loss_val / initial_loss, 0.02)
 
-            # saver = tf.train.Saver(var_list=tf.trainable_variables())
-            # saver.save(sess, '/tmp/sine_test_model.ckpt', global_step=i)
             if self.generate:
                 # self._save_net(sess)
                 if self.global_conditioning:
                     # Check non-fast-generated waveform.
-                    generated_waveforms, ids = generate_waveforms(sess,
-                        self.net, False, speaker_ids)
+                    generated_waveforms, ids = generate_waveforms(
+                        sess, self.net, False, speaker_ids)
                     for (waveform, id) in zip(generated_waveforms, ids):
-                        check_waveform( self.assertGreater, waveform, id[0])
+                        check_waveform(self.assertGreater, waveform, id[0])
 
                     # Check fast-generated wveform.
                     # generated_waveforms, ids = generate_waveforms(sess,
@@ -296,76 +305,77 @@ class TestNet(tf.test.TestCase):
 
                 else:
                     # Check non-incremental generation
-                    generated_waveforms, _ = generate_waveforms(sess, self.net,
-                        False, None)
-                    check_waveform(self.assertGreater, generated_waveforms[0],
-                        None)
+                    generated_waveforms, _ = generate_waveforms(
+                        sess, self.net, False, None)
+                    check_waveform(
+                        self.assertGreater, generated_waveforms[0], None)
                     # Check incremental generation
-                    generated_waveform = generate_waveforms(sess, self.net,
-                        True, None)
-                    check_waveform(self.assertGreater, generated_waveforms[0],
-                        None)
+                    generated_waveform = generate_waveforms(
+                        sess, self.net, True, None)
+                    check_waveform(
+                        self.assertGreater, generated_waveforms[0], None)
 
 
-#class TestNetWithBiases(TestNet):
+class TestNetWithBiases(TestNet):
 
-#    def setUp(self):
-#        self.net = WaveNetModel(batch_size=1,
-#                                dilations=[1, 2, 4, 8, 16, 32, 64,
-#                                           1, 2, 4, 8, 16, 32, 64],
-#                                filter_width=2,
-#                                residual_channels=32,
-#                                dilation_channels=32,
-#                                quantization_channels=QUANTIZATION_CHANNELS,
-#                                use_biases=True,
-#                                skip_channels=32)
-#        self.optimizer_type = 'sgd'
-#        self.learning_rate = 0.02
-#        self.generate = False
-#        self.momentum = MOMENTUM
-#        self.global_conditioning = False
-#        self.train_iters = TRAIN_ITERATIONS
-
-
-#class TestNetWithRMSProp(TestNet):
-
-#    def setUp(self):
-#        self.net = WaveNetModel(batch_size=1,
-#                                dilations=[1, 2, 4, 8, 16, 32, 64,
-#                                           1, 2, 4, 8, 16, 32, 64],
-#                                filter_width=2,
-#                                residual_channels=32,
-#                                dilation_channels=32,
-#                                quantization_channels=QUANTIZATION_CHANNELS,
-#                                skip_channels=256)
-#        self.optimizer_type = 'rmsprop'
-#        self.learning_rate = 0.001
-#        self.generate = True
-#        self.momentum = MOMENTUM
-#        self.train_iters = TRAIN_ITERATIONS
-#        self.global_conditioning = False
+    def setUp(self):
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
+                                filter_width=2,
+                                residual_channels=32,
+                                dilation_channels=32,
+                                quantization_channels=QUANTIZATION_CHANNELS,
+                                use_biases=True,
+                                skip_channels=32)
+        self.optimizer_type = 'sgd'
+        self.learning_rate = 0.02
+        self.generate = False
+        self.momentum = MOMENTUM
+        self.global_conditioning = False
+        self.train_iters = TRAIN_ITERATIONS
 
 
-#class TestNetWithScalarInput(TestNet):
+class TestNetWithRMSProp(TestNet):
 
-#    def setUp(self):
-#        self.net = WaveNetModel(batch_size=1,
-#                                dilations=[1, 2, 4, 8, 16, 32, 64,
-#                                           1, 2, 4, 8, 16, 32, 64],
-#                                filter_width=2,
-#                                residual_channels=32,
-#                                dilation_channels=32,
-#                                quantization_channels=QUANTIZATION_CHANNELS,
-#                                use_biases=True,
-#                                skip_channels=32,
-#                                scalar_input=True,
-#                                initial_filter_width=4)
-#        self.optimizer_type = 'rmsprop'
-#        self.learning_rate = 0.001
-#        self.generate = False
-#        self.momentum = MOMENTUM_SCALAR_INPUT
-#        self.global_conditioning = False
-#        self.train_iters = TRAIN_ITERATIONS
+    def setUp(self):
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
+                                filter_width=2,
+                                residual_channels=32,
+                                dilation_channels=32,
+                                quantization_channels=QUANTIZATION_CHANNELS,
+                                skip_channels=256)
+        self.optimizer_type = 'rmsprop'
+        self.learning_rate = 0.001
+        self.generate = True
+        self.momentum = MOMENTUM
+        self.train_iters = TRAIN_ITERATIONS
+        self.global_conditioning = False
+
+
+class TestNetWithScalarInput(TestNet):
+
+    def setUp(self):
+        self.net = WaveNetModel(batch_size=1,
+                                dilations=[1, 2, 4, 8, 16, 32, 64,
+                                           1, 2, 4, 8, 16, 32, 64],
+                                filter_width=2,
+                                residual_channels=32,
+                                dilation_channels=32,
+                                quantization_channels=QUANTIZATION_CHANNELS,
+                                use_biases=True,
+                                skip_channels=32,
+                                scalar_input=True,
+                                initial_filter_width=4)
+        self.optimizer_type = 'rmsprop'
+        self.learning_rate = 0.001
+        self.generate = False
+        self.momentum = MOMENTUM_SCALAR_INPUT
+        self.global_conditioning = False
+        self.train_iters = TRAIN_ITERATIONS
+
 
 class TestNetWithGlobalConditioning(TestNet):
     def setUp(self):
@@ -374,7 +384,7 @@ class TestNetWithGlobalConditioning(TestNet):
         self.generate = True
         self.momentum = 0.9
         self.global_conditioning = True
-        self.train_iters = 800
+        self.train_iters = 700
         self.net = WaveNetModel(batch_size=NUM_SPEAKERS,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
                                            1, 2, 4, 8, 16, 32, 64],
