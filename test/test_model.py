@@ -64,6 +64,9 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
     waveform = [128]
     results = []
     for i in range(GENERATE_SAMPLES):
+        if i % 100 == 0:
+            print("Generating {} of {}.".format(i, GENERATE_SAMPLES))
+            sys.stdout.flush()
         if fast_generation:
             window = waveform[-1]
         else:
@@ -81,7 +84,6 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
 
         sample = np.random.choice(
            np.arange(QUANTIZATION_CHANNELS), p=results[0])
-        # print("Generated {} of {}: {}".format(i, GENERATE_SAMPLES, sample))
         sys.stdout.flush()
         waveform.append(sample)
 
@@ -120,6 +122,7 @@ def generate_waveforms(sess, net, fast_generation, global_condition):
         if global_condition is not None:
             gc = global_condition[waveform_index, :]
         # Generate a waveform for each speaker id.
+        print("Generating waveform {}.".format(waveform_index))
         waveforms[waveform_index] = generate_waveform(
             sess, net, fast_generation, gc, samples_placeholder,
             gc_placeholder, operations)
@@ -201,15 +204,6 @@ class TestNet(tf.test.TestCase):
         saver = tf.train.Saver(var_list=tf.trainable_variables())
         saver.save(sess, '\tmp\test.ckpt')
 
-#    def _assign_feed_dict(self, speaker_ids, audio, index, audio_tensor,
-#                          gc_tensor):
-#        if speaker_ids is None:
-#            return {audio_tensor: audio}
-#        num_frequencies = speaker_ids.shape[0]
-#        feed_dict = {audio_tensor: audio[index % num_frequencies, :]}
-#        feed_dict[gc_tensor] = speaker_ids[index % num_frequencies, :]
-#        return feed_dict
-
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
     #
@@ -274,9 +268,8 @@ class TestNet(tf.test.TestCase):
                 feed_dict, speaker_index = CreateTrainingFeedDict(
                     audio, speaker_ids, audio_placeholder, gc_placeholder, i)
                 [results] = sess.run([operations], feed_dict=feed_dict)
-                # if i % 10 == 0 or self.global_conditioning:
-                #    print("i: %d loss: %f, gc id: %d" % (i, results[0],
-                #          speaker_index))
+                if i % 100 == 0:
+                    print("i: %d loss: %f" % (i, results[0]))
 
             loss_val = results[0]
 
