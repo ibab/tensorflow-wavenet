@@ -177,6 +177,9 @@ def check_waveform(assertion, generated_waveform, gc_category):
 
 class TestNet(tf.test.TestCase):
     def setUp(self):
+        print('TestNet setup.')
+        sys.stdout.flush()
+
         self.optimizer_type = 'sgd'
         self.learning_rate = 0.02
         self.generate = False
@@ -319,6 +322,9 @@ class TestNet(tf.test.TestCase):
 class TestNetWithBiases(TestNet):
 
     def setUp(self):
+        print('TestNetWithBias setup.')
+        sys.stdout.flush()
+
         self.net = WaveNetModel(batch_size=1,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
                                            1, 2, 4, 8, 16, 32, 64],
@@ -339,6 +345,9 @@ class TestNetWithBiases(TestNet):
 class TestNetWithRMSProp(TestNet):
 
     def setUp(self):
+        print('TestNetWithRMSProp setup.')
+        sys.stdout.flush()
+
         self.net = WaveNetModel(batch_size=1,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
                                            1, 2, 4, 8, 16, 32, 64],
@@ -358,6 +367,9 @@ class TestNetWithRMSProp(TestNet):
 class TestNetWithScalarInput(TestNet):
 
     def setUp(self):
+        print('TestNetWithScalarInput setup.')
+        sys.stdout.flush()
+
         self.net = WaveNetModel(batch_size=1,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
                                            1, 2, 4, 8, 16, 32, 64],
@@ -379,6 +391,9 @@ class TestNetWithScalarInput(TestNet):
 
 class TestNetWithGlobalConditioning(TestNet):
     def setUp(self):
+        print('TestNetWithGlobalConditioning setup.')
+        sys.stdout.flush()
+
         self.optimizer_type = 'rmsprop'
         self.learning_rate = 0.0002
         self.generate = True
