@@ -17,7 +17,6 @@ TRAIN_ITERATIONS = 400
 SAMPLE_DURATION = 0.5  # Seconds
 SAMPLE_PERIOD_SECS = 1.0 / SAMPLE_RATE_HZ
 MOMENTUM = 0.95
-MOMENTUM_SCALAR_INPUT = 0.9
 GENERATE_SAMPLES = 1000
 QUANTIZATION_CHANNELS = 256
 NUM_SPEAKERS = 3
@@ -373,12 +372,12 @@ class TestNetWithScalarInput(TestNet):
                                 skip_channels=32,
                                 scalar_input=True,
                                 initial_filter_width=4)
-        self.optimizer_type = 'rmsprop'
-        self.learning_rate = 0.001
+        self.optimizer_type = 'sgd'
+        self.learning_rate = 0.01
         self.generate = False
-        self.momentum = MOMENTUM_SCALAR_INPUT
+        self.momentum = MOMENTUM
         self.global_conditioning = False
-        self.train_iters = TRAIN_ITERATIONS
+        self.train_iters = 1000
 
 
 class TestNetWithGlobalConditioning(TestNet):
