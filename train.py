@@ -222,34 +222,33 @@ def main():
     tower_grads = []
     tower_losses = []
     for device_index in xrange(args.num_gpus):
-        with tf.device('/gpu:%d' % device_index):
-            with tf.name_scope('tower_%d' % device_index) as scope:
-                # Create network.
-                net = WaveNetModel(
-                    batch_size=args.batch_size,
-                    dilations=wavenet_params["dilations"],
-                    filter_width=wavenet_params["filter_width"],
-                    residual_channels=wavenet_params["residual_channels"],
-                    dilation_channels=wavenet_params["dilation_channels"],
-                    skip_channels=wavenet_params["skip_channels"],
-                    quantization_channels=wavenet_params["quantization_channels"],
-                    use_biases=wavenet_params["use_biases"],
-                    scalar_input=wavenet_params["scalar_input"],
-                    initial_filter_width=wavenet_params["initial_filter_width"],
-                    reuse_variables=True,
-		    histograms=args.histograms)
-                if args.l2_regularization_strength == 0:
-                    args.l2_regularization_strength = None
-                loss = net.loss(audio_batch, args.l2_regularization_strength)
-                optimizer = optimizer_factory[args.optimizer](
-                    learning_rate=args.learning_rate,
-                    momentum=args.momentum)
-                trainable = tf.trainable_variables()
-                grads = optimizer.compute_gradients(loss, var_list=trainable)
-                tower_losses.append(loss)
-                tower_grads.append(grads)
-                summaries = tf.get_collection(tf.GraphKeys.SUMMARIES, scope)
-                tf.get_variable_scope().reuse_variables()
+        with tf.device('/gpu:%d' % device_index), tf.name_scope('tower_%d' % device_index) as scope:
+            # Create network.
+            net = WaveNetModel(
+                batch_size=args.batch_size,
+                dilations=wavenet_params["dilations"],
+                filter_width=wavenet_params["filter_width"],
+                residual_channels=wavenet_params["residual_channels"],
+                dilation_channels=wavenet_params["dilation_channels"],
+                skip_channels=wavenet_params["skip_channels"],
+                quantization_channels=wavenet_params["quantization_channels"],
+                use_biases=wavenet_params["use_biases"],
+                scalar_input=wavenet_params["scalar_input"],
+                initial_filter_width=wavenet_params["initial_filter_width"],
+                reuse_variables=True,
+	        histograms=args.histograms)
+            if args.l2_regularization_strength == 0:
+                args.l2_regularization_strength = None
+            loss = net.loss(audio_batch, args.l2_regularization_strength)
+            optimizer = optimizer_factory[args.optimizer](
+                learning_rate=args.learning_rate,
+                momentum=args.momentum)
+            trainable = tf.trainable_variables()
+            grads = optimizer.compute_gradients(loss, var_list=trainable)
+            tower_losses.append(loss)
+            tower_grads.append(grads)
+            summaries = tf.get_collection(tf.GraphKeys.SUMMARIES, scope)
+            tf.get_variable_scope().reuse_variables()
 
     loss = tf.reduce_mean(tower_losses)
     average_grads = []
