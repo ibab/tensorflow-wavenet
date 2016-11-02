@@ -2,7 +2,6 @@ import fnmatch
 import os
 import re
 import threading
-import random
 
 import librosa
 import numpy as np
