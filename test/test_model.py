@@ -385,12 +385,12 @@ class TestNetWithGlobalConditioning(TestNet):
         print('TestNetWithGlobalConditioning setup.')
         sys.stdout.flush()
 
-        self.optimizer_type = 'rmsprop'
-        self.learning_rate = 0.0002
+        self.optimizer_type = 'sgd'
+        self.learning_rate = 0.01
         self.generate = True
-        self.momentum = 0.9
+        self.momentum = MOMENTUM
         self.global_conditioning = True
-        self.train_iters = 700
+        self.train_iters = 1000
         self.net = WaveNetModel(batch_size=NUM_SPEAKERS,
                                 dilations=[1, 2, 4, 8, 16, 32, 64,
                                            1, 2, 4, 8, 16, 32, 64],
