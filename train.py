@@ -217,7 +217,6 @@ def main():
             sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
             silence_threshold=args.silence_threshold)
-        audio_batch = reader.dequeue(args.batch_size)
 
     tower_grads = []
     tower_losses = []
@@ -239,6 +238,7 @@ def main():
 	        histograms=args.histograms)
             if args.l2_regularization_strength == 0:
                 args.l2_regularization_strength = None
+            audio_batch = reader.dequeue(args.batch_size)
             loss = net.loss(audio_batch, args.l2_regularization_strength)
             optimizer = optimizer_factory[args.optimizer](
                 learning_rate=args.learning_rate,
