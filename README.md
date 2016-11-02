@@ -38,7 +38,7 @@ function to transform the outputs into a categorical distribution.
 The loss function is the cross-entropy between the output for each timestep and the input at the next timestep.
 </p>
 <p>
-In this repository, the network implementation can be found in <a href="./wavenet.py">wavenet.py</a>.
+In this repository, the network implementation can be found in <a href="./wavenet/model.py">model.py</a>.
 </p>
 </td>
 <td width="300">
@@ -115,7 +115,6 @@ To disable fast generation:
 python generate.py --samples 16000 model.ckpt-1000 --fast_generation=false
 ```
 
-
 ## Running tests
 
 Install the test requirements
@@ -132,3 +131,8 @@ Run the test suite
 
 Currently, there is no conditioning on extra information like the speaker ID.
 
+
+## Related projects
+
+- [tex-wavenet](https://github.com/Zeta36/tensorflow-tex-wavenet), a WaveNet for text generation.
+- [image-wavenet](https://github.com/Zeta36/tensorflow-image-wavenet), a WaveNet for image generation.

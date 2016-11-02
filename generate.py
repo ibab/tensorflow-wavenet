@@ -13,10 +13,12 @@ import tensorflow as tf
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
 SAMPLES = 16000
+TEMPERATURE = 1.0
 LOGDIR = './logdir'
 WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
 SAVE_EVERY = None
+SILENCE_THRESHOLD = 0.1
 
 
 def get_arguments():
@@ -27,6 +29,12 @@ def get_arguments():
                              'boolean, got {}'.format(s))
         return {'true': True, 'false': False}[s.lower()]
 
+    def _ensure_positive_float(f):
+        """Ensure argument is a positive float."""
+        if float(f) < 0:
+            raise argparse.ArgumentTypeError('Argument must be greater than zero')
+        return float(f)
+
     parser = argparse.ArgumentParser(description='WaveNet generation script')
     parser.add_argument(
         'checkpoint', type=str, help='Which model checkpoint to generate from')
@@ -35,6 +43,11 @@ def get_arguments():
         type=int,
         default=SAMPLES,
         help='How many waveform samples to generate')
+    parser.add_argument(
+        '--temperature',
+        type=_ensure_positive_float,
+        default=TEMPERATURE,
+        help='Sampling temperature')
     parser.add_argument(
         '--logdir',
         type=str,
@@ -84,9 +97,10 @@ def write_wav(waveform, sample_rate, filename):
 def create_seed(filename,
                 sample_rate,
                 quantization_channels,
-                window_size=WINDOW):
+                window_size=WINDOW,
+                silence_threshold=SILENCE_THRESHOLD):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
-    audio = audio_reader.trim_silence(audio)
+    audio = audio_reader.trim_silence(audio, silence_threshold)
 
     quantized = mu_law_encode(audio, quantization_channels)
     cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
@@ -179,8 +193,20 @@ def main():
 
         # Run the WaveNet to predict the next sample.
         prediction = sess.run(outputs, feed_dict={samples: window})[0]
+
+        # Scale prediction distribution using temperature.
+        np.seterr(divide='ignore')
+        scaled_prediction = np.log(prediction) / args.temperature
+        scaled_prediction = scaled_prediction - np.logaddexp.reduce(scaled_prediction)
+        scaled_prediction = np.exp(scaled_prediction)
+        np.seterr(divide='warn')
+
+        # Prediction distribution at temperature=1.0 should be unchanged after scaling.
+        if args.temperature == 1.0:
+            np.testing.assert_allclose(prediction, scaled_prediction, atol=1e-5, err_msg='Prediction scaling at temperature=1.0 is not working as intended.')
+
         sample = np.random.choice(
-            np.arange(quantization_channels), p=prediction)
+            np.arange(quantization_channels), p=scaled_prediction)
         waveform.append(sample)
 
         # Show progress only once per second.

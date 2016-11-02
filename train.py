@@ -17,27 +17,33 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader
+from wavenet import WaveNetModel, AudioReader, optimizer_factory
 
 NUM_GPUS = 1
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 50
-NUM_STEPS = 4000
-LEARNING_RATE = 0.02
+NUM_STEPS = int(1e5)
+LEARNING_RATE = 1e-3
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
 L2_REGULARIZATION_STRENGTH = 0
 SILENCE_THRESHOLD = 0.3
 EPSILON = 0.001
-ADAM_OPTIMIZER = 'adam'
-SGD_OPTIMIZER = 'sgd'
-SGD_MOMENTUM = 0.9
+MOMENTUM = 0.9
 
 
 def get_arguments():
+    def _str_to_bool(s):
+        """Convert string to bool (in argparse context)."""
+        if s.lower() not in ['true', 'false']:
+            raise ValueError('Argument needs to be a '
+                             'boolean, got {}'.format(s))
+        return {'true': True, 'false': False}[s.lower()]
+
+
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
                         help='How many wav files to process at once.')
@@ -82,17 +88,17 @@ def get_arguments():
                         default=SILENCE_THRESHOLD,
                         help='Volume threshold below which to trim the start '
                         'and the end from the training set samples.')
-    parser.add_argument('--optimizer', type=str, default=ADAM_OPTIMIZER,
-                         choices=[ADAM_OPTIMIZER, SGD_OPTIMIZER],
-                         help='Select the optimizer specified by this option.')
-    parser.add_argument('--sgd_momentum', type=float,
-                        default=SGD_MOMENTUM, help='Specify the momentum to be '
-                        'used by sgd optimizer. Ignored by the '
+    parser.add_argument('--optimizer', type=str, default='adam',
+                        choices=optimizer_factory.keys(),
+                        help='Select the optimizer specified by this option.')
+    parser.add_argument('--momentum', type=float,
+                        default=MOMENTUM, help='Specify the momentum to be '
+                        'used by sgd or rmsprop optimizer. Ignored by the '
                         'adam optimizer.')
     parser.add_argument('--num_gpus', type=int, default=NUM_GPUS,
                         help='number of gpus to use')
-    parser.add_argument('--random_crop', type=bool, default=False,
-                        help='Whether to crop randomly')
+    parser.add_argument('--histograms', type=_str_to_bool, default=False,
+                         help='Whether to store histogram summaries.')
     return parser.parse_args()
 
 
@@ -210,7 +216,6 @@ def main():
             coord,
             sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
-            random_crop=args.random_crop,
             silence_threshold=args.silence_threshold)
         audio_batch = reader.dequeue(args.batch_size)
 
@@ -230,19 +235,14 @@ def main():
                     quantization_channels=wavenet_params["quantization_channels"],
                     use_biases=wavenet_params["use_biases"],
                     scalar_input=wavenet_params["scalar_input"],
-                    initial_filter_width=wavenet_params["initial_filter_width"])
+                    initial_filter_width=wavenet_params["initial_filter_width"],
+		    histograms=args.histograms)
                 if args.l2_regularization_strength == 0:
                     args.l2_regularization_strength = None
                 loss = net.loss(audio_batch, args.l2_regularization_strength)
-                if args.optimizer == ADAM_OPTIMIZER:
-                    optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
-                elif args.optimizer == SGD_OPTIMIZER:
-                    optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate,
-                                                        momentum=args.sgd_momentum)
-                else:
-                    # This shouldn't happen, given the choices specified in argument
-                    # specification.
-                    raise RuntimeError('Invalid optimizer option.')
+                optimizer = optimizer_factory[args.optimizer](
+                    learning_rate=args.learning_rate,
+                    momentum=args.momentum)
                 trainable = tf.trainable_variables()
                 grads = optimizer.compute_gradients(loss, var_list=trainable)
                 tower_losses.append(loss)
@@ -302,6 +302,7 @@ def main():
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     reader.start_threads(sess)
 
+    step = None
     try:
         last_saved_step = saved_global_step
         for step in range(saved_global_step + 1, args.num_steps):
