@@ -84,7 +84,6 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
 
         sample = np.random.choice(
            np.arange(QUANTIZATION_CHANNELS), p=results[0])
-        sys.stdout.flush()
         waveform.append(sample)
 
     # Skip the first number of samples equal to the size of the receptive
