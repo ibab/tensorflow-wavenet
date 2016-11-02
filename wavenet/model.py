@@ -3,7 +3,22 @@ import tensorflow as tf
 from .ops import causal_conv, mu_law_encode
 
 
-def create_variable(name, shape):
+def _create_variable(name, shape):
+    '''Create a convolution filter variable with the specified name and shape,
+    and initialize it using Xavier initialition.'''
+    initializer = tf.contrib.layers.xavier_initializer_conv2d()
+    variable = tf.Variable(initializer(shape=shape), name=name)
+    return variable
+
+
+def _create_bias_variable(name, shape):
+    '''Create a bias variable with the specified name and shape and initialize
+    it to zero.'''
+    initializer = tf.constant_initializer(value=0.0, dtype=tf.float32)
+    return tf.Variable(initializer(shape=shape), name)
+
+
+def _get_variable(name, shape):
     '''Create a convolution filter variable with the specified name and shape,
     and initialize it using Xavier initialition.'''
     initializer = tf.contrib.layers.xavier_initializer_conv2d()
@@ -11,7 +26,7 @@ def create_variable(name, shape):
     return variable
 
 
-def create_bias_variable(name, shape):
+def _get_bias_variable(name, shape):
     '''Create a bias variable with the specified name and shape and initialize
     it to zero.'''
     initializer = tf.constant_initializer(value=0.0, dtype=tf.float32)
@@ -43,6 +58,7 @@ class WaveNetModel(object):
                  quantization_channels=2**8,
                  use_biases=False,
                  scalar_input=False,
+                 reuse_variables=False,
                  initial_filter_width=32,
                  histograms=False):
         '''Initializes the WaveNet model.
@@ -83,6 +99,7 @@ class WaveNetModel(object):
         self.scalar_input = scalar_input
         self.initial_filter_width = initial_filter_width
         self.histograms = histograms
+        self.reuse_variables = reuse_variables
 
         self.variables = self._create_variables()
 
@@ -92,6 +109,13 @@ class WaveNetModel(object):
         function and generation function.'''
 
         var = dict()
+
+        if self.reuse_variables:
+            create_variable = _get_variable
+            create_bias_variable = _get_bias_variable
+        else:
+            create_variable = _create_variable
+            create_bias_variable = _create_bias_variable
 
         with tf.variable_scope('wavenet'):
             with tf.variable_scope('causal_layer'):

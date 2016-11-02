@@ -236,6 +236,7 @@ def main():
                     use_biases=wavenet_params["use_biases"],
                     scalar_input=wavenet_params["scalar_input"],
                     initial_filter_width=wavenet_params["initial_filter_width"],
+                    reuse_variables=True,
 		    histograms=args.histograms)
                 if args.l2_regularization_strength == 0:
                     args.l2_regularization_strength = None
