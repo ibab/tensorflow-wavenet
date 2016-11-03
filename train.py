@@ -180,6 +180,30 @@ def validate_directories(args):
         'restore_from': restore_from
     }
 
+def make_net(args,wavenet_params,audio_batch,reuse_variables):
+    # Create network.
+    net = WaveNetModel(
+        batch_size=args.batch_size,
+        dilations=wavenet_params["dilations"],
+        filter_width=wavenet_params["filter_width"],
+        residual_channels=wavenet_params["residual_channels"],
+        dilation_channels=wavenet_params["dilation_channels"],
+        skip_channels=wavenet_params["skip_channels"],
+        quantization_channels=wavenet_params["quantization_channels"],
+        use_biases=wavenet_params["use_biases"],
+        scalar_input=wavenet_params["scalar_input"],
+        initial_filter_width=wavenet_params["initial_filter_width"],
+        reuse_variables=reuse_variables,
+        histograms=args.histograms)
+    if args.l2_regularization_strength == 0:
+        args.l2_regularization_strength = None
+    loss = net.loss(audio_batch, args.l2_regularization_strength)
+    optimizer = optimizer_factory[args.optimizer](
+        learning_rate=args.learning_rate,
+        momentum=args.momentum)
+    trainable = tf.trainable_variables()
+    return loss, optimizer, trainable
+
 
 def main():
     args = get_arguments()
@@ -222,54 +246,37 @@ def main():
     tower_losses = []
     for device_index in xrange(args.num_gpus):
         with tf.device('/gpu:%d' % device_index), tf.name_scope('tower_%d' % device_index) as scope:
-            # Create network.
-            net = WaveNetModel(
-                batch_size=args.batch_size,
-                dilations=wavenet_params["dilations"],
-                filter_width=wavenet_params["filter_width"],
-                residual_channels=wavenet_params["residual_channels"],
-                dilation_channels=wavenet_params["dilation_channels"],
-                skip_channels=wavenet_params["skip_channels"],
-                quantization_channels=wavenet_params["quantization_channels"],
-                use_biases=wavenet_params["use_biases"],
-                scalar_input=wavenet_params["scalar_input"],
-                initial_filter_width=wavenet_params["initial_filter_width"],
-                reuse_variables=True,
-	        histograms=args.histograms)
-            if args.l2_regularization_strength == 0:
-                args.l2_regularization_strength = None
             audio_batch = reader.dequeue(args.batch_size)
-            loss = net.loss(audio_batch, args.l2_regularization_strength)
-            optimizer = optimizer_factory[args.optimizer](
-                learning_rate=args.learning_rate,
-                momentum=args.momentum)
-            trainable = tf.trainable_variables()
+            loss, optimizer, trainable = make_net(args,wavenet_params,audio_batch,reuse_variables=True)
             grads = optimizer.compute_gradients(loss, var_list=trainable)
             tower_losses.append(loss)
             tower_grads.append(grads)
             summaries = tf.get_collection(tf.GraphKeys.SUMMARIES, scope)
             tf.get_variable_scope().reuse_variables()
 
-    loss = tf.reduce_mean(tower_losses)
-    average_grads = []
-    for grad_and_vars in zip(*tower_grads):
-        grads = []
-        for g,_ in grad_and_vars:
-            if g is None:
+    if args.num_gpus == 1:
+        optim = optimizer.minimize(loss, var_list=trainable)
+    else:
+        loss = tf.reduce_mean(tower_losses)
+        average_grads = []
+        for grad_and_vars in zip(*tower_grads):
+            grads = []
+            for g,_ in grad_and_vars:
+                if g is None:
+                    continue
+                expanded_g = tf.expand_dims(g,0)
+                grads.append(expanded_g)
+                
+            if len(grads) == 0:
+                average_grads.append((None,v))
                 continue
-            expanded_g = tf.expand_dims(g,0)
-            grads.append(expanded_g)
-        
-        if len(grads) == 0:
-            average_grads.append((None,v))
-            continue
-        grad = tf.concat(0,grads)
-        grad = tf.reduce_mean(grad,0)
+            grad = tf.concat(0,grads)
+            grad = tf.reduce_mean(grad,0)
 
-        v = grad_and_vars[0][1]
-        grad_and_var = (grad,v)
-        average_grads.append(grad_and_var)
-    optim = optimizer.apply_gradients(average_grads)
+            v = grad_and_vars[0][1]
+            grad_and_var = (grad,v)
+            average_grads.append(grad_and_var)
+        optim = optimizer.apply_gradients(average_grads)
 
     # Set up logging for TensorBoard.
     writer = tf.train.SummaryWriter(logdir)
