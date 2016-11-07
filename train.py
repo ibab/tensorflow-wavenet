@@ -96,6 +96,8 @@ def get_arguments():
                         'adam optimizer.')
     parser.add_argument('--histograms', type=_str_to_bool, default=False,
                          help='Whether to store histogram summaries.')
+    parser.add_argument('--gc_channels', type=int, default=None,
+                        help='Number of global condition channels.')
     return parser.parse_args()
 
 
@@ -208,13 +210,19 @@ def main():
         # zero.
         silence_threshold = args.silence_threshold if args.silence_threshold > \
                                                       EPSILON else None
+        gc_enabled = args.gc_channels is not None
         reader = AudioReader(
             args.data_dir,
             coord,
             sample_rate=wavenet_params['sample_rate'],
+            gc_enabled=gc_enabled,
             sample_size=args.sample_size,
             silence_threshold=args.silence_threshold)
         audio_batch = reader.dequeue(args.batch_size)
+        if gc_enabled:
+            gc_id_batch = reader.dequeue_gc(args.batch_size)
+        else:
+            gc_id_batch = None
 
     # Create network.
     net = WaveNetModel(
@@ -228,10 +236,14 @@ def main():
         use_biases=wavenet_params["use_biases"],
         scalar_input=wavenet_params["scalar_input"],
         initial_filter_width=wavenet_params["initial_filter_width"],
-        histograms=args.histograms)
+        histograms=args.histograms,
+        global_condition_channels=args.gc_channels,
+        global_condition_cardinality=reader.gc_category_cardinality)
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
-    loss = net.loss(audio_batch, args.l2_regularization_strength)
+    loss = net.loss(input_batch=audio_batch,
+                    global_condition_batch=gc_id_batch,
+                    l2_regularization_strength=args.l2_regularization_strength)
     optimizer = optimizer_factory[args.optimizer](
                     learning_rate=args.learning_rate,
                     momentum=args.momentum)

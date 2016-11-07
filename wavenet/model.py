@@ -120,10 +120,11 @@ class WaveNetModel(object):
 
         with tf.variable_scope('wavenet'):
             if self.global_condition_cardinality is not None:
-                # We only use an embedding if we are conditioning on a set of
-                # mutually-exclusive categories. We can also condition on
-                # an already-embedded dense vector, in which case we don't
-                # do an embedding lookup. Or no global condition at all, in
+                # We only look up the embedding if we are conditioning on a
+                # set of mutually-exclusive categories. We can also condition
+                # on an already-embedded dense vector, in which case it's
+                # given to us and we don't need to do the embedding lookup.
+                # Still another alternative is no global condition at all, in
                 # which case we also don't do a tf.nn.embedding_lookup.
                 with tf.variable_scope('embeddings'):
                     layer = dict()
