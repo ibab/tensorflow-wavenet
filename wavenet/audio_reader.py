@@ -26,7 +26,7 @@ def get_category_cardinality(files):
 
 def randomize_files(files):
     for file in files:
-        file_index = random.randint(0, len(files))
+        file_index = random.randint(0, (len(files)-1))
         yield files[file_index]
 
 
