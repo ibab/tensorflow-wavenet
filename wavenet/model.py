@@ -344,13 +344,17 @@ class WaveNetModel(object):
         output_gate = self._generator_conv(
             input_batch, state_batch, weights_gate)
 
-        if global_condition_batch:
+        if global_condition_batch is not None:
+            global_condition_batch = tf.reshape(global_condition_batch,
+                                                shape=(1,-1))
             weights_gc_filter = variables['gc_filtweights']
-            conv_filter = conv_filter + tf.matmul(global_conditioning_batch,
-                                                  weights_gc_filter)
+            weights_gc_filter = weights_gc_filter[0, :, :]
+            output_filter += tf.matmul(global_condition_batch,
+                                       weights_gc_filter)
             weights_gc_gate = variables['gc_gateweights']
-            output_gate = output_gate + tf.matmul(global_conditioning_batch,
-                                                  weights_gc_gate)
+            weights_gc_gate = weights_gc_gate[0, :, :]
+            output_gate += tf.matmul(global_condition_batch,
+                                     weights_gc_gate)
 
         if self.use_biases:
             output_filter = output_filter + variables['filter_bias']
@@ -579,7 +583,7 @@ class WaveNetModel(object):
             encoded = tf.one_hot(waveform, self.quantization_channels)
             encoded = tf.reshape(encoded, [-1, self.quantization_channels])
             gc_embedding = self._embed_gc(global_condition)
-            raw_output = self._create_generator(encoded, global_condition)
+            raw_output = self._create_generator(encoded, gc_embedding)
             out = tf.reshape(raw_output, [-1, self.quantization_channels])
             proba = tf.cast(
                 tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
