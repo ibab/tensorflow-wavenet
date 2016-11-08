@@ -346,7 +346,7 @@ class WaveNetModel(object):
 
         if global_condition_batch is not None:
             global_condition_batch = tf.reshape(global_condition_batch,
-                                                shape=(1,-1))
+                                                shape=(1, -1))
             weights_gc_filter = variables['gc_filtweights']
             weights_gc_filter = weights_gc_filter[0, :, :]
             output_filter += tf.matmul(global_condition_batch,
