@@ -61,6 +61,7 @@ class AudioReader(object):
                  sample_size=None,
                  silence_threshold=None,
                  queue_size=256):
+        self.queue_size = queue_size
         self.audio_dir = audio_dir
         self.sample_rate = sample_rate
         self.coord = coord
@@ -90,7 +91,7 @@ class AudioReader(object):
             if self.silence_threshold is not None:
                 # Remove silence
                 audio = trim_silence(audio[:, 0], self.silence_threshold)
-                audio = audio.reshape(-1)
+                audio = audio.reshape(-1, 1)
                 if audio.size == 0:
                     print("Warning: {} was ignored as it contains only "
                             "silence. Consider decreasing trim_silence "
@@ -101,13 +102,20 @@ class AudioReader(object):
                 # Cut samples into fixed size pieces
                 buffer_ = np.append(buffer_, audio)
                 while len(buffer_) > self.sample_size:
-                    a = np.reshape(buffer_[:self.sample_size], [-1])                    
+                    a = np.reshape(buffer_[:self.sample_size], [-1, 1])
                     data_.append(tf.convert_to_tensor(a,dtype=np.float32))
                     buffer_ = buffer_[self.sample_size:]
             else:
                 data_.append(tf.convert_to_tensor(audio))
-        source = tf.train.slice_input_producer(data_)
-        source = tf.train.shuffle_batch([source], batch_size=self.batch_size, num_threads=4, capacity=50000, min_after_dequeue=10000)
-        self.source = source        
+        source = tf.train.slice_input_producer([data_])
+        batch_size = self.batch_size
+        queue_size = self.queue_size
+        source = tf.train.shuffle_batch([source], 
+            batch_size, 
+            num_threads=4, 
+            capacity=batch_size*queue_size, 
+            min_after_dequeue=batch_size*queue_size/2)
+        print("Data loaded {}".format(len(data_)))
+        self.source = source                
 
 
