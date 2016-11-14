@@ -67,7 +67,7 @@ class AudioReader(object):
         self.coord = coord
         self.sample_size = sample_size
         self.batch_size = batch_size
-        self.silence_threshold = silence_threshold        
+        self.silence_threshold = silence_threshold
 
         # TODO Find a better way to check this.
         # Checking inside the AudioReader's thread makes it hard to terminate
@@ -78,14 +78,14 @@ class AudioReader(object):
         self.read()
 
     def dequeue(self):
-        return self.source 
+        return self.source
         # output = self.queue.dequeue_many(num_elements)
         # return output
 
     def read(self):
         data_ = []
-        buffer_ = np.array([])        
-        
+        buffer_ = np.array([])
+
         iterator = load_generic_audio(self.audio_dir, self.sample_rate)
         for audio, filename in iterator:
             if self.silence_threshold is not None:
@@ -110,12 +110,10 @@ class AudioReader(object):
         source = tf.train.slice_input_producer([data_])
         batch_size = self.batch_size
         queue_size = self.queue_size
-        source = tf.train.shuffle_batch([source], 
-            batch_size, 
-            num_threads=4, 
-            capacity=batch_size*queue_size, 
+        source = tf.train.shuffle_batch([source],
+            batch_size,
+            num_threads=4,
+            capacity=batch_size*queue_size,
             min_after_dequeue=batch_size*queue_size/2)
         print("Data loaded {}".format(len(data_)))
-        self.source = source                
-
-
+        self.source = source
