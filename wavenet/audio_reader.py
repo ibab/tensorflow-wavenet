@@ -107,8 +107,7 @@ class AudioReader(object):
             else:
                 data_.append(tf.convert_to_tensor(audio))
         source = tf.train.slice_input_producer(data_)
-        if self.batch_size > 1:
-            source = tf.train.shuffle_batch([source], batch_size=self.batch_size)
+        source = tf.train.shuffle_batch([source], batch_size=self.batch_size, num_threads=4, capacity=50000, min_after_dequeue=10000)
         self.source = source        
 
 
