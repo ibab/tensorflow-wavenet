@@ -605,7 +605,7 @@ class WaveNetModel(object):
         with tf.name_scope(name):
             # We mu-law encode and quantize the input audioform.
             encoded_input = mu_law_encode(input_batch,
-                                        self.quantization_channels)
+                                          self.quantization_channels)
 
             gc_embedding = self._embed_gc(global_condition_batch)
 

@@ -8,17 +8,19 @@ import librosa
 import numpy as np
 import tensorflow as tf
 
+FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
+
 
 def get_category_cardinality(files):
-    id_reg_expression = re.compile(r'p([0-9]+)_([0-9]+)\.wav')
+    id_reg_expression = re.compile(FILE_PATTERN)
     min_id = None
     max_id = None
     for filename in files:
         matches = id_reg_expression.findall(filename)[0]
         id, recording_id = [int(id_) for id_ in matches]
-        if id < min_id or min_id is None:
+        if min_id is None or id < min_id:
             min_id = id
-        elif id > max_id or max_id is None:
+        elif max_id is None or id > max_id:
             max_id = id
 
     return min_id, max_id
@@ -42,7 +44,7 @@ def find_files(directory, pattern='*.wav'):
 def load_generic_audio(directory, sample_rate):
     '''Generator that yields audio waveforms from the directory.'''
     files = find_files(directory)
-    id_reg_exp = re.compile(r'p([0-9]+)_([0-9]+)\.wav')
+    id_reg_exp = re.compile(FILE_PATTERN)
     print("files length: {}".format(len(files)))
     randomized_files = randomize_files(files)
     for filename in randomized_files:
@@ -72,7 +74,7 @@ def trim_silence(audio, threshold):
 def not_all_have_id(files):
     ''' Return true iff any of the filenames does not conform to the pattern
         we require for determining the category id.'''
-    id_reg_exp = re.compile(r'p([0-9]+)_([0-9]+)\.wav')
+    id_reg_exp = re.compile(FILE_PATTERN)
     for file in files:
         ids = id_reg_exp.findall(file)
         if ids is None:
