@@ -94,23 +94,24 @@ class AudioReader(object):
                 audio = audio.reshape(-1, 1)
                 if audio.size == 0:
                     print("Warning: {} was ignored as it contains only "
-                            "silence. Consider decreasing trim_silence "
-                            "threshold, or adjust volume of the audio."
-                            .format(filename))
+                          "silence. Consider decreasing trim_silence "
+                          "threshold, or adjust volume of the audio."
+                          .format(filename))
 
             if self.sample_size:
                 # Cut samples into fixed size pieces
                 buffer_ = np.append(buffer_, audio)
                 while len(buffer_) > self.sample_size:
                     a = np.reshape(buffer_[:self.sample_size], [-1, 1])
-                    data_.append(tf.convert_to_tensor(a,dtype=np.float32))
+                    data_.append(tf.convert_to_tensor(a, dtype=np.float32))
                     buffer_ = buffer_[self.sample_size:]
             else:
                 data_.append(tf.convert_to_tensor(audio))
         source = tf.train.slice_input_producer([data_])
         batch_size = self.batch_size
         queue_size = self.queue_size
-        source = tf.train.shuffle_batch([source],
+        source = tf.train.shuffle_batch(
+            [source],
             batch_size,
             num_threads=4,
             capacity=batch_size*queue_size,
