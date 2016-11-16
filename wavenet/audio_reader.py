@@ -28,7 +28,7 @@ def get_category_cardinality(files):
 
 def randomize_files(files):
     for file in files:
-        file_index = random.randint(0, (len(files)-1))
+        file_index = random.randint(0, (len(files) - 1))
         yield files[file_index]
 
 
@@ -91,7 +91,7 @@ class AudioReader(object):
                  coord,
                  sample_rate,
                  gc_enabled,
-                 sample_size=None,
+                 sample_size,
                  silence_threshold=None,
                  queue_size=32):
         self.audio_dir = audio_dir
@@ -166,25 +166,17 @@ class AudioReader(object):
                               "threshold, or adjust volume of the audio."
                               .format(filename))
 
-                if self.sample_size:
-                    # Cut samples into fixed size pieces
-                    buffer_ = np.append(buffer_, audio)
-                    while len(buffer_) > 0:
-                        piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
-                        sess.run(self.enqueue,
-                                 feed_dict={self.sample_placeholder: piece})
-                        buffer_ = buffer_[self.sample_size:]
-                        if self.gc_enabled:
-                            sess.run(self.gc_enqueue,
-                                     feed_dict={self.id_placeholder:
-                                                category_id})
-                else:
+                # Cut samples into fixed size pieces
+                buffer_ = np.append(buffer_, audio)
+                while len(buffer_) > 0:
+                    piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
                     sess.run(self.enqueue,
-                             feed_dict={self.sample_placeholder: audio})
+                             feed_dict={self.sample_placeholder: piece})
+                    buffer_ = buffer_[self.sample_size:]
                     if self.gc_enabled:
                         sess.run(self.gc_enqueue,
                                  feed_dict={self.id_placeholder:
-                                            categeory_id})
+                                            category_id})
 
     def start_threads(self, sess, n_threads=1):
         for _ in range(n_threads):
