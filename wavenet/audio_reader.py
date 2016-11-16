@@ -98,8 +98,7 @@ class AudioReader(object):
         stop = False
         # Go through the dataset multiple times
         while not stop:
-            # iterator = load_generic_audio(self.audio_dir, self.sample_rate)
-            iterator = load_vctk_audio(self.audio_dir, self.sample_rate)
+            iterator = load_generic_audio(self.audio_dir, self.sample_rate)
             for audio, global_feature, local_features in iterator:
                 if self.coord.should_stop():
                     stop = True
