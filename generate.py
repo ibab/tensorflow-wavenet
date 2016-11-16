@@ -172,7 +172,7 @@ def main():
         outputs.extend(net.push_ops)
 
         print('Priming generation...')
-        for i, x in enumerate(waveform[:-(args.window + 1)]):
+        for i, x in enumerate(waveform[-args.window: -1]):
             if i % 100 == 0:
                 print('Priming sample {}'.format(i))
             sess.run(outputs, feed_dict={samples: x})
