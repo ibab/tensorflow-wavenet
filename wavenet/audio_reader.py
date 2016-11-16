@@ -39,15 +39,16 @@ def load_vctk_audio(directory, sample_rate):
         yield audio, speaker_id, None
 
 
-def trim_silence(audio, threshold, local_features = None):
+def trim_silence(audio, threshold, local_features=None):
     '''Removes silence at the beginning and end of a sample.'''
     energy = librosa.feature.rmse(audio)
     frames = np.nonzero(energy > threshold)
     indices = librosa.core.frames_to_samples(frames)[1]
     audio_piece = audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
-    local_features_piece = local_features[indices[0]:indices[-1] \
-        if indices.size else local_features[0:0]]
-        
+    local_features_piece = local_features[indices[0]:
+                                          indices[-1] if indices.size
+                                          else local_features[0:0]]
+
     # Note: indices can be an empty array, if the whole audio was silence.
     return audio_piece, local_features_piece
 
@@ -110,11 +111,11 @@ class AudioReader(object):
                 if self.silence_threshold is not None:
                     # Remove silence
                     audio, local_features = \
-                        trim_silence(audio[:, 0], 
-                                     self.silence_threshold, 
+                        trim_silence(audio[:, 0],
+                                     self.silence_threshold,
                                      local_features)
                     audio = audio.reshape(-1, 1)
-                    local_features = local_features.reshape(-1,1)
+                    local_features = local_features.reshape(-1, 1)
                     if audio.size == 0:
                         print("Warning: {} was ignored as it contains only "
                               "silence. Consider decreasing trim_silence "
@@ -124,26 +125,26 @@ class AudioReader(object):
                 if self.sample_size:
                     # Cut samples into fixed size pieces
                     for start_index in range(0, len(audio), self.sample_size):
-                        audio_piece = audio[start_index: start_index \
-                            + self.sample_size]
-                        lf_piece = local_features[start_index: start_index \
-                            + self.sample_size]
+                        audio_piece = audio[start_index: start_index +
+                                            self.sample_size]
+                        lf_piece = local_features[start_index: start_index +
+                                                  self.sample_size]
                         sess.run(
                             self.enqueue,
                             feed_dict={
-                                self.sample_placeholder: audio_piece,
-                                self.global_feature_placeholder: global_feature,
-                                self.local_features_placeholder: lf_piece,
-                                }
+                               self.sample_placeholder: audio_piece,
+                               self.global_feature_placeholder: global_feature,
+                               self.local_features_placeholder: lf_piece,
+                            }
                             )
                 else:
                     sess.run(
                             self.enqueue,
                             feed_dict={
-                                self.sample_placeholder: audio,
-                                self.global_feature_placeholder: global_feature,
-                                self.local_features_placeholder: local_features,
-                                }
+                               self.sample_placeholder: audio,
+                               self.global_feature_placeholder: global_feature,
+                               self.local_features_placeholder: local_features,
+                               }
                             )
 
     def start_threads(self, sess, n_threads=1):
