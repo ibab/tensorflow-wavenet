@@ -50,7 +50,7 @@ class TestGeneration(tf.test.TestCase):
     def testCompareSimpleFast(self):
         waveform = tf.placeholder(tf.int32)
         np.random.seed(0)
-        data = np.random.randint(128, size=1)
+        data = np.random.randint(128, size=1000)
         proba = self.net.predict_proba(waveform)
         proba_fast = self.net.predict_proba_incremental(waveform)
         with self.test_session() as sess:
