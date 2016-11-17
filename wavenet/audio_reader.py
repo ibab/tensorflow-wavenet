@@ -2,13 +2,13 @@ import fnmatch
 import os
 import re
 import threading
-
 import librosa
 import numpy as np
 import tensorflow as tf
+from .ops import *
 
 
-def find_files(directory, pattern='*.wav'):
+def find_files(directory, pattern):
     '''Recursively finds all files matching the pattern.'''
     files = []
     for root, dirnames, filenames in os.walk(directory):
@@ -17,9 +17,9 @@ def find_files(directory, pattern='*.wav'):
     return files
 
 
-def load_generic_audio(directory, sample_rate):
+def load_generic_audio(directory, sample_rate, pattern):
     '''Generator that yields audio waveforms from the directory.'''
-    files = find_files(directory)
+    files = find_files(directory, pattern)
     for filename in files:
         audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
@@ -59,8 +59,12 @@ class AudioReader(object):
                  sample_rate,
                  sample_size=None,
                  silence_threshold=None,
-                 queue_size=256):
+                 quantization_channels=256,
+                 queue_size=256,
+                 pattern='*.wav'):
         self.audio_dir = audio_dir
+        self.pattern = pattern
+        self.quantization_channels = quantization_channels
         self.sample_rate = sample_rate
         self.coord = coord
         self.sample_size = sample_size
@@ -73,21 +77,26 @@ class AudioReader(object):
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
 
         # TODO Find a better way to check this.
-        # Checking inside the AudioReader's thread makes it hard to terminate
-        # the execution of the script, so we do it in the constructor for now.
-        if not find_files(audio_dir):
+        # Checking inside the AudioReader's thread makes it
+        # hard to terminate the execution of the script, so
+        # we do it in the constructor for now.
+        if not find_files(audio_dir, self.pattern):
             raise ValueError("No audio files found in '{}'.".format(audio_dir))
 
     def dequeue(self, num_elements):
         output = self.queue.dequeue_many(num_elements)
-        return output
+        # We mu-law encode and quantize the input audioform.
+        encode_output = mu_law_encode(output, self.quantization_channels)
+        return encode_output
 
     def thread_main(self, sess):
         buffer_ = np.array([])
         stop = False
         # Go through the dataset multiple times
         while not stop:
-            iterator = load_generic_audio(self.audio_dir, self.sample_rate)
+            iterator = load_generic_audio(self.audio_dir,
+                                          self.sample_rate,
+                                          self.pattern)
             for audio, filename in iterator:
                 if self.coord.should_stop():
                     stop = True

@@ -10,7 +10,7 @@ import librosa
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
+from wavenet import WaveNetModel, mu_law_decode, write_output, create_seed_audio
 
 SAMPLES = 16000
 TEMPERATURE = 1.0
@@ -66,15 +66,15 @@ def get_arguments():
         default=WAVENET_PARAMS,
         help='JSON file with the network parameters')
     parser.add_argument(
-        '--wav_out_path',
+        '--file_out_path',
         type=str,
         default=None,
-        help='Path to output wav file')
+        help='Path to output generated file')
     parser.add_argument(
         '--save_every',
         type=int,
         default=SAVE_EVERY,
-        help='How many samples before saving in-progress wav')
+        help='How many samples before saving in-progress')
     parser.add_argument(
         '--fast_generation',
         type=_str_to_bool,
@@ -86,29 +86,6 @@ def get_arguments():
         default=None,
         help='The wav file to start generation from')
     return parser.parse_args()
-
-
-def write_wav(waveform, sample_rate, filename):
-    y = np.array(waveform)
-    librosa.output.write_wav(filename, y, sample_rate)
-    print('Updated wav file at {}'.format(filename))
-
-
-def create_seed(filename,
-                sample_rate,
-                quantization_channels,
-                window_size=WINDOW,
-                silence_threshold=SILENCE_THRESHOLD):
-    audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
-    audio = audio_reader.trim_silence(audio, silence_threshold)
-
-    quantized = mu_law_encode(audio, quantization_channels)
-    cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
-            lambda: tf.size(quantized),
-            lambda: tf.constant(window_size))
-
-    return quantized[:cut_index]
-
 
 def main():
     args = get_arguments()
@@ -150,18 +127,21 @@ def main():
     print('Restoring model from {}'.format(args.checkpoint))
     saver.restore(sess, args.checkpoint)
 
-    decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
+    if wavenet_params['raw_type'] == "Audio":
+        decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
+    else:
+        decode = samples
 
     quantization_channels = wavenet_params['quantization_channels']
     if args.wav_seed:
-        seed = create_seed(args.wav_seed,
+        seed = create_seed_audio(args.wav_seed,
                            wavenet_params['sample_rate'],
                            quantization_channels)
         waveform = sess.run(seed).tolist()
     else:
         waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
 
-    if args.fast_generation and args.wav_seed:
+    if args.fast_generation and args.wav_seed and wavenet_params['raw_type'] == "Audio":
         # When using the incremental generation, we need to
         # feed in all priming samples one by one before starting the
         # actual generation.
@@ -218,27 +198,28 @@ def main():
             last_sample_timestamp = current_sample_timestamp
 
         # If we have partial writing, save the result so far.
-        if (args.wav_out_path and args.save_every and
+        if (args.file_out_path and args.save_every and
                 (step + 1) % args.save_every == 0):
             out = sess.run(decode, feed_dict={samples: waveform})
-            write_wav(out, wavenet_params['sample_rate'], args.wav_out_path)
+            write_output(out, args.file_out_path, wavenet_params['sample_rate'], raw_type=wavenet_params['raw_type'])
 
     # Introduce a newline to clear the carriage return from the progress.
     print()
 
-    # Save the result as an audio summary.
-    datestring = str(datetime.now()).replace(' ', 'T')
-    writer = tf.train.SummaryWriter(logdir)
-    tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
-    summaries = tf.merge_all_summaries()
-    summary_out = sess.run(summaries,
+    if wavenet_params['raw_type'] == "Audio":
+        # Save the result as an audio summary.
+        datestring = str(datetime.now()).replace(' ', 'T')
+        writer = tf.train.SummaryWriter(logdir)
+        tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
+        summaries = tf.merge_all_summaries()
+        summary_out = sess.run(summaries,
                            feed_dict={samples: np.reshape(waveform, [-1, 1])})
-    writer.add_summary(summary_out)
+        writer.add_summary(summary_out)
 
     # Save the result as a wav file.
-    if args.wav_out_path:
+    if args.file_out_path:
         out = sess.run(decode, feed_dict={samples: waveform})
-        write_wav(out, wavenet_params['sample_rate'], args.wav_out_path)
+        write_output(out, args.file_out_path, wavenet_params['sample_rate'], raw_type=wavenet_params['raw_type'])
 
     print('Finished generating. The result can be viewed in TensorBoard.')
 

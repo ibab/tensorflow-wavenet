@@ -9,7 +9,7 @@ import tensorflow as tf
 # import librosa
 
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
-                     optimizer_factory, mu_law_decode)
+                     optimizer_factory, mu_law_decode, mu_law_encode)
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
 TRAIN_ITERATIONS = 400
@@ -144,7 +144,8 @@ class TestNet(tf.test.TestCase):
         #    plt.show()
 
         audio_tensor = tf.convert_to_tensor(audio, dtype=tf.float32)
-        loss = self.net.loss(audio_tensor)
+        encode_output = mu_law_encode(audio_tensor, QUANTIZATION_CHANNELS)
+        loss = self.net.loss(encode_output)
         optimizer = optimizer_factory[self.optimizer_type](
                       learning_rate=self.learning_rate, momentum=self.momentum)
         trainable = tf.trainable_variables()

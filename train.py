@@ -17,10 +17,10 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader, optimizer_factory
+from wavenet import WaveNetModel, FileReader, optimizer_factory
 
 BATCH_SIZE = 1
-DATA_DIRECTORY = './VCTK-Corpus'
+DATA_DIRECTORY = './data'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 50
 NUM_STEPS = int(1e5)
@@ -45,9 +45,9 @@ def get_arguments():
 
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
-                        help='How many wav files to process at once.')
+                        help='How many raw files to process at once.')
     parser.add_argument('--data_dir', type=str, default=DATA_DIRECTORY,
-                        help='The directory containing the VCTK corpus.')
+                        help='The directory containing the training data.')
     parser.add_argument('--store_metadata', type=bool, default=False,
                         help='Whether to store advanced debugging information '
                         '(execution time, memory consumption) for use with '
@@ -202,19 +202,19 @@ def main():
     # Create coordinator.
     coord = tf.train.Coordinator()
 
-    # Load raw waveform from VCTK corpus.
+    # Load raw waveform files.
     with tf.name_scope('create_inputs'):
-        # Allow silence trimming to be skipped by specifying a threshold near
-        # zero.
-        silence_threshold = args.silence_threshold if args.silence_threshold > \
-                                                      EPSILON else None
-        reader = AudioReader(
-            args.data_dir,
-            coord,
-            sample_rate=wavenet_params['sample_rate'],
-            sample_size=args.sample_size,
-            silence_threshold=args.silence_threshold)
-        audio_batch = reader.dequeue(args.batch_size)
+        reader = FileReader(
+                args.data_dir,
+                coord,
+                sample_rate=wavenet_params['sample_rate'],
+                sample_size=args.sample_size,
+                silence_threshold=args.silence_threshold,
+                quantization_channels=wavenet_params['quantization_channels'],
+                pattern=wavenet_params['file_ext'],
+                EPSILON=EPSILON,
+                raw_type=wavenet_params['raw_type'])
+        input_batch = reader.dequeue(args.batch_size)
 
     # Create network.
     net = WaveNetModel(
@@ -231,7 +231,7 @@ def main():
         histograms=args.histograms)
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
-    loss = net.loss(audio_batch, args.l2_regularization_strength)
+    loss = net.loss(input_batch, args.l2_regularization_strength)
     optimizer = optimizer_factory[args.optimizer](
                     learning_rate=args.learning_rate,
                     momentum=args.momentum)
