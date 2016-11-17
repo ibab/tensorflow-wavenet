@@ -20,7 +20,7 @@ def get_category_cardinality(files):
         id, recording_id = [int(id_) for id_ in matches]
         if min_id is None or id < min_id:
             min_id = id
-        elif max_id is None or id > max_id:
+        if max_id is None or id > max_id:
             max_id = id
 
     return min_id, max_id
