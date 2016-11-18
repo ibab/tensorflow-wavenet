@@ -87,7 +87,7 @@ This allows (indeed requires) that a speaker id be specified at time of generati
 ### Training with Global Conditioning
 The instructions above for training refer to training without global conditioning. To train with global conditioning, specify command-line arguments as follows:
 ```
-python train.py --data_dir=corpus --gc_channels=16
+python train.py --data_dir=corpus --gc_channels=32
 ```
 The --gc_channels argument does two things: 1) It tells the train.py script that
 it should build a model that includes global conditioning. 2) It specifies the
@@ -135,7 +135,7 @@ python generate.py --samples 16000 model.ckpt-1000 --fast_generation=false
 ### Generating with Global Conditioning
 Generate from a model incorporating global conditioning as follows:
 ```
-python generate.py --samples 32000  --wav_out_path speaker311.wav --gc_channels=32 --gc_cardinality=377 --gc_id=311 model.ckpt-1000
+python generate.py --samples 16000  --wav_out_path speaker311.wav --gc_channels=32 --gc_cardinality=377 --gc_id=311 model.ckpt-1000
 ```
 Where:
 
