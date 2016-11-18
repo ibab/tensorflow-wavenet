@@ -213,8 +213,9 @@ def main():
             coord,
             sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
+            batch_size=args.batch_size,
             silence_threshold=args.silence_threshold)
-        audio_batch = reader.dequeue(args.batch_size)
+        audio_batch = reader.dequeue()
 
     # Create network.
     net = WaveNetModel(
@@ -265,8 +266,7 @@ def main():
               "the previous model.")
         raise
 
-    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-    reader.start_threads(sess)
+    threads = tf.train.start_queue_runners(sess=sess, coord=coord)    
 
     step = None
     try:
