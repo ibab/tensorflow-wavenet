@@ -93,8 +93,7 @@ def get_arguments():
                         help='Select the optimizer specified by this option.')
     parser.add_argument('--momentum', type=float,
                         default=MOMENTUM, help='Specify the momentum to be '
-                        'used by sgd or rmsprop optimizer. Ignored by the '
-                        'adam optimizer.')
+                        'used by sgd or rmsprop optimizer.')
     parser.add_argument('--histograms', type=_str_to_bool, default=False,
                          help='Whether to store histogram summaries.')
     parser.add_argument('--nonlinearity', type=str, default=NONLINEARITY,

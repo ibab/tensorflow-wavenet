@@ -344,14 +344,15 @@ class WaveNetModel(object):
             # all up here.
             total = sum(outputs)
             transformed1 = self.nonlinearity(total)
+            keep_p = 1. - self.dropout_p
             if self.dropout_p > 0:
-                transformed1 = tf.nn.dropout(transformed1, keep_prob=1. - self.dropout_p)                
+                transformed1 = tf.nn.dropout(transformed1, keep_prob=keep_p)
             conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
             if self.use_biases:
                 conv1 = tf.add(conv1, b1)
             transformed2 = self.nonlinearity(conv1)
             if self.dropout_p > 0:
-                transformed2 = tf.nn.dropout(transformed2, keep_prob=1. - self.dropout_p)
+                transformed2 = tf.nn.dropout(transformed2, keep_prob=keep_p)
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
             if self.use_biases:
                 conv2 = tf.add(conv2, b2)
@@ -418,14 +419,15 @@ class WaveNetModel(object):
             # all up here.
             total = sum(outputs)
             transformed1 = self.nonlinearity(total)
+            keep_p = 1. - self.dropout_p
             if self.dropout_p > 0:
-                transformed1 = tf.nn.dropout(transformed1, keep_prob=1. - self.dropout_p)
+                transformed1 = tf.nn.dropout(transformed1, keep_prob=keep_p)
             conv1 = tf.matmul(transformed1, w1[0, :, :])
             if self.use_biases:
                 conv1 = conv1 + b1
             transformed2 = self.nonlinearity(conv1)
             if self.dropout_p > 0:
-                transformed2 = tf.nn.dropout(transformed2, keep_prob=1. - self.dropout_p)
+                transformed2 = tf.nn.dropout(transformed2, keep_prob=keep_p)
             conv2 = tf.matmul(transformed2, w2[0, :, :])
             if self.use_biases:
                 conv2 = conv2 + b2
