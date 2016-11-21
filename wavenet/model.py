@@ -2,22 +2,17 @@ import tensorflow as tf
 
 from .ops import causal_conv, mu_law_encode
 
-def concat_elu(x):
-    """ like concatenated ReLU (http://arxiv.org/abs/1603.05201), but then with ELU """
-    axis = len(x.get_shape())-1
-    return tf.nn.elu(tf.concat(axis, [x, -x]))
 
 def get_nonlinearity(nonlinearity):
      # parse nonlinearity argument
-    if nonlinearity == 'concat_elu':
-        nonlinearity = nn.concat_elu
-    elif nonlinearity == 'elu':
+    if nonlinearity == 'elu':
         nonlinearity = tf.nn.elu
     elif nonlinearity == 'relu':
         nonlinearity = tf.nn.relu
     else:
         raise('nonlinearity ' + nonlinearity + ' is not supported')
     return nonlinearity
+
 
 def create_variable(name, shape):
     '''Create a convolution filter variable with the specified name and shape,
@@ -61,6 +56,7 @@ class WaveNetModel(object):
                  scalar_input=False,
                  initial_filter_width=32,
                  nonlinearity='relu',
+                 dropout_p=0.,
                  histograms=False):
         '''Initializes the WaveNet model.
 
@@ -87,7 +83,9 @@ class WaveNetModel(object):
                 convolution applied to the scalar input. This is only relevant
                 if scalar_input=True.
             nonlinearity: nonlinearity function to use.
-                Defualt: 'relu'
+                Default: 'relu'
+            dropout_p: Drop out probability to apply after nonlinearity
+                Default: 0.
             histograms: Whether to store histograms in the summary.
                 Default: False.
         '''
@@ -102,6 +100,7 @@ class WaveNetModel(object):
         self.scalar_input = scalar_input
         self.initial_filter_width = initial_filter_width
         self.nonlinearity = get_nonlinearity(nonlinearity)
+        self.dropout_p = dropout_p
         self.histograms = histograms
 
         self.variables = self._create_variables()
@@ -345,10 +344,14 @@ class WaveNetModel(object):
             # all up here.
             total = sum(outputs)
             transformed1 = self.nonlinearity(total)
+            if self.dropout_p > 0:
+                transformed1 = tf.nn.dropout(transformed1, keep_prob=1. - self.dropout_p)                
             conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
             if self.use_biases:
                 conv1 = tf.add(conv1, b1)
             transformed2 = self.nonlinearity(conv1)
+            if self.dropout_p > 0:
+                transformed2 = tf.nn.dropout(transformed2, keep_prob=1. - self.dropout_p)
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
             if self.use_biases:
                 conv2 = tf.add(conv2, b2)
@@ -415,11 +418,14 @@ class WaveNetModel(object):
             # all up here.
             total = sum(outputs)
             transformed1 = self.nonlinearity(total)
-
+            if self.dropout_p > 0:
+                transformed1 = tf.nn.dropout(transformed1, keep_prob=1. - self.dropout_p)
             conv1 = tf.matmul(transformed1, w1[0, :, :])
             if self.use_biases:
                 conv1 = conv1 + b1
             transformed2 = self.nonlinearity(conv1)
+            if self.dropout_p > 0:
+                transformed2 = tf.nn.dropout(transformed2, keep_prob=1. - self.dropout_p)
             conv2 = tf.matmul(transformed2, w2[0, :, :])
             if self.use_biases:
                 conv2 = conv2 + b2
