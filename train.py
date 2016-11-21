@@ -32,6 +32,7 @@ L2_REGULARIZATION_STRENGTH = 0
 SILENCE_THRESHOLD = 0.3
 EPSILON = 0.001
 MOMENTUM = 0.9
+NONLINEARITY = 'relu'
 
 
 def get_arguments():
@@ -96,6 +97,9 @@ def get_arguments():
                         'adam optimizer.')
     parser.add_argument('--histograms', type=_str_to_bool, default=False,
                          help='Whether to store histogram summaries.')
+    parser.add_argument('--nonlinearity', type=str, default=NONLINEARITY,
+                         choices=['relu','concat_elu','elu'],
+                         help='Nonlinearity function to use in postprocessing.')
     return parser.parse_args()
 
 
