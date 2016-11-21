@@ -5,7 +5,7 @@ from .ops import causal_conv, mu_law_encode
 
 def concat_elu(x):
     ''' like concatenated ReLU (http://arxiv.org/abs/1603.05201), 
-    but then with ELU ''''
+    but then with ELU '''
     axis = len(x.get_shape())-1
     return tf.nn.elu(tf.concat(axis, [x, -x]))
 
