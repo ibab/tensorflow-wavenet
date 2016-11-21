@@ -4,7 +4,7 @@ from .ops import causal_conv, mu_law_encode
 
 
 def get_nonlinearity(nonlinearity):
-     # parse nonlinearity argument
+    # parse nonlinearity argument
     if nonlinearity == 'elu':
         nonlinearity = tf.nn.elu
     elif nonlinearity == 'relu':
