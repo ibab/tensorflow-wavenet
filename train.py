@@ -97,7 +97,7 @@ def get_arguments():
     parser.add_argument('--histograms', type=_str_to_bool, default=False,
                          help='Whether to store histogram summaries.')
     parser.add_argument('--nonlinearity', type=str, default=NONLINEARITY,
-                         choices=['relu','elu'],
+                         choices=['relu','concat_elu','elu'],
                          help='Nonlinearity function to use in postprocessing.')
     parser.add_argument('--dropout_p', type=float,
                         default=DROPOUT_P, help='Dropout probability to apply '

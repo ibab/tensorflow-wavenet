@@ -3,15 +3,23 @@ import tensorflow as tf
 from .ops import causal_conv, mu_law_encode
 
 
+def concat_elu(x):
+    """ like concatenated ReLU (http://arxiv.org/abs/1603.05201), but then with ELU """
+    axis = len(x.get_shape())-1
+    return tf.nn.elu(tf.concat(axis, [x, -x]))
+
+    
 def get_nonlinearity(nonlinearity):
     # parse nonlinearity argument
-    if nonlinearity == 'elu':
-        nonlinearity = tf.nn.elu
+    if nonlinearity == 'concat_elu':
+        return concat_elu, 2
+    elif nonlinearity == 'elu':
+        return tf.nn.elu, 1
     elif nonlinearity == 'relu':
-        nonlinearity = tf.nn.relu
+        return tf.nn.relu, 1
     else:
         raise('nonlinearity ' + nonlinearity + ' is not supported')
-    return nonlinearity
+    return nonlinearity, 1
 
 
 def create_variable(name, shape):
@@ -99,7 +107,7 @@ class WaveNetModel(object):
         self.skip_channels = skip_channels
         self.scalar_input = scalar_input
         self.initial_filter_width = initial_filter_width
-        self.nonlinearity = get_nonlinearity(nonlinearity)
+        self.nonlinearity, self.nonlinearity_mult = get_nonlinearity(nonlinearity)
         self.dropout_p = dropout_p
         self.histograms = histograms
 
@@ -173,10 +181,10 @@ class WaveNetModel(object):
                 current = dict()
                 current['postprocess1'] = create_variable(
                     'postprocess1',
-                    [1, self.skip_channels, self.skip_channels])
+                    [1, self.nonlinearity_mult * self.skip_channels, self.skip_channels])
                 current['postprocess2'] = create_variable(
                     'postprocess2',
-                    [1, self.skip_channels, self.quantization_channels])
+                    [1, self.nonlinearity_mult * self.skip_channels, self.quantization_channels])
                 if self.use_biases:
                     current['postprocess1_bias'] = create_bias_variable(
                         'postprocess1_bias',
@@ -342,7 +350,7 @@ class WaveNetModel(object):
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
-            total = sum(outputs)
+            total = tf.add_n(outputs)
             transformed1 = self.nonlinearity(total)
             keep_p = 1. - self.dropout_p
             if self.dropout_p > 0:
@@ -417,7 +425,7 @@ class WaveNetModel(object):
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
-            total = sum(outputs)
+            total = tf.add_n(outputs)
             transformed1 = self.nonlinearity(total)
             keep_p = 1. - self.dropout_p
             if self.dropout_p > 0:
