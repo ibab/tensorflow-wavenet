@@ -4,7 +4,7 @@ from .ops import causal_conv, mu_law_encode
 
 
 def concat_elu(x):
-    ''' like concatenated ReLU (http://arxiv.org/abs/1603.05201), 
+    ''' like concatenated ReLU (http://arxiv.org/abs/1603.05201),
     but then with ELU '''
     axis = len(x.get_shape())-1
     return tf.nn.elu(tf.concat(axis, [x, -x]))
@@ -179,9 +179,9 @@ class WaveNetModel(object):
 
                         var['dilated_stack'].append(current)
 
+            skip_channels_mult = self.nonlinearity_mult * self.skip_channels
             with tf.variable_scope('postprocessing'):
                 current = dict()
-                skip_channels_mult = self.nonlinearity_mult * self.skip_channels 
                 current['postprocess1'] = create_variable(
                     'postprocess1',
                     [1, skip_channels_mult, self.skip_channels])
