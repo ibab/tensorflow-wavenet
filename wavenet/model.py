@@ -4,11 +4,12 @@ from .ops import causal_conv, mu_law_encode
 
 
 def concat_elu(x):
-    """ like concatenated ReLU (http://arxiv.org/abs/1603.05201), but then with ELU """
+    ''' like concatenated ReLU (http://arxiv.org/abs/1603.05201), 
+    but then with ELU ''''
     axis = len(x.get_shape())-1
     return tf.nn.elu(tf.concat(axis, [x, -x]))
 
-    
+
 def get_nonlinearity(nonlinearity):
     # parse nonlinearity argument
     if nonlinearity == 'concat_elu':
@@ -107,7 +108,8 @@ class WaveNetModel(object):
         self.skip_channels = skip_channels
         self.scalar_input = scalar_input
         self.initial_filter_width = initial_filter_width
-        self.nonlinearity, self.nonlinearity_mult = get_nonlinearity(nonlinearity)
+        mult = get_nonlinearity(nonlinearity)
+        self.nonlinearity, self.nonlinearity_mult = mult
         self.dropout_p = dropout_p
         self.histograms = histograms
 
@@ -179,12 +181,13 @@ class WaveNetModel(object):
 
             with tf.variable_scope('postprocessing'):
                 current = dict()
+                skip_channels_mult = self.nonlinearity_mult * self.skip_channels 
                 current['postprocess1'] = create_variable(
                     'postprocess1',
-                    [1, self.nonlinearity_mult * self.skip_channels, self.skip_channels])
+                    [1, skip_channels_mult, self.skip_channels])
                 current['postprocess2'] = create_variable(
                     'postprocess2',
-                    [1, self.nonlinearity_mult * self.skip_channels, self.quantization_channels])
+                    [1, skip_channels_mult, self.quantization_channels])
                 if self.use_biases:
                     current['postprocess1_bias'] = create_bias_variable(
                         'postprocess1_bias',
