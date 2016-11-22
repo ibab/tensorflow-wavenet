@@ -19,7 +19,8 @@ WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
 SAVE_EVERY = None
 SILENCE_THRESHOLD = 0.1
-
+NONLINEARITY = 'relu'
+DROPOUT_P = 0.
 
 def get_arguments():
     def _str_to_bool(s):
@@ -85,6 +86,12 @@ def get_arguments():
         type=str,
         default=None,
         help='The wav file to start generation from')
+    parser.add_argument('--nonlinearity', type=str, default=NONLINEARITY,
+        choices=['relu','concat_elu','elu'],
+        help='Nonlinearity function to use in postprocessing.')
+    parser.add_argument('--dropout_p', type=float,
+        default=DROPOUT_P, help='Dropout probability to apply '
+        'after nonlinearities')
     return parser.parse_args()
 
 
@@ -129,6 +136,8 @@ def main():
         skip_channels=wavenet_params['skip_channels'],
         use_biases=wavenet_params['use_biases'],
         scalar_input=wavenet_params['scalar_input'],
+        nonlinearity=args.nonlinearity,
+        dropout_p=args.dropout_p,
         initial_filter_width=wavenet_params['initial_filter_width'])
 
     samples = tf.placeholder(tf.int32)

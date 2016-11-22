@@ -32,7 +32,8 @@ L2_REGULARIZATION_STRENGTH = 0
 SILENCE_THRESHOLD = 0.3
 EPSILON = 0.001
 MOMENTUM = 0.9
-
+NONLINEARITY = 'relu'
+DROPOUT_P = 0.
 
 def get_arguments():
     def _str_to_bool(s):
@@ -92,10 +93,15 @@ def get_arguments():
                         help='Select the optimizer specified by this option.')
     parser.add_argument('--momentum', type=float,
                         default=MOMENTUM, help='Specify the momentum to be '
-                        'used by sgd or rmsprop optimizer. Ignored by the '
-                        'adam optimizer.')
+                        'used by sgd or rmsprop optimizer.')
     parser.add_argument('--histograms', type=_str_to_bool, default=False,
                          help='Whether to store histogram summaries.')
+    parser.add_argument('--nonlinearity', type=str, default=NONLINEARITY,
+                         choices=['relu','concat_elu','elu'],
+                         help='Nonlinearity function to use in postprocessing.')
+    parser.add_argument('--dropout_p', type=float,
+                        default=DROPOUT_P, help='Dropout probability to apply '
+                        'after nonlinearities')
     return parser.parse_args()
 
 
@@ -228,6 +234,8 @@ def main():
         use_biases=wavenet_params["use_biases"],
         scalar_input=wavenet_params["scalar_input"],
         initial_filter_width=wavenet_params["initial_filter_width"],
+        nonlinearity=args.nonlinearity,
+        dropout_p=args.dropout_p,
         histograms=args.histograms)
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None

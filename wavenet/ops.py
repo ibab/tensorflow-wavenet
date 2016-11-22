@@ -5,6 +5,7 @@ import tensorflow as tf
 
 def create_adam_optimizer(learning_rate, momentum):
     return tf.train.AdamOptimizer(learning_rate=learning_rate,
+                                  beta1=momentum,
                                   epsilon=1e-4)
 
 

@@ -3,6 +3,26 @@ import tensorflow as tf
 from .ops import causal_conv, mu_law_encode
 
 
+def concat_elu(x):
+    ''' like concatenated ReLU (http://arxiv.org/abs/1603.05201),
+    but then with ELU '''
+    axis = len(x.get_shape())-1
+    return tf.nn.elu(tf.concat(axis, [x, -x]))
+
+
+def get_nonlinearity(nonlinearity):
+    # parse nonlinearity argument
+    if nonlinearity == 'concat_elu':
+        return concat_elu, 2
+    elif nonlinearity == 'elu':
+        return tf.nn.elu, 1
+    elif nonlinearity == 'relu':
+        return tf.nn.relu, 1
+    else:
+        raise('nonlinearity ' + nonlinearity + ' is not supported')
+    return nonlinearity, 1
+
+
 def create_variable(name, shape):
     '''Create a convolution filter variable with the specified name and shape,
     and initialize it using Xavier initialition.'''
@@ -44,6 +64,8 @@ class WaveNetModel(object):
                  use_biases=False,
                  scalar_input=False,
                  initial_filter_width=32,
+                 nonlinearity='relu',
+                 dropout_p=0.,
                  histograms=False):
         '''Initializes the WaveNet model.
 
@@ -69,6 +91,10 @@ class WaveNetModel(object):
             initial_filter_width: The width of the initial filter of the
                 convolution applied to the scalar input. This is only relevant
                 if scalar_input=True.
+            nonlinearity: nonlinearity function to use.
+                Default: 'relu'
+            dropout_p: Drop out probability to apply after nonlinearity
+                Default: 0.
             histograms: Whether to store histograms in the summary.
                 Default: False.
         '''
@@ -82,6 +108,9 @@ class WaveNetModel(object):
         self.skip_channels = skip_channels
         self.scalar_input = scalar_input
         self.initial_filter_width = initial_filter_width
+        mult = get_nonlinearity(nonlinearity)
+        self.nonlinearity, self.nonlinearity_mult = mult
+        self.dropout_p = dropout_p
         self.histograms = histograms
 
         self.variables = self._create_variables()
@@ -150,14 +179,15 @@ class WaveNetModel(object):
 
                         var['dilated_stack'].append(current)
 
+            skip_channels_mult = self.nonlinearity_mult * self.skip_channels
             with tf.variable_scope('postprocessing'):
                 current = dict()
                 current['postprocess1'] = create_variable(
                     'postprocess1',
-                    [1, self.skip_channels, self.skip_channels])
+                    [1, skip_channels_mult, self.skip_channels])
                 current['postprocess2'] = create_variable(
                     'postprocess2',
-                    [1, self.skip_channels, self.quantization_channels])
+                    [1, skip_channels_mult, self.quantization_channels])
                 if self.use_biases:
                     current['postprocess1_bias'] = create_bias_variable(
                         'postprocess1_bias',
@@ -323,12 +353,17 @@ class WaveNetModel(object):
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
-            total = sum(outputs)
-            transformed1 = tf.nn.relu(total)
+            total = tf.add_n(outputs)
+            transformed1 = self.nonlinearity(total)
+            keep_p = 1. - self.dropout_p
+            if self.dropout_p > 0:
+                transformed1 = tf.nn.dropout(transformed1, keep_prob=keep_p)
             conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
             if self.use_biases:
                 conv1 = tf.add(conv1, b1)
-            transformed2 = tf.nn.relu(conv1)
+            transformed2 = self.nonlinearity(conv1)
+            if self.dropout_p > 0:
+                transformed2 = tf.nn.dropout(transformed2, keep_prob=keep_p)
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
             if self.use_biases:
                 conv2 = tf.add(conv2, b2)
@@ -393,13 +428,17 @@ class WaveNetModel(object):
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
-            total = sum(outputs)
-            transformed1 = tf.nn.relu(total)
-
+            total = tf.add_n(outputs)
+            transformed1 = self.nonlinearity(total)
+            keep_p = 1. - self.dropout_p
+            if self.dropout_p > 0:
+                transformed1 = tf.nn.dropout(transformed1, keep_prob=keep_p)
             conv1 = tf.matmul(transformed1, w1[0, :, :])
             if self.use_biases:
                 conv1 = conv1 + b1
-            transformed2 = tf.nn.relu(conv1)
+            transformed2 = self.nonlinearity(conv1)
+            if self.dropout_p > 0:
+                transformed2 = tf.nn.dropout(transformed2, keep_prob=keep_p)
             conv2 = tf.matmul(transformed2, w2[0, :, :])
             if self.use_biases:
                 conv2 = conv2 + b2
