@@ -188,7 +188,7 @@ class WaveNetModel(object):
             return causal_conv(input_batch, weights_filter, 1)
 
     def _create_dilation_layer(self, input_batch, layer_index, dilation,
-            output_width):
+                               output_width):
         '''Creates a single causal dilated convolution layer.
 
         The layer contains a gated filter that connects to dense output
@@ -508,7 +508,7 @@ class WaveNetModel(object):
             # Cut off the last sample of network input to preserve causality.
             network_input_width = tf.shape(network_input)[1] - 1
             network_input = tf.slice(network_input, [0, 0, 0],
-                    [-1, network_input_width, -1])
+                                     [-1, network_input_width, -1])
 
             raw_output = self._create_network(network_input)
 

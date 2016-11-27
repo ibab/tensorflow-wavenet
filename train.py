@@ -42,7 +42,6 @@ def get_arguments():
                              'boolean, got {}'.format(s))
         return {'true': True, 'false': False}[s.lower()]
 
-
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
                         help='How many wav files to process at once.')
@@ -68,7 +67,8 @@ def get_arguments():
                         'This creates the new model under the dated directory '
                         'in --logdir_root. '
                         'Cannot use with --logdir.')
-    parser.add_argument('--checkpoint_every', type=int, default=CHECKPOINT_EVERY,
+    parser.add_argument('--checkpoint_every', type=int,
+                        default=CHECKPOINT_EVERY,
                         help='How many steps to save each checkpoint after')
     parser.add_argument('--num_steps', type=int, default=NUM_STEPS,
                         help='Number of training steps.')
@@ -95,7 +95,7 @@ def get_arguments():
                         'used by sgd or rmsprop optimizer. Ignored by the '
                         'adam optimizer.')
     parser.add_argument('--histograms', type=_str_to_bool, default=False,
-                         help='Whether to store histogram summaries.')
+                        help='Whether to store histogram summaries.')
     return parser.parse_args()
 
 
@@ -220,8 +220,8 @@ def main():
     with tf.name_scope('create_inputs'):
         # Allow silence trimming to be skipped by specifying a threshold near
         # zero.
-        silence_threshold = args.silence_threshold if args.silence_threshold > \
-                                                      EPSILON else None
+        silence_threshold = (args.silence_threshold
+                             if args.silence_threshold > EPSILON else None)
         reader = AudioReader(
             args.data_dir,
             coord,

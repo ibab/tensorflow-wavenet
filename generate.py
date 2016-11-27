@@ -31,7 +31,8 @@ def get_arguments():
     def _ensure_positive_float(f):
         """Ensure argument is a positive float."""
         if float(f) < 0:
-            raise argparse.ArgumentTypeError('Argument must be greater than zero')
+            raise argparse.ArgumentTypeError(
+                    'Argument must be greater than zero')
         return float(f)
 
     parser = argparse.ArgumentParser(description='WaveNet generation script')
@@ -97,8 +98,8 @@ def create_seed(filename,
 
     quantized = mu_law_encode(audio, quantization_channels)
     cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
-            lambda: tf.size(quantized),
-            lambda: tf.constant(window_size))
+                        lambda: tf.size(quantized),
+                        lambda: tf.constant(window_size))
 
     return quantized[:cut_index]
 
@@ -193,13 +194,18 @@ def main():
         # Scale prediction distribution using temperature.
         np.seterr(divide='ignore')
         scaled_prediction = np.log(prediction) / args.temperature
-        scaled_prediction = scaled_prediction - np.logaddexp.reduce(scaled_prediction)
+        scaled_prediction = (scaled_prediction -
+                             np.logaddexp.reduce(scaled_prediction))
         scaled_prediction = np.exp(scaled_prediction)
         np.seterr(divide='warn')
 
-        # Prediction distribution at temperature=1.0 should be unchanged after scaling.
+        # Prediction distribution at temperature=1.0 should be unchanged after
+        # scaling.
         if args.temperature == 1.0:
-            np.testing.assert_allclose(prediction, scaled_prediction, atol=1e-5, err_msg='Prediction scaling at temperature=1.0 is not working as intended.')
+            np.testing.assert_allclose(
+                    prediction, scaled_prediction, atol=1e-5,
+                    err_msg='Prediction scaling at temperature=1.0 '
+                            'is not working as intended.')
 
         sample = np.random.choice(
             np.arange(quantization_channels), p=scaled_prediction)
