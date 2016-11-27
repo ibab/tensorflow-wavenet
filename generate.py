@@ -15,7 +15,6 @@ from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 SAMPLES = 16000
 TEMPERATURE = 1.0
 LOGDIR = './logdir'
-WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
 SAVE_EVERY = None
 SILENCE_THRESHOLD = 0.1
@@ -55,12 +54,6 @@ def get_arguments():
         help='Directory in which to store the logging '
         'information for TensorBoard.')
     parser.add_argument(
-        '--window',
-        type=int,
-        default=WINDOW,
-        help='The number of past samples to take into '
-        'account at each step')
-    parser.add_argument(
         '--wavenet_params',
         type=str,
         default=WAVENET_PARAMS,
@@ -97,7 +90,7 @@ def write_wav(waveform, sample_rate, filename):
 def create_seed(filename,
                 sample_rate,
                 quantization_channels,
-                window_size=WINDOW,
+                window_size,
                 silence_threshold=SILENCE_THRESHOLD):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
     audio = audio_reader.trim_silence(audio, silence_threshold)
@@ -156,10 +149,13 @@ def main():
     if args.wav_seed:
         seed = create_seed(args.wav_seed,
                            wavenet_params['sample_rate'],
-                           quantization_channels)
+                           quantization_channels,
+                           net.receptive_field)
         waveform = sess.run(seed).tolist()
     else:
-        waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
+        # Silence with a single random sample at the end.
+        waveform = [quantization_channels / 2] * (net.receptive_field - 1)
+        waveform.append(np.random.randint(quantization_channels))
 
     if args.fast_generation and args.wav_seed:
         # When using the incremental generation, we need to
@@ -172,7 +168,7 @@ def main():
         outputs.extend(net.push_ops)
 
         print('Priming generation...')
-        for i, x in enumerate(waveform[-args.window: -1]):
+        for i, x in enumerate(waveform[-net.receptive_field: -1]):
             if i % 100 == 0:
                 print('Priming sample {}'.format(i))
             sess.run(outputs, feed_dict={samples: x})
@@ -185,8 +181,8 @@ def main():
             outputs.extend(net.push_ops)
             window = waveform[-1]
         else:
-            if len(waveform) > args.window:
-                window = waveform[-args.window:]
+            if len(waveform) > net.receptive_field:
+                window = waveform[-net.receptive_field:]
             else:
                 window = waveform
             outputs = [next_sample]

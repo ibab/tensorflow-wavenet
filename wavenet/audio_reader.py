@@ -57,6 +57,7 @@ class AudioReader(object):
                  audio_dir,
                  coord,
                  sample_rate,
+                 receptive_field,
                  sample_size=None,
                  silence_threshold=None,
                  queue_size=256):
@@ -64,6 +65,7 @@ class AudioReader(object):
         self.sample_rate = sample_rate
         self.coord = coord
         self.sample_size = sample_size
+        self.receptive_field = receptive_field
         self.silence_threshold = silence_threshold
         self.threads = []
         self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
@@ -83,7 +85,6 @@ class AudioReader(object):
         return output
 
     def thread_main(self, sess):
-        buffer_ = np.array([])
         stop = False
         # Go through the dataset multiple times
         while not stop:
@@ -102,14 +103,18 @@ class AudioReader(object):
                               "threshold, or adjust volume of the audio."
                               .format(filename))
 
+                audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]],
+                               'constant')
+
                 if self.sample_size:
-                    # Cut samples into fixed size pieces
-                    buffer_ = np.append(buffer_, audio)
-                    while len(buffer_) > self.sample_size:
-                        piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
+                    # Cut samples into pieces of size receptive_field +
+                    # sample_size with receptive_field overlap
+                    while len(audio) > self.receptive_field:
+                        piece = audio[:(self.receptive_field +
+                                        self.sample_size), :]
                         sess.run(self.enqueue,
                                  feed_dict={self.sample_placeholder: piece})
-                        buffer_ = buffer_[self.sample_size:]
+                        audio = audio[self.sample_size:, :]
                 else:
                     sess.run(self.enqueue,
                              feed_dict={self.sample_placeholder: audio})

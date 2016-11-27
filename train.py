@@ -202,20 +202,6 @@ def main():
     # Create coordinator.
     coord = tf.train.Coordinator()
 
-    # Load raw waveform from VCTK corpus.
-    with tf.name_scope('create_inputs'):
-        # Allow silence trimming to be skipped by specifying a threshold near
-        # zero.
-        silence_threshold = args.silence_threshold if args.silence_threshold > \
-                                                      EPSILON else None
-        reader = AudioReader(
-            args.data_dir,
-            coord,
-            sample_rate=wavenet_params['sample_rate'],
-            sample_size=args.sample_size,
-            silence_threshold=args.silence_threshold)
-        audio_batch = reader.dequeue(args.batch_size)
-
     # Create network.
     net = WaveNetModel(
         batch_size=args.batch_size,
@@ -229,6 +215,22 @@ def main():
         scalar_input=wavenet_params["scalar_input"],
         initial_filter_width=wavenet_params["initial_filter_width"],
         histograms=args.histograms)
+
+    # Load raw waveform from VCTK corpus.
+    with tf.name_scope('create_inputs'):
+        # Allow silence trimming to be skipped by specifying a threshold near
+        # zero.
+        silence_threshold = args.silence_threshold if args.silence_threshold > \
+                                                      EPSILON else None
+        reader = AudioReader(
+            args.data_dir,
+            coord,
+            sample_rate=wavenet_params['sample_rate'],
+            receptive_field=net.receptive_field,
+            sample_size=args.sample_size,
+            silence_threshold=args.silence_threshold)
+        audio_batch = reader.dequeue(args.batch_size)
+
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)

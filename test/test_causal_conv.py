@@ -20,14 +20,14 @@ class TestCausalConv(tf.test.TestCase):
             result = sess.run(out)
 
         # Causal convolution using numpy
-        ref = np.convolve(x1, [1, 0, 0, 0, 1])[:-4]
+        ref = np.convolve(x1, [1, 0, 0, 0, 1], mode='valid')
         ref = np.append(ref, ref)
-        ref = np.reshape(ref, [2, 20, 1])
+        ref = np.reshape(ref, [2, 16, 1])
 
         self.assertAllEqual(result, ref)
 
     def testNoTimeShift(self):
-        """Tests that the convlution does not introduce a time shift.
+        """Tests that the convolution does not introduce a time shift.
 
         We give it a time series, choose a filter that should be the identity,
         and assert that the output is not shifted at all relative to the input.
@@ -45,8 +45,10 @@ class TestCausalConv(tf.test.TestCase):
         # value is 1.0, the other 0.0
         filter = np.reshape(np.array([0.0, 1.0], dtype=np.float32), [2, 1, 1])
 
+        x_padded = np.pad(x, [[0, 0], [2, 0], [0, 0]], 'constant')
+
         # Compute the output
-        out = causal_conv(x, filter, dilation=2)
+        out = causal_conv(x_padded, filter, dilation=2)
 
         with self.test_session() as sess:
             result = sess.run(out)

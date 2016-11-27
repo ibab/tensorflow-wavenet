@@ -48,14 +48,18 @@ def generate_waveform(sess, net, fast_generation):
         next_sample_probs = net.predict_proba(samples)
         operations = [next_sample_probs]
 
-    waveform = [128]
+    waveform = [128] * net.receptive_field
     decode = mu_law_decode(samples, QUANTIZATION_CHANNELS)
+    if fast_generation:
+        for sample in waveform[:-1]:
+            sess.run(operations, feed_dict={samples: [sample]})
+
     for i in range(GENERATE_SAMPLES):
         if fast_generation:
             window = waveform[-1]
         else:
-            if len(waveform) > 256:
-                window = waveform[-256:]
+            if len(waveform) > net.receptive_field:
+                window = waveform[-net.receptive_field:]
             else:
                 window = waveform
 
@@ -68,8 +72,8 @@ def generate_waveform(sess, net, fast_generation):
         # sys.stdout.flush()
 
     # Skip the first number of samples equal to the size of the receptive
-    # field.
-    waveform = np.array(waveform[256:])
+    # field minus one.
+    waveform = np.array(waveform[net.receptive_field - 1:])
     decoded_waveform = sess.run(decode, feed_dict={samples: waveform})
     return decoded_waveform
 
@@ -103,7 +107,8 @@ def check_waveform(assertion, generated_waveform):
 
     # Expect most of the power to be at the 3 frequencies we trained
     # on.
-    assertion(expected_power, 0.9 * power_sum)
+    assertion(expected_power, 0.75 * power_sum)
+
 
 
 class TestNet(tf.test.TestCase):
@@ -130,6 +135,11 @@ class TestNet(tf.test.TestCase):
 
     def testEndToEndTraining(self):
         audio = make_sine_waves()
+        # Pad with 0s (silence) times size of the receptive field minus one,
+        # because the first sample of the training data is 0 and if the network
+        # learns to predict silence based on silence, it will generate only
+        # silence.
+        audio = np.pad(audio, [self.net.receptive_field - 1, 0], 'constant')
         np.random.seed(42)
 
         # if self.generate:
