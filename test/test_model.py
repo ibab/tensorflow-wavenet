@@ -110,7 +110,6 @@ def check_waveform(assertion, generated_waveform):
     assertion(expected_power, 0.75 * power_sum)
 
 
-
 class TestNet(tf.test.TestCase):
     def setUp(self):
         self.net = WaveNetModel(batch_size=1,
