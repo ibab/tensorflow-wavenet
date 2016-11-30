@@ -517,7 +517,7 @@ class WaveNetModel(object):
                 # for the first predicted sample.
                 target_output = tf.slice(
                     tf.reshape(
-                        encoded, 
+                        encoded,
                         [self.batch_size, -1, self.quantization_channels]),
                     [0, self.receptive_field, 0],
                     [-1, -1, -1])
