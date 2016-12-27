@@ -156,7 +156,8 @@ def main():
     if args.wav_seed:
         seed = create_seed(args.wav_seed,
                            wavenet_params['sample_rate'],
-                           quantization_channels)
+                           quantization_channels,
+                           window_size=args.window)
         waveform = sess.run(seed).tolist()
     else:
         waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
