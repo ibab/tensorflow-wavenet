@@ -109,7 +109,20 @@ class WaveNetModel(object):
         self.global_condition_channels = global_condition_channels
         self.global_condition_cardinality = global_condition_cardinality
 
+        self.receptive_field = WaveNetModel.calculate_receptive_field(
+            self.filter_width, self.dilations, self.scalar_input,
+            self.initial_filter_width)
         self.variables = self._create_variables()
+
+    @staticmethod
+    def calculate_receptive_field(filter_width, dilations, scalar_input,
+                                  initial_filter_width):
+        receptive_field = (filter_width - 1) * sum(dilations) + 1
+        if scalar_input:
+            receptive_field += initial_filter_width - 1
+        else:
+            receptive_field += filter_width - 1
+        return receptive_field
 
     def _create_variables(self):
         '''This function creates all variables used by the network.
@@ -230,7 +243,7 @@ class WaveNetModel(object):
             return causal_conv(input_batch, weights_filter, 1)
 
     def _create_dilation_layer(self, input_batch, layer_index, dilation,
-                               global_condition_batch):
+                               global_condition_batch, output_width):
         '''Creates a single causal dilated convolution layer.
 
         Args:
@@ -293,9 +306,11 @@ class WaveNetModel(object):
             out, weights_dense, stride=1, padding="SAME", name="dense")
 
         # The 1x1 conv to produce the skip output
+        skip_cut = tf.shape(out)[1] - output_width
+        out_skip = tf.slice(out, [0, skip_cut, 0], [-1, -1, -1])
         weights_skip = variables['skip']
         skip_contribution = tf.nn.conv1d(
-            out, weights_skip, stride=1, padding="SAME", name="skip")
+            out_skip, weights_skip, stride=1, padding="SAME", name="skip")
 
         if self.use_biases:
             dense_bias = variables['dense_bias']
@@ -314,6 +329,9 @@ class WaveNetModel(object):
                 tf.histogram_summary(layer + '_biases_gate', gate_bias)
                 tf.histogram_summary(layer + '_biases_dense', dense_bias)
                 tf.histogram_summary(layer + '_biases_skip', skip_bias)
+
+        input_cut = tf.shape(input_batch)[1] - tf.shape(transformed)[1]
+        input_batch = tf.slice(input_batch, [0, input_cut, 0], [-1, -1, -1])
 
         return skip_contribution, input_batch + transformed
 
@@ -387,13 +405,15 @@ class WaveNetModel(object):
 
         current_layer = self._create_causal_layer(current_layer)
 
+        output_width = tf.shape(input_batch)[1] - self.receptive_field + 1
+
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
             for layer_index, dilation in enumerate(self.dilations):
                 with tf.name_scope('layer{}'.format(layer_index)):
                     output, current_layer = self._create_dilation_layer(
                         current_layer, layer_index, dilation,
-                        global_condition_batch)
+                        global_condition_batch, output_width)
                     outputs.append(output)
 
         with tf.name_scope('postprocessing'):
@@ -608,7 +628,6 @@ class WaveNetModel(object):
                                           self.quantization_channels)
 
             gc_embedding = self._embed_gc(global_condition_batch)
-
             encoded = self._one_hot(encoded_input)
             if self.scalar_input:
                 network_input = tf.reshape(
@@ -617,20 +636,29 @@ class WaveNetModel(object):
             else:
                 network_input = encoded
 
+            # Cut off the last sample of network input to preserve causality.
+            network_input_width = tf.shape(network_input)[1] - 1
+            network_input = tf.slice(network_input, [0, 0, 0],
+                                     [-1, network_input_width, -1])
+
             raw_output = self._create_network(network_input, gc_embedding)
 
             with tf.name_scope('loss'):
-                # Shift original input left by one sample, which means that
-                # each output sample has to predict the next input sample.
-                shifted = tf.slice(encoded, [0, 1, 0],
-                                   [-1, tf.shape(encoded)[1] - 1, -1])
-                shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
-
+                # Cut off the samples corresponding to the receptive field
+                # for the first predicted sample.
+                target_output = tf.slice(
+                    tf.reshape(
+                        encoded,
+                        [self.batch_size, -1, self.quantization_channels]),
+                    [0, self.receptive_field, 0],
+                    [-1, -1, -1])
+                target_output = tf.reshape(target_output,
+                                           [-1, self.quantization_channels])
                 prediction = tf.reshape(raw_output,
                                         [-1, self.quantization_channels])
                 loss = tf.nn.softmax_cross_entropy_with_logits(
                     prediction,
-                    tf.reshape(shifted, [-1, self.quantization_channels]))
+                    target_output)
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)

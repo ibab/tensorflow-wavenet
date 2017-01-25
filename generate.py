@@ -15,7 +15,6 @@ from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 SAMPLES = 16000
 TEMPERATURE = 1.0
 LOGDIR = './logdir'
-WINDOW = 8000
 WAVENET_PARAMS = './wavenet_params.json'
 SAVE_EVERY = None
 SILENCE_THRESHOLD = 0.1
@@ -32,7 +31,8 @@ def get_arguments():
     def _ensure_positive_float(f):
         """Ensure argument is a positive float."""
         if float(f) < 0:
-            raise argparse.ArgumentTypeError('Argument must be greater than zero')
+            raise argparse.ArgumentTypeError(
+                    'Argument must be greater than zero')
         return float(f)
 
     parser = argparse.ArgumentParser(description='WaveNet generation script')
@@ -54,12 +54,6 @@ def get_arguments():
         default=LOGDIR,
         help='Directory in which to store the logging '
         'information for TensorBoard.')
-    parser.add_argument(
-        '--window',
-        type=int,
-        default=WINDOW,
-        help='The number of past samples to take into '
-        'account at each step')
     parser.add_argument(
         '--wavenet_params',
         type=str,
@@ -125,15 +119,15 @@ def write_wav(waveform, sample_rate, filename):
 def create_seed(filename,
                 sample_rate,
                 quantization_channels,
-                window_size=WINDOW,
+                window_size,
                 silence_threshold=SILENCE_THRESHOLD):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
     audio = audio_reader.trim_silence(audio, silence_threshold)
 
     quantized = mu_law_encode(audio, quantization_channels)
     cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
-            lambda: tf.size(quantized),
-            lambda: tf.constant(window_size))
+                        lambda: tf.size(quantized),
+                        lambda: tf.constant(window_size))
 
     return quantized[:cut_index]
 
@@ -187,10 +181,12 @@ def main():
         seed = create_seed(args.wav_seed,
                            wavenet_params['sample_rate'],
                            quantization_channels,
-                           window_size=args.window)
+                           net.receptive_field)
         waveform = sess.run(seed).tolist()
     else:
-        waveform = np.random.randint(quantization_channels, size=(1,)).tolist()
+        # Silence with a single random sample at the end.
+        waveform = [quantization_channels / 2] * (net.receptive_field - 1)
+        waveform.append(np.random.randint(quantization_channels))
 
     if args.fast_generation and args.wav_seed:
         # When using the incremental generation, we need to
@@ -203,7 +199,7 @@ def main():
         outputs.extend(net.push_ops)
 
         print('Priming generation...')
-        for i, x in enumerate(waveform[-args.window: -1]):
+        for i, x in enumerate(waveform[-net.receptive_field: -1]):
             if i % 100 == 0:
                 print('Priming sample {}'.format(i))
             sess.run(outputs, feed_dict={samples: x})
@@ -216,8 +212,8 @@ def main():
             outputs.extend(net.push_ops)
             window = waveform[-1]
         else:
-            if len(waveform) > args.window:
-                window = waveform[-args.window:]
+            if len(waveform) > net.receptive_field:
+                window = waveform[-net.receptive_field:]
             else:
                 window = waveform
             outputs = [next_sample]
@@ -228,13 +224,18 @@ def main():
         # Scale prediction distribution using temperature.
         np.seterr(divide='ignore')
         scaled_prediction = np.log(prediction) / args.temperature
-        scaled_prediction = scaled_prediction - np.logaddexp.reduce(scaled_prediction)
+        scaled_prediction = (scaled_prediction -
+                             np.logaddexp.reduce(scaled_prediction))
         scaled_prediction = np.exp(scaled_prediction)
         np.seterr(divide='warn')
 
-        # Prediction distribution at temperature=1.0 should be unchanged after scaling.
+        # Prediction distribution at temperature=1.0 should be unchanged after
+        # scaling.
         if args.temperature == 1.0:
-            np.testing.assert_allclose(prediction, scaled_prediction, atol=1e-5, err_msg='Prediction scaling at temperature=1.0 is not working as intended.')
+            np.testing.assert_allclose(
+                    prediction, scaled_prediction, atol=1e-5,
+                    err_msg='Prediction scaling at temperature=1.0 '
+                            'is not working as intended.')
 
         sample = np.random.choice(
             np.arange(quantization_channels), p=scaled_prediction)

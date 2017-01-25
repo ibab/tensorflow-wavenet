@@ -1,13 +1,10 @@
 """Unit tests for the WaveNet that check that it can train on audio data."""
-
 import json
-
 import numpy as np
 import sys
 import tensorflow as tf
-# import matplotlib.pyplot as plt
-# import librosa
 import random
+import os
 
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
                      optimizer_factory, mu_law_decode)
@@ -20,7 +17,6 @@ MOMENTUM = 0.95
 GENERATE_SAMPLES = 1000
 QUANTIZATION_CHANNELS = 256
 NUM_SPEAKERS = 3
-RECEPTIVE_FIELD = 256
 F1 = 155.56  # E-flat frequency in hz
 F2 = 196.00  # G frequency in hz
 F3 = 233.08  # B-flat frequency in hz
@@ -60,8 +56,11 @@ def make_sine_waves(global_conditioning):
 
 def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
                       gc_placeholder, operations):
-    waveform = [128]
-    results = []
+    waveform = [128] * net.receptive_field
+    if fast_generation:
+        for sample in waveform[:-1]:
+            sess.run(operations, feed_dict={samples_placeholder: [sample]})
+
     for i in range(GENERATE_SAMPLES):
         if i % 100 == 0:
             print("Generating {} of {}.".format(i, GENERATE_SAMPLES))
@@ -69,9 +68,8 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
         if fast_generation:
             window = waveform[-1]
         else:
-            if len(waveform) > RECEPTIVE_FIELD:
-                # Just keep the last 256 items (exceeds receptive field size)
-                window = waveform[-RECEPTIVE_FIELD:]
+            if len(waveform) > net.receptive_field:
+                window = waveform[-net.receptive_field:]
             else:
                 window = waveform
 
@@ -86,8 +84,8 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
         waveform.append(sample)
 
     # Skip the first number of samples equal to the size of the receptive
-    # field.
-    waveform = waveform[RECEPTIVE_FIELD:]
+    # field minus one.
+    waveform = np.array(waveform[net.receptive_field - 1:])
     decode = mu_law_decode(samples_placeholder, QUANTIZATION_CHANNELS)
     decoded_waveform = sess.run(decode,
                                 feed_dict={samples_placeholder: waveform})
@@ -171,10 +169,6 @@ def check_waveform(assertion, generated_waveform, gc_category):
         # in the code.
         assertion(expected_power, 10.0*other_freqs_lut[gc_category])
 
-    # print("gc category:", gc_category)
-    # print("Power sum {}, F1 power:{}, F2 power:{}, F3 power:{}".
-    #        format(power_sum, f1_power, f2_power, f3_power))
-
 
 class TestNet(tf.test.TestCase):
     def setUp(self):
@@ -200,7 +194,7 @@ class TestNet(tf.test.TestCase):
 
     def _save_net(sess):
         saver = tf.train.Saver(var_list=tf.trainable_variables())
-        saver.save(sess, '\tmp\test.ckpt')
+        saver.save(sess, os.path.join('tmp', 'test.ckpt'))
 
     # Train a net on a short clip of 3 sine waves superimposed
     # (an e-flat chord).
@@ -223,22 +217,16 @@ class TestNet(tf.test.TestCase):
 
         np.random.seed(42)
         audio, speaker_ids = make_sine_waves(self.global_conditioning)
-
-        # if self.generate:
-        #     if len(audio.shape) == 2:
-        #       for i in range(audio.shape[0]):
-        #            librosa.output.write_wav(
-        #                  '/tmp/sine_train{}.wav'.format(i), audio[i,:],
-        #                  SAMPLE_RATE_HZ)
-        #            power_spectrum = np.abs(np.fft.fft(audio[i,:]))**2
-        #            freqs = np.fft.fftfreq(audio[i,:].size,
-        #                                   SAMPLE_PERIOD_SECS)
-        #            indices = np.argsort(freqs)
-        #            indices = [index for index in indices if
-        #                         freqs[index] >= 0 and
-        #                         freqs[index] <= 500.0]
-        #            plt.plot(freqs[indices], power_spectrum[indices])
-        #            plt.show()
+        # Pad with 0s (silence) times size of the receptive field minus one,
+        # because the first sample of the training data is 0 and if the network
+        # learns to predict silence based on silence, it will generate only
+        # silence.
+        if self.global_conditioning:
+            audio = np.pad(audio, ((0, 0), (self.net.receptive_field - 1, 0)),
+                           'constant')
+        else:
+            audio = np.pad(audio, (self.net.receptive_field - 1, 0),
+                           'constant')
 
         audio_placeholder = tf.placeholder(dtype=tf.float32)
         gc_placeholder = tf.placeholder(dtype=tf.int32)  \
