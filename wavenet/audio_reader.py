@@ -49,7 +49,7 @@ def load_generic_audio(directory, sample_rate):
     randomized_files = randomize_files(files)
     for filename in randomized_files:
         ids = id_reg_exp.findall(filename)
-        if ids is None:
+        if not ids:
             # The file name does not match the pattern containing ids, so
             # there is no id.
             category_id = None
@@ -77,7 +77,7 @@ def not_all_have_id(files):
     id_reg_exp = re.compile(FILE_PATTERN)
     for file in files:
         ids = id_reg_exp.findall(file)
-        if ids is None:
+        if not ids:
             return True
     return False
 
