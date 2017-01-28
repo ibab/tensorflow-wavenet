@@ -384,6 +384,7 @@ class TestNetWithGlobalConditioning(TestNet):
     def setUp(self):
         print('TestNetWithGlobalConditioning setup.')
         sys.stdout.flush()
+        tf.reset_default_graph()
 
         self.optimizer_type = 'sgd'
         self.learning_rate = 0.01
