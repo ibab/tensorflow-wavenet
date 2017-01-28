@@ -4,9 +4,9 @@ dist: trusty
 matrix:
     include:
         - python: 2.7
-          env: TENSORFLOW="0.10.0"
+          env: TENSORFLOW="0.12.1"
         - python: 3.5
-          env: TENSORFLOW="0.10.0"
+          env: TENSORFLOW="0.12.1"
 install:
     - source ci/install.sh
 script:

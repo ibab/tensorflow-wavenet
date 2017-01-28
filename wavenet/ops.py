@@ -65,6 +65,8 @@ def causal_conv(value, filter_, dilation, name='causal_conv'):
 def mu_law_encode(audio, quantization_channels):
     '''Quantizes waveform amplitudes.'''
     with tf.name_scope('encode'):
+        # Fix ever-so-slightly out-of-range value.
+        audio = tf.minimum(1.0, tf.maximum(-1.0, audio))
         mu = quantization_channels - 1
         # Perform mu-law companding transformation (ITU-T, 1988).
         magnitude = tf.log(1 + mu * tf.abs(audio)) / tf.log(1. + mu)
