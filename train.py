@@ -33,6 +33,7 @@ SILENCE_THRESHOLD = 0.3
 EPSILON = 0.001
 MOMENTUM = 0.9
 MAX_TO_KEEP = 5
+METADATA = False
 
 
 def get_arguments():
@@ -45,13 +46,13 @@ def get_arguments():
 
     parser = argparse.ArgumentParser(description='WaveNet example network')
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
-                        help='How many wav files to process at once. Default: 1')
+                        help='How many wav files to process at once. Default: ' + str(BATCH_SIZE) + '.')
     parser.add_argument('--data_dir', type=str, default=DATA_DIRECTORY,
                         help='The directory containing the VCTK corpus.')
-    parser.add_argument('--store_metadata', type=bool, default=False,
+    parser.add_argument('--store_metadata', type=bool, default=METADATA,
                         help='Whether to store advanced debugging information '
                         '(execution time, memory consumption) for use with '
-                        'TensorBoard. Default: False')
+                        'TensorBoard. Default: ' + str(METADATA) + '.')
     parser.add_argument('--logdir', type=str, default=None,
                         help='Directory in which to store the logging '
                         'information for TensorBoard. '
@@ -98,7 +99,7 @@ def get_arguments():
     parser.add_argument('--histograms', type=_str_to_bool, default=False,
                         help='Whether to store histogram summaries. Default: False')
     parser.add_argument('--gc_channels', type=int, default=None,
-                        help='Number of global condition channels. Default: None. Expecting: Int') # TODO
+                        help='Number of global condition channels. Default: None. Expecting: Int')
     parser.add_argument('--max_checkpoints', type=int, default=MAX_TO_KEEP,
                         help='Maximum amount of checkpoints that will be kept alive. Default: ' + str(MAX_TO_KEEP) + '.')
     return parser.parse_args()
@@ -270,7 +271,7 @@ def main():
     sess.run(init)
 
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(var_list=tf.trainable_variables(), max_to_keep=args.max_checkpoints) # TODO hier ansetzen
+    saver = tf.train.Saver(var_list=tf.trainable_variables(), max_to_keep=args.max_checkpoints)
 
     try:
         saved_global_step = load(saver, sess, restore_from)
