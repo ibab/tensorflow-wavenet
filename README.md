@@ -89,8 +89,10 @@ The instructions above for training refer to training without global conditionin
 ```
 python train.py --data_dir=corpus --gc_channels=32
 ```
-The --gc_channels argument does two things: 1) It tells the train.py script that
-it should build a model that includes global conditioning. 2) It specifies the
+The --gc_channels argument does two things:
+* It tells the train.py script that
+it should build a model that includes global conditioning.
+* It specifies the
 size of the embedding vector that is looked up based on the id of the speaker.
 
 The global conditioning logic in train.py and audio_reader.py is "hard-wired" to the VCTK corpus at the moment in that it expects to be able to determine the speaker id from the pattern of file naming used in VCTK, but can be easily be modified.
