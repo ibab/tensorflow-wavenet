@@ -101,7 +101,8 @@ def get_arguments():
     parser.add_argument('--gc_channels', type=int, default=None,
                         help='Number of global condition channels. Default: None. Expecting: Int')
     parser.add_argument('--max_checkpoints', type=int, default=MAX_TO_KEEP,
-                        help='Maximum amount of checkpoints that will be kept alive. Default: ' + str(MAX_TO_KEEP) + '.')
+                        help='Maximum amount of checkpoints that will be kept alive. Default: '
+                             + str(MAX_TO_KEEP) + '.')
     return parser.parse_args()
 
 
@@ -195,7 +196,6 @@ def main():
         return
 
     logdir = directories['logdir']
-    logdir_root = directories['logdir_root']
     restore_from = directories['restore_from']
 
     # Even if we restored the model, we will treat it as new training
@@ -225,7 +225,7 @@ def main():
                                                                    wavenet_params["scalar_input"],
                                                                    wavenet_params["initial_filter_width"]),
             sample_size=args.sample_size,
-            silence_threshold=args.silence_threshold)
+            silence_threshold=silence_threshold)
         audio_batch = reader.dequeue(args.batch_size)
         if gc_enabled:
             gc_id_batch = reader.dequeue_gc(args.batch_size)
@@ -260,14 +260,14 @@ def main():
     optim = optimizer.minimize(loss, var_list=trainable)
 
     # Set up logging for TensorBoard.
-    writer = tf.train.SummaryWriter(logdir)
+    writer = tf.summary.FileWriter(logdir)
     writer.add_graph(tf.get_default_graph())
     run_metadata = tf.RunMetadata()
-    summaries = tf.merge_all_summaries()
+    summaries = tf.summary.merge_all()
 
     # Set up session
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
-    init = tf.initialize_all_variables()
+    init = tf.global_variables_initializer()
     sess.run(init)
 
     # Saver for storing checkpoints of the model.
@@ -290,8 +290,8 @@ def main():
     reader.start_threads(sess)
 
     step = None
+    last_saved_step = saved_global_step
     try:
-        last_saved_step = saved_global_step
         for step in range(saved_global_step + 1, args.num_steps):
             start_time = time.time()
             if args.store_metadata and step % 50 == 0:

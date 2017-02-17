@@ -89,8 +89,10 @@ The instructions above for training refer to training without global conditionin
 ```
 python train.py --data_dir=corpus --gc_channels=32
 ```
-The --gc_channels argument does two things: 1) It tells the train.py script that
-it should build a model that includes global conditioning. 2) It specifies the
+The --gc_channels argument does two things:
+* It tells the train.py script that
+it should build a model that includes global conditioning.
+* It specifies the
 size of the embedding vector that is looked up based on the id of the speaker.
 
 The global conditioning logic in train.py and audio_reader.py is "hard-wired" to the VCTK corpus at the moment in that it expects to be able to determine the speaker id from the pattern of file naming used in VCTK, but can be easily be modified.
@@ -105,21 +107,20 @@ You can use the `generate.py` script to generate audio using a previously traine
 ### Generating without Global Conditioning
 Run
 ```
-python generate.py --samples 16000 model.ckpt-1000
+python generate.py --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
 ```
-where `model.ckpt-1000` needs to be a previously saved model.
-You can find these in the `logdir`.
+where `logdir/train/2017-02-13T16-45-34/model.ckpt-80000` needs to be a path to previously saved model (without extension).
 The `--samples` parameter specifies how many audio samples you would like to generate (16000 corresponds to 1 second by default).
 
 The generated waveform can be played back using TensorBoard, or stored as a
 `.wav` file by using the `--wav_out_path` parameter:
 ```
-python generate.py --wav_out_path=generated.wav --samples 16000 model.ckpt-1000
+python generate.py --wav_out_path=generated.wav --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
 ```
 
 Passing `--save_every` in addition to `--wav_out_path` will save the in-progress wav file every n samples.
 ```
-python generate.py --wav_out_path=generated.wav --save_every 2000 --samples 16000 model.ckpt-1000
+python generate.py --wav_out_path=generated.wav --save_every 2000 --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
 ```
 
 Fast generation is enabled by default.
@@ -129,13 +130,13 @@ This reduces the time needed to generate samples to a few minutes.
 
 To disable fast generation:
 ```
-python generate.py --samples 16000 model.ckpt-1000 --fast_generation=false
+python generate.py --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000 --fast_generation=false
 ```
 
 ### Generating with Global Conditioning
 Generate from a model incorporating global conditioning as follows:
 ```
-python generate.py --samples 16000  --wav_out_path speaker311.wav --gc_channels=32 --gc_cardinality=377 --gc_id=311 model.ckpt-1000
+python generate.py --samples 16000  --wav_out_path speaker311.wav --gc_channels=32 --gc_cardinality=377 --gc_id=311 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
 ```
 Where:
 

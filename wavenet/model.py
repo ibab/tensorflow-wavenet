@@ -534,6 +534,12 @@ class WaveNetModel(object):
         return encoded
 
     def _embed_gc(self, global_condition):
+        '''Returns embedding for global condition.
+        :param global_condition: Either ID of global condition for
+               tf.nn.embedding_lookup or actual embedding. The latter is
+               experimental.
+        :return: Embedding or None
+        '''
         embedding = None
         if self.global_condition_cardinality is not None:
             # Only lookup the embedding if the global condition is presented
@@ -547,13 +553,13 @@ class WaveNetModel(object):
 
             # In this case, the number of global_embedding channels must be
             # equal to the the last dimension of the global_condition tensor.
-            gc_batch_rank = len(global_condition.get_shape)
+            gc_batch_rank = len(global_condition.get_shape())
             dims_match = (global_condition.get_shape()[gc_batch_rank - 1] ==
                           self.global_condition_channels)
             if not dims_match:
                 raise ValueError('Shape of global_condition {} does not'
                                  ' match global_condition_channels {}.'.
-                                 format(self.global_condition.get_shape(),
+                                 format(global_condition.get_shape(),
                                         self.global_condition_channels))
             embedding = global_condition
 
@@ -661,7 +667,7 @@ class WaveNetModel(object):
                     target_output)
                 reduced_loss = tf.reduce_mean(loss)
 
-                tf.scalar_summary('loss', reduced_loss)
+                tf.summary.scalar('loss', reduced_loss)
 
                 if l2_regularization_strength is None:
                     return reduced_loss
@@ -675,7 +681,7 @@ class WaveNetModel(object):
                     total_loss = (reduced_loss +
                                   l2_regularization_strength * l2_loss)
 
-                    tf.scalar_summary('l2_loss', l2_loss)
-                    tf.scalar_summary('total_loss', total_loss)
+                    tf.summary.scalar('l2_loss', l2_loss)
+                    tf.summary.scalar('total_loss', total_loss)
 
                     return total_loss
