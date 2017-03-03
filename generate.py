@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import argparse
 from datetime import datetime
+from pdb import set_trace as debug
 import json
 import os
 
@@ -10,7 +11,7 @@ import librosa
 import numpy as np
 import tensorflow as tf
 
-from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
+from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader, upsample_labels
 
 SAMPLES = 16000
 TEMPERATURE = 1.0
@@ -95,6 +96,12 @@ def get_arguments():
         type=int,
         default=None,
         help='ID of category to generate, if globally conditioned.')
+    parser.add_argument(
+        '--lc_label_file',
+        type=str,
+        default=None,
+        help='Path to the local conditioning label file.')
+
     arguments = parser.parse_args()
     if arguments.gc_channels is not None:
         if arguments.gc_cardinality is None:
@@ -139,6 +146,14 @@ def main():
     with open(args.wavenet_params, 'r') as config_file:
         wavenet_params = json.load(config_file)
 
+    lc_channels = None
+    upsampled_labels = None
+    if args.lc_label_file:
+        with open(args.lc_label_file, 'r') as f:
+            labels = json.loads(f.read())
+        lc_channels = len(labels[0])
+        upsampled_labels = upsample_labels(labels, args.samples)
+
     sess = tf.Session()
 
     net = WaveNetModel(
@@ -153,14 +168,16 @@ def main():
         scalar_input=wavenet_params['scalar_input'],
         initial_filter_width=wavenet_params['initial_filter_width'],
         global_condition_channels=args.gc_channels,
-        global_condition_cardinality=args.gc_cardinality)
+        global_condition_cardinality=args.gc_cardinality,
+        local_condition_channels=lc_channels)
 
     samples = tf.placeholder(tf.int32)
+    sample_labels = tf.placeholder(tf.float32)
 
     if args.fast_generation:
-        next_sample = net.predict_proba_incremental(samples, args.gc_id)
+        next_sample = net.predict_proba_incremental(samples, args.gc_id, sample_labels)
     else:
-        next_sample = net.predict_proba(samples, args.gc_id)
+        next_sample = net.predict_proba(samples, args.gc_id, sample_labels)
 
     if args.fast_generation:
         sess.run(tf.initialize_all_variables())
@@ -207,19 +224,27 @@ def main():
 
     last_sample_timestamp = datetime.now()
     for step in range(args.samples):
+        label_window = None
         if args.fast_generation:
             outputs = [next_sample]
             outputs.extend(net.push_ops)
             window = waveform[-1]
+            if lc_channels is not None:
+                label_window = upsampled_labels[step]
         else:
             if len(waveform) > net.receptive_field:
                 window = waveform[-net.receptive_field:]
+                if lc_channels is not None:
+                    label_window = upsampled_labels[-net.receptive_field:]
             else:
                 window = waveform
+                if lc_channels is not None:
+                    label_window = upsampled_labels
+
             outputs = [next_sample]
 
         # Run the WaveNet to predict the next sample.
-        prediction = sess.run(outputs, feed_dict={samples: window})[0]
+        prediction = sess.run(outputs, feed_dict={samples: window, sample_labels: label_window})[0]
 
         # Scale prediction distribution using temperature.
         np.seterr(divide='ignore')
