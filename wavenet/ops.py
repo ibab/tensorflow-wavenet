@@ -72,7 +72,7 @@ def mu_law_encode(audio, quantization_channels):
         magnitude = tf.log(1 + mu * safe_audio_abs) / tf.log(1. + mu)
         signal = tf.sign(audio) * magnitude
         # Quantize signal to the specified number of levels.
-        return tf.cast((signal + 1) / 2 * mu + 0.5, tf.int32)
+        return tf.cast(((signal + 1) * mu) / 2, tf.int32)
 
 
 def mu_law_decode(output, quantization_channels):
