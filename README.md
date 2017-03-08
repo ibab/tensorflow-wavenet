@@ -54,7 +54,7 @@ Code is tested on TensorFlow version 0.12.1 for Python 2.7 and Python 3.5.
 
 In addition, [librosa](https://github.com/librosa/librosa) must be installed for reading and writing audio.
 
-To install the required python packages (except TensorFlow), run
+To install the required python packages, run
 ```bash
 pip install -r requirements.txt
 ```
