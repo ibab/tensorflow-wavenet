@@ -163,7 +163,7 @@ def main():
         next_sample = net.predict_proba(samples, args.gc_id)
 
     if args.fast_generation:
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
         sess.run(net.init_ops)
 
     variables_to_restore = {
