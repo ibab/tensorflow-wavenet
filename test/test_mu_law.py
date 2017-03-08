@@ -12,7 +12,7 @@ def manual_mu_law_encode(signal, quantization_channels):
     # Manual mu-law companding and mu-bits quantization
     mu = quantization_channels - 1
 
-    magnitude = np.log(1 + mu * np.abs(signal)) / np.log(1. + mu)
+    magnitude = np.log1p(mu * np.abs(signal)) / np.log1p(mu)
     signal = np.sign(signal) * magnitude
 
     # Map signal from [-1, +1] to [0, mu-1]
