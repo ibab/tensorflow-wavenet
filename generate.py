@@ -167,7 +167,7 @@ def main():
         sess.run(net.init_ops)
 
     variables_to_restore = {
-        var.name[:-2]: var for var in tf.all_variables()
+        var.name[:-2]: var for var in tf.global_variables()
         if not ('state_buffer' in var.name or 'pointer' in var.name)}
     saver = tf.train.Saver(variables_to_restore)
 
