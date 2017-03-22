@@ -163,11 +163,11 @@ def main():
         next_sample = net.predict_proba(samples, args.gc_id)
 
     if args.fast_generation:
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
         sess.run(net.init_ops)
 
     variables_to_restore = {
-        var.name[:-2]: var for var in tf.all_variables()
+        var.name[:-2]: var for var in tf.global_variables()
         if not ('state_buffer' in var.name or 'pointer' in var.name)}
     saver = tf.train.Saver(variables_to_restore)
 
@@ -260,9 +260,9 @@ def main():
 
     # Save the result as an audio summary.
     datestring = str(datetime.now()).replace(' ', 'T')
-    writer = tf.train.SummaryWriter(logdir)
-    tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
-    summaries = tf.merge_all_summaries()
+    writer = tf.summary.FileWriter(logdir)
+    tf.summary.audio('generated', decode, wavenet_params['sample_rate'])
+    summaries = tf.summary.merge_all()
     summary_out = sess.run(summaries,
                            feed_dict={samples: np.reshape(waveform, [-1, 1])})
     writer.add_summary(summary_out)
