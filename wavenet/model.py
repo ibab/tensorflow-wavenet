@@ -435,16 +435,16 @@ class WaveNetModel(object):
             # We skip connections from the outputs of each layer, adding them
             # all up here.
             total = sum(outputs)
-            transformed1 = tf.nn.relu(total)
+            transformed1 = tf.nn.sigmoid(total)
             conv1 = tf.nn.conv1d(transformed1, w1, stride=1, padding="SAME")
             if self.use_biases:
                 conv1 = tf.add(conv1, b1)
-            transformed2 = tf.nn.relu(conv1)
+            transformed2 = tf.nn.sigmoid(conv1)
             conv2 = tf.nn.conv1d(transformed2, w2, stride=1, padding="SAME")
             if self.use_biases:
                 conv2 = tf.add(conv2, b2)
 
-        return conv2
+        return tf.nn.sigmoid(conv2)
 
     def _create_generator(self, input_batch, global_condition_batch):
         '''Construct an efficient incremental generator.'''
@@ -506,17 +506,17 @@ class WaveNetModel(object):
             # We skip connections from the outputs of each layer, adding them
             # all up here.
             total = sum(outputs)
-            transformed1 = tf.nn.relu(total)
+            transformed1 = tf.nn.sigmoid(total)
 
             conv1 = tf.matmul(transformed1, w1[0, :, :])
             if self.use_biases:
                 conv1 = conv1 + b1
-            transformed2 = tf.nn.relu(conv1)
+            transformed2 = tf.nn.sigmoid(conv1)
             conv2 = tf.matmul(transformed2, w2[0, :, :])
             if self.use_biases:
                 conv2 = conv2 + b2
 
-        return conv2
+        return tf.nn.sigmoid(conv2)
 
     def _one_hot(self, input_batch):
         '''One-hot encodes the waveform amplitudes.
