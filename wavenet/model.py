@@ -580,7 +580,7 @@ class WaveNetModel(object):
                 encoded = tf.cast(waveform, tf.float32)
                 encoded = tf.reshape(encoded, [-1, 1])
             else:
-                encoded = self._one_hot(waveform)
+                encoded = waveform
 
             gc_embedding = self._embed_gc(global_condition)
             raw_output = self._create_network(encoded, gc_embedding)
@@ -606,7 +606,7 @@ class WaveNetModel(object):
             raise NotImplementedError("Incremental generation does not "
                                       "support scalar input yet.")
         with tf.name_scope(name):
-            encoded = tf.one_hot(waveform, self.quantization_channels)
+            encoded = waveform
             encoded = tf.reshape(encoded, [-1, self.quantization_channels])
             gc_embedding = self._embed_gc(global_condition)
             raw_output = self._create_generator(encoded, gc_embedding)
@@ -630,11 +630,10 @@ class WaveNetModel(object):
         '''
         with tf.name_scope(name):
             # We mu-law encode and quantize the input audioform.
-            encoded_input = mu_law_encode(input_batch,
-                                          self.quantization_channels)
+            encoded = input_batch
 
             gc_embedding = self._embed_gc(global_condition_batch)
-            encoded = self._one_hot(encoded_input)
+
             if self.scalar_input:
                 network_input = tf.reshape(
                     tf.cast(input_batch, tf.float32),
