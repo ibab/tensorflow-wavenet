@@ -111,9 +111,12 @@ def get_arguments():
 
 
 def write_wav(waveform, sample_rate, filename):
-    y = np.array(waveform)
-    librosa.output.write_wav(filename, y, sample_rate)
-    print('Updated wav file at {}'.format(filename))
+    # y = np.array(waveform)
+    # librosa.output.write_wav(filename, y, sample_rate)
+    # print('Updated wav file at {}'.format(filename))
+    y = waveform
+    np.savetxt(filename, np.array(y), delimiter=",", newline="\n", fmt="%.10e")
+    print('Updated csv file at {}'.format(filename))
 
 
 def create_seed(filename,
@@ -155,7 +158,8 @@ def main():
         global_condition_channels=args.gc_channels,
         global_condition_cardinality=args.gc_cardinality)
 
-    samples = tf.placeholder(tf.int32)
+    samples = tf.placeholder(tf.float32,
+        shape=[None, wavenet_params['quantization_channels']])
 
     if args.fast_generation:
         next_sample = net.predict_proba_incremental(samples, args.gc_id)
@@ -174,7 +178,8 @@ def main():
     print('Restoring model from {}'.format(args.checkpoint))
     saver.restore(sess, args.checkpoint)
 
-    decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
+    # decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
+    decode = samples
 
     quantization_channels = wavenet_params['quantization_channels']
     if args.wav_seed:
@@ -184,26 +189,32 @@ def main():
                            net.receptive_field)
         waveform = sess.run(seed).tolist()
     else:
-        # Silence with a single random sample at the end.
-        waveform = [quantization_channels / 2] * (net.receptive_field - 1)
-        waveform.append(np.random.randint(quantization_channels))
+        # # Silence with a single random sample at the end.
+        # waveform = [quantization_channels / 2] * (net.receptive_field - 1)
+        # waveform.append(np.random.randint(quantization_channels))
+        random_arr = \
+            np.abs(np.random.normal(np.ones((1,quantization_channels))))
+        random_arr /= random_arr.sum()
+        random_arr[0][-1] = 0
+        random_arr[0][-2] = 1
+        waveform = [random_arr]
 
-    if args.fast_generation and args.wav_seed:
-        # When using the incremental generation, we need to
-        # feed in all priming samples one by one before starting the
-        # actual generation.
-        # TODO This could be done much more efficiently by passing the waveform
-        # to the incremental generator as an optional argument, which would be
-        # used to fill the queues initially.
-        outputs = [next_sample]
-        outputs.extend(net.push_ops)
-
-        print('Priming generation...')
-        for i, x in enumerate(waveform[-net.receptive_field: -1]):
-            if i % 100 == 0:
-                print('Priming sample {}'.format(i))
-            sess.run(outputs, feed_dict={samples: x})
-        print('Done.')
+    # if args.fast_generation and args.wav_seed:
+    #     # When using the incremental generation, we need to
+    #     # feed in all priming samples one by one before starting the
+    #     # actual generation.
+    #     # TODO This could be done much more efficiently by passing the waveform
+    #     # to the incremental generator as an optional argument, which would be
+    #     # used to fill the queues initially.
+    #     outputs = [next_sample]
+    #     outputs.extend(net.push_ops)
+    #
+    #     print('Priming generation...')
+    #     for i, x in enumerate(waveform[-net.receptive_field: -1]):
+    #         if i % 100 == 0:
+    #             print('Priming sample {}'.format(i))
+    #         sess.run(outputs, feed_dict={samples: x})
+    #     print('Done.')
 
     last_sample_timestamp = datetime.now()
     for step in range(args.samples):
@@ -221,25 +232,27 @@ def main():
         # Run the WaveNet to predict the next sample.
         prediction = sess.run(outputs, feed_dict={samples: window})[0]
 
-        # Scale prediction distribution using temperature.
-        np.seterr(divide='ignore')
-        scaled_prediction = np.log(prediction) / args.temperature
-        scaled_prediction = (scaled_prediction -
-                             np.logaddexp.reduce(scaled_prediction))
-        scaled_prediction = np.exp(scaled_prediction)
-        np.seterr(divide='warn')
-
-        # Prediction distribution at temperature=1.0 should be unchanged after
-        # scaling.
-        if args.temperature == 1.0:
-            np.testing.assert_allclose(
-                    prediction, scaled_prediction, atol=1e-5,
-                    err_msg='Prediction scaling at temperature=1.0 '
-                            'is not working as intended.')
-
-        sample = np.random.choice(
-            np.arange(quantization_channels), p=scaled_prediction)
-        waveform.append(sample)
+        # # Scale prediction distribution using temperature.
+        # np.seterr(divide='ignore')
+        # scaled_prediction = np.log(prediction) / args.temperature
+        # scaled_prediction = (scaled_prediction -
+        #                      np.logaddexp.reduce(scaled_prediction))
+        # scaled_prediction = np.exp(scaled_prediction)
+        # np.seterr(divide='warn')
+        #
+        # # Prediction distribution at temperature=1.0 should be unchanged after
+        # # scaling.
+        # if args.temperature == 1.0:
+        #     np.testing.assert_allclose(
+        #             prediction, scaled_prediction, atol=1e-5,
+        #             err_msg='Prediction scaling at temperature=1.0 '
+        #                     'is not working as intended.')
+        #
+        # sample = np.random.choice(
+        #     np.arange(quantization_channels), p=scaled_prediction)
+        prediction[0][-1] = 0.0
+        prediction[0][-2] = 1.0
+        waveform.append(prediction)
 
         # Show progress only once per second.
         current_sample_timestamp = datetime.now()
@@ -259,17 +272,18 @@ def main():
     print()
 
     # Save the result as an audio summary.
-    datestring = str(datetime.now()).replace(' ', 'T')
-    writer = tf.train.SummaryWriter(logdir)
-    tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
-    summaries = tf.merge_all_summaries()
-    summary_out = sess.run(summaries,
-                           feed_dict={samples: np.reshape(waveform, [-1, 1])})
-    writer.add_summary(summary_out)
+    # datestring = str(datetime.now()).replace(' ', 'T')
+    # writer = tf.train.SummaryWriter(logdir)
+    # tf.audio_summary('generated', decode, wavenet_params['sample_rate'])
+    # summaries = tf.merge_all_summaries()
+    # summary_out = sess.run(summaries,
+    #                        feed_dict={samples: np.reshape(waveform, [-1, 1])})
+    # writer.add_summary(summary_out)
 
     # Save the result as a wav file.
     if args.wav_out_path:
-        out = sess.run(decode, feed_dict={samples: waveform})
+        samp = np.array(waveform).reshape([-1, quantization_channels])
+        out = sess.run(decode, feed_dict={samples: samp})
         write_wav(out, wavenet_params['sample_rate'], args.wav_out_path)
 
     print('Finished generating. The result can be viewed in TensorBoard.')

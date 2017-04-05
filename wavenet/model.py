@@ -525,10 +525,14 @@ class WaveNetModel(object):
         over a finite set of possible amplitudes.
         '''
         with tf.name_scope('one_hot_encode'):
-            encoded = tf.one_hot(
-                input_batch,
-                depth=self.quantization_channels,
-                dtype=tf.float32)
+            # encoded = tf.one_hot(
+            #     input_batch,
+            #     depth=self.quantization_channels,
+            #     dtype=tf.float32)
+            # shape = [self.batch_size, -1, self.quantization_channels]
+            # encoded = tf.reshape(encoded, shape)
+            print input_batch.get_shape()
+            encoded = input_batch
             shape = [self.batch_size, -1, self.quantization_channels]
             encoded = tf.reshape(encoded, shape)
         return encoded
@@ -606,18 +610,20 @@ class WaveNetModel(object):
             raise NotImplementedError("Incremental generation does not "
                                       "support scalar input yet.")
         with tf.name_scope(name):
-            encoded = waveform
+            encoded = self._one_hot(waveform)
             encoded = tf.reshape(encoded, [-1, self.quantization_channels])
             gc_embedding = self._embed_gc(global_condition)
             raw_output = self._create_generator(encoded, gc_embedding)
             out = tf.reshape(raw_output, [-1, self.quantization_channels])
-            proba = tf.cast(
-                tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
-            last = tf.slice(
-                proba,
-                [tf.shape(proba)[0] - 1, 0],
-                [1, self.quantization_channels])
-            return tf.reshape(last, [-1])
+            # proba = tf.cast(
+            #     tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
+            # last = tf.slice(
+            #     proba,
+            #     [tf.shape(proba)[0] - 1, 0],
+            #     [1, self.quantization_channels])
+            # return tf.reshape(last, [-1])
+            print out.get_shape()
+            return out
 
     def loss(self,
              input_batch,
@@ -661,7 +667,7 @@ class WaveNetModel(object):
                                            [-1, self.quantization_channels])
                 prediction = tf.reshape(raw_output,
                                         [-1, self.quantization_channels])
-                
+
                 loss = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(target_output, prediction))))
 
                 reduced_loss = loss
