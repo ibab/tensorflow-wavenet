@@ -584,19 +584,20 @@ class WaveNetModel(object):
                 encoded = tf.cast(waveform, tf.float32)
                 encoded = tf.reshape(encoded, [-1, 1])
             else:
-                encoded = waveform
+                encoded =  self._one_hot(waveform)
+
 
             gc_embedding = self._embed_gc(global_condition)
             raw_output = self._create_network(encoded, gc_embedding)
             out = tf.reshape(raw_output, [-1, self.quantization_channels])
             # Cast to float64 to avoid bug in TensorFlow
-            proba = tf.cast(
-                tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
-            last = tf.slice(
-                proba,
-                [tf.shape(proba)[0] - 1, 0],
-                [1, self.quantization_channels])
-            return tf.reshape(last, [-1])
+            #proba = tf.cast(
+            #    tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
+            #last = tf.slice(
+            #    proba,
+            #    [tf.shape(proba)[0] - 1, 0],
+            #    [1, self.quantization_channels])
+            return out
 
     def predict_proba_incremental(self, waveform, global_condition=None,
                                   name='wavenet'):

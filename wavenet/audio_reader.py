@@ -6,6 +6,7 @@ import threading
 
 # import librosa
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
@@ -60,8 +61,10 @@ def load_generic_audio(directory, sample_rate):
 
         # audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         # audio = audio.reshape(-1, 1)
-        data = np.genfromtxt(filename ,delimiter=",")
-
+        #data = np.genfromtxt(filename ,delimiter=",")
+        
+        data = pd.read_csv(filename, delimiter=",").values
+        
         yield data, filename, category_id
 
 

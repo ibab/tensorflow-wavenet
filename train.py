@@ -20,7 +20,7 @@ from tensorflow.python.client import timeline
 from wavenet import WaveNetModel, AudioReader, optimizer_factory
 
 BATCH_SIZE = 1
-DATA_DIRECTORY = './VCTK-Corpus'
+DATA_DIRECTORY = './data/new_data'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 1000
 NUM_STEPS = int(1e5)*3

@@ -158,8 +158,8 @@ def main():
         global_condition_channels=args.gc_channels,
         global_condition_cardinality=args.gc_cardinality)
 
-    samples = tf.placeholder(tf.float32,
-        shape=[None, wavenet_params['quantization_channels']])
+    samples = tf.placeholder(tf.float32)
+    #    shape=[None, wavenet_params['quantization_channels']])
 
     if args.fast_generation:
         next_sample = net.predict_proba_incremental(samples, args.gc_id)
@@ -192,13 +192,14 @@ def main():
         # # Silence with a single random sample at the end.
         # waveform = [quantization_channels / 2] * (net.receptive_field - 1)
         # waveform.append(np.random.randint(quantization_channels))
-        random_arr = \
-            np.abs(np.random.normal(np.ones((1,quantization_channels))))
+        random_arr = np.abs(np.random.normal(np.ones((1,quantization_channels))))
         random_arr /= random_arr.sum()
-        random_arr[0][-1] = 0
-        random_arr[0][-2] = 1
-        waveform = [random_arr]
-
+        #random_arr[0][-1] = 0
+        #random_arr[0][-2] = 1
+        
+        waveform = np.zeros((net.receptive_field, quantization_channels))
+        waveform[-1] = random_arr
+        
     # if args.fast_generation and args.wav_seed:
     #     # When using the incremental generation, we need to
     #     # feed in all priming samples one by one before starting the
@@ -226,7 +227,8 @@ def main():
             if len(waveform) > net.receptive_field:
                 window = waveform[-net.receptive_field:]
             else:
-                window = waveform
+                window = waveform[:]
+
             outputs = [next_sample]
 
         # Run the WaveNet to predict the next sample.
@@ -250,10 +252,14 @@ def main():
         #
         # sample = np.random.choice(
         #     np.arange(quantization_channels), p=scaled_prediction)
-        prediction[0][-1] = 0.0
-        prediction[0][-2] = 1.0
-        waveform.append(prediction)
-
+        #prediction[0][-1] = 1.0
+        #prediction[0][-2] = 1.0
+        #prediction[0][-1] = (np.sin(step/1000.)+1.)/2.
+        prediction[0][-2] = (np.cos(step/1000.)+1.)/2.
+        
+        #waveform.append(prediction)
+        waveform = np.append(waveform, prediction, axis=0)
+        
         # Show progress only once per second.
         current_sample_timestamp = datetime.now()
         time_since_print = current_sample_timestamp - last_sample_timestamp
