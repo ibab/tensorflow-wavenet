@@ -255,7 +255,7 @@ def main():
         #prediction[0][-1] = 1.0
         #prediction[0][-2] = 1.0
         #prediction[0][-1] = (np.sin(step/1000.)+1.)/2.
-        prediction[0][-2] = (np.cos(step/1000.)+1.)/2.
+        #prediction[0][-2] = (np.cos(step/1000.)+1.)/2.
         
         #waveform.append(prediction)
         waveform = np.append(waveform, prediction, axis=0)
@@ -288,6 +288,8 @@ def main():
 
     # Save the result as a wav file.
     if args.wav_out_path:
+        if not args.fast_generation:
+            waveform = waveform[net.receptive_field:]
         samp = np.array(waveform).reshape([-1, quantization_channels])
         out = sess.run(decode, feed_dict={samples: samp})
         write_wav(out, wavenet_params['sample_rate'], args.wav_out_path)
