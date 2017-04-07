@@ -8,5 +8,5 @@ command = "python generate.py --samples 6500 --wav_out_path ../trails/{:s}-{:d} 
 for i in xrange(10):
     steps = (i+1)*10000
     print(command.format(trailname, steps, logdir, steps))
-    os.system(command.format(logdir, steps, logdir, steps))
+    os.system(command.format(trailname, steps, logdir, steps))
     
