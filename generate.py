@@ -8,6 +8,7 @@ import os
 
 # import librosa
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
@@ -95,6 +96,13 @@ def get_arguments():
         type=int,
         default=None,
         help='ID of category to generate, if globally conditioned.')
+
+    parser.add_argument(
+        '--bound',
+        type=_str_to_bool,
+        default=False,
+        help='INTERNAL: Wether or not to statically fix one of the labels during generation.')
+
     arguments = parser.parse_args()
     if arguments.gc_channels is not None:
         if arguments.gc_cardinality is None:
@@ -124,15 +132,17 @@ def create_seed(filename,
                 quantization_channels,
                 window_size,
                 silence_threshold=SILENCE_THRESHOLD):
-    audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
-    audio = audio_reader.trim_silence(audio, silence_threshold)
+    #audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
+    #audio = audio_reader.trim_silence(audio, silence_threshold)
 
-    quantized = mu_law_encode(audio, quantization_channels)
-    cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
-                        lambda: tf.size(quantized),
-                        lambda: tf.constant(window_size))
+    #quantized = mu_law_encode(audio, quantization_channels)
+    #cut_index = tf.cond(tf.size(quantized) < tf.constant(window_size),
+    #                    lambda: tf.size(quantized),
+    #                    lambda: tf.constant(window_size))
 
-    return quantized[:cut_index]
+    data = pd.read_csv(filename, delimiter=",").values
+    
+    return data[:window_size,:]
 
 
 def main():
@@ -187,18 +197,19 @@ def main():
                            wavenet_params['sample_rate'],
                            quantization_channels,
                            net.receptive_field)
-        waveform = sess.run(seed).tolist()
+        #waveform = sess.run(seed).tolist()
+        waveform = seed
     else:
-        # # Silence with a single random sample at the end.
+        # # Silence
         # waveform = [quantization_channels / 2] * (net.receptive_field - 1)
         # waveform.append(np.random.randint(quantization_channels))
-        random_arr = np.abs(np.random.normal(np.ones((1,quantization_channels))))
-        random_arr /= random_arr.sum()
+        #random_arr = np.abs(np.random.normal(np.ones((1,quantization_channels))))
+        #random_arr /= random_arr.sum()
         #random_arr[0][-1] = 0
         #random_arr[0][-2] = 1
         
         waveform = np.zeros((net.receptive_field, quantization_channels))
-        waveform[-1] = random_arr
+        #waveform[-1] = random_arr
         
     # if args.fast_generation and args.wav_seed:
     #     # When using the incremental generation, we need to
@@ -255,7 +266,9 @@ def main():
         #prediction[0][-1] = 1.0
         #prediction[0][-2] = 1.0
         #prediction[0][-1] = (np.sin(step/1000.)+1.)/2.
-        #prediction[0][-2] = (np.cos(step/1000.)+1.)/2.
+        
+        if args.bound:
+          prediction[0][-2] = (np.cos(step/1000.)+1.)/2.
         
         #waveform.append(prediction)
         waveform = np.append(waveform, prediction, axis=0)
