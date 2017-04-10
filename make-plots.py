@@ -27,8 +27,8 @@ for file in csvfiles:
     traildata[file] = np.genfromtxt(file, delimiter=',')
     print traildata[file].shape
 
-#for name,data in traildata.iteritems():
-#    plt.imsave(name+"_shapekeys.png", np.kron(data[:,:], np.ones([1,100])))
+for name,data in traildata.iteritems():
+    plt.imsave("png/"+name+"_shapekeys.png", np.kron(data[:,:], np.ones([1,100])))
 
 time = np.arange(len(traildata[csvfiles[0]]))
 
