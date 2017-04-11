@@ -1,8 +1,8 @@
 import numpy as np
 import os
 
-logdir = "logdir/train/2times128-fw16"
-trailname = "6_4_3232_optokoppler-fromseed"
+logdir = "logdir/train/2times128-fw8-6464"
+trailname = "6_4_6464_optokoppler-fromseed"
 
 seed = "./data/new_data/confident_L_03_4min.csv"
 command = "python generate.py --samples 6500 --wav_out_path ../trails/{:s}-{:d} --fast_generation false --bound {:s} --wav_seed {:s} {:s}/model.ckpt-{:d}"

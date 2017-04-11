@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
+FILE_PATTERN = r'([0-9]+).*([0-9]+).*\.csv'
 FIND_FILES_PATTERN = '*.csv'
 DATA_DIM = 77
 
