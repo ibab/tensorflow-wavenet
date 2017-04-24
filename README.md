@@ -50,7 +50,7 @@ In this repository, the network implementation can be found in <a href="./wavene
 ## Requirements
 
 TensorFlow needs to be installed before running the training script.
-Code is tested on TensorFlow version 0.12.1 for Python 2.7 and Python 3.5.
+Code is tested on TensorFlow version 1.0.1 for Python 2.7 and Python 3.5.
 
 In addition, [librosa](https://github.com/librosa/librosa) must be installed for reading and writing audio.
 

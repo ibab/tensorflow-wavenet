@@ -25,7 +25,7 @@ class TestGeneration(tf.test.TestCase):
         proba = self.net.predict_proba(waveform)
 
         with self.test_session() as sess:
-            sess.run(tf.initialize_all_variables())
+            sess.run(tf.global_variables_initializer())
             proba = sess.run(proba, feed_dict={waveform: data})
 
         self.assertAllEqual(proba.shape, [128])
@@ -40,7 +40,7 @@ class TestGeneration(tf.test.TestCase):
         proba = self.net.predict_proba_incremental(waveform)
 
         with self.test_session() as sess:
-            sess.run(tf.initialize_all_variables())
+            sess.run(tf.global_variables_initializer())
             sess.run(self.net.init_ops)
             proba = sess.run(proba, feed_dict={waveform: data})
 
@@ -54,7 +54,7 @@ class TestGeneration(tf.test.TestCase):
         proba = self.net.predict_proba(waveform)
         proba_fast = self.net.predict_proba_incremental(waveform)
         with self.test_session() as sess:
-            sess.run(tf.initialize_all_variables())
+            sess.run(tf.global_variables_initializer())
             sess.run(self.net.init_ops)
             # Prime the incremental generation with all samples
             # except the last one
