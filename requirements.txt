@@ -1,1 +1,2 @@
 librosa>=0.5
+tensorflow>=0.12
