@@ -238,7 +238,7 @@ class TestNet(tf.test.TestCase):
                       learning_rate=self.learning_rate, momentum=self.momentum)
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
-        init = tf.initialize_all_variables()
+        init = tf.global_variables_initializer()
 
         generated_waveform = None
         max_allowed_loss = 0.1
