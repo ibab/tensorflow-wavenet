@@ -1,1 +1,1 @@
-librosa>=0.4.3
+librosa>=0.5
