@@ -59,6 +59,11 @@ To install the required python packages, run
 pip install -r requirements.txt
 ```
 
+For GPU support, use
+```bash
+pip install -r requirements_gpu.txt
+```
+
 ## Training the network
 
 You can use any corpus containing `.wav` files.
