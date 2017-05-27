@@ -27,9 +27,9 @@ def get_category_cardinality(files):
 
 
 def randomize_files(files):
+    random.shuffle(files)
     for file in files:
-        file_index = random.randint(0, (len(files) - 1))
-        yield files[file_index]
+        yield file
 
 
 def find_files(directory, pattern='*.wav'):
