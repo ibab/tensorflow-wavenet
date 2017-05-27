@@ -3,10 +3,13 @@ import os
 import random
 import re
 import threading
+import json
 
 import librosa
 import numpy as np
 import tensorflow as tf
+
+from .ops import upsample_labels
 
 FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
 
@@ -44,6 +47,7 @@ def find_files(directory, pattern='*.wav'):
 def load_generic_audio(directory, sample_rate):
     '''Generator that yields audio waveforms from the directory.'''
     files = find_files(directory)
+    label_files = find_files(directory, "*.json")
     id_reg_exp = re.compile(FILE_PATTERN)
     print("files length: {}".format(len(files)))
     randomized_files = randomize_files(files)
@@ -56,9 +60,16 @@ def load_generic_audio(directory, sample_rate):
         else:
             # The file name matches the pattern for containing ids.
             category_id = int(ids[0][0])
+
+        if label_files:
+            with open("./%s.json" % ''.join(filename.split('.')[:-1]), 'r') as f:
+                labels = json.loads(f.read())
+        else:
+            labels = None
+
         audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
-        yield audio, filename, category_id
+        yield audio, filename, category_id, labels
 
 
 def trim_silence(audio, threshold, frame_length=2048):
@@ -72,7 +83,6 @@ def trim_silence(audio, threshold, frame_length=2048):
     # Note: indices can be an empty array, if the whole audio was silence.
     return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
 
-
 def not_all_have_id(files):
     ''' Return true iff any of the filenames does not conform to the pattern
         we require for determining the category id.'''
@@ -83,6 +93,9 @@ def not_all_have_id(files):
             return True
     return False
 
+def not_all_have_label_file(wavs, labels):
+    if [w.split(".")[:-1] for w in wavs] != [l.split(".")[:-1] for l in labels]:
+        return True
 
 class AudioReader(object):
     '''Generic background audio reader that preprocesses audio files
@@ -93,6 +106,7 @@ class AudioReader(object):
                  coord,
                  sample_rate,
                  gc_enabled,
+                 lc_channels,
                  receptive_field,
                  sample_size=None,
                  silence_threshold=None,
@@ -104,6 +118,7 @@ class AudioReader(object):
         self.receptive_field = receptive_field
         self.silence_threshold = silence_threshold
         self.gc_enabled = gc_enabled
+        self.lc_channels = lc_channels
         self.threads = []
         self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
         self.queue = tf.PaddingFIFOQueue(queue_size,
@@ -117,6 +132,12 @@ class AudioReader(object):
                                                 shapes=[()])
             self.gc_enqueue = self.gc_queue.enqueue([self.id_placeholder])
 
+        if self.lc_channels:
+            self.lc_placeholder = tf.placeholder(dtype=tf.float32, shape=(None, self.lc_channels))
+            self.lc_queue = tf.PaddingFIFOQueue(queue_size, ['float32'],
+                                                shapes=[(None, self.lc_channels)])
+            self.lc_enqueue = self.lc_queue.enqueue([self.lc_placeholder])
+
         # TODO Find a better way to check this.
         # Checking inside the AudioReader's thread makes it hard to terminate
         # the execution of the script, so we do it in the constructor for now.
@@ -126,6 +147,13 @@ class AudioReader(object):
         if self.gc_enabled and not_all_have_id(files):
             raise ValueError("Global conditioning is enabled, but file names "
                              "do not conform to pattern having id.")
+        if self.lc_channels:
+            label_files = find_files(audio_dir, "*.json")
+            self.lc_label_files = label_files
+            if not_all_have_label_file(files, label_files):
+                raise ValueError("Local conditioning is enabled but wav files do not have "
+                                 "do not have corresponding JSON label files.")
+
         # Determine the number of mutually-exclusive categories we will
         # accomodate in our embedding table.
         if self.gc_enabled:
@@ -150,12 +178,15 @@ class AudioReader(object):
     def dequeue_gc(self, num_elements):
         return self.gc_queue.dequeue_many(num_elements)
 
+    def dequeue_lc(self, num_elements):
+        return self.lc_queue.dequeue_many(num_elements)
+
     def thread_main(self, sess):
         stop = False
         # Go through the dataset multiple times
         while not stop:
             iterator = load_generic_audio(self.audio_dir, self.sample_rate)
-            for audio, filename, category_id in iterator:
+            for audio, filename, category_id, labels in iterator:
                 if self.coord.should_stop():
                     stop = True
                     break
@@ -169,8 +200,14 @@ class AudioReader(object):
                               "threshold, or adjust volume of the audio."
                               .format(filename))
 
+                original_audio_size = len(audio)
+
                 audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]],
                                'constant')
+
+                if self.lc_channels:
+                    upsampled_labels = upsample_labels(labels, original_audio_size)
+                    upsampled_labels = np.pad(upsampled_labels, [[self.receptive_field, 0], [0, 0]], 'edge')
 
                 if self.sample_size:
                     # Cut samples into pieces of size receptive_field +
@@ -184,12 +221,19 @@ class AudioReader(object):
                         if self.gc_enabled:
                             sess.run(self.gc_enqueue, feed_dict={
                                 self.id_placeholder: category_id})
+                        if self.lc_channels:
+                            label_slice = upsampled_labels[:(self.receptive_field +
+                                            self.sample_size), :]
+                            upsampled_labels = upsampled_labels[self.sample_size:, :]
+                            sess.run(self.lc_enqueue, feed_dict={self.lc_placeholder: label_slice})
                 else:
                     sess.run(self.enqueue,
                              feed_dict={self.sample_placeholder: audio})
                     if self.gc_enabled:
                         sess.run(self.gc_enqueue,
                                  feed_dict={self.id_placeholder: category_id})
+                    if self.lc_channels:
+                        sess.run(self.lc_enqueue, feed_dict={self.lc_placeholder: upsampled_labels})
 
     def start_threads(self, sess, n_threads=1):
         for _ in range(n_threads):
