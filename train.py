@@ -17,9 +17,12 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader, optimizer_factory
+from wavenet import WaveNetModel, AudioReader, CsvReader, optimizer_factory
 
 BATCH_SIZE = 1
+DATA_DIM = 77
+QUEUE_SIZE = 250*16
+
 DATA_DIRECTORY = './data/new_data'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 1000
@@ -215,17 +218,30 @@ def main():
         silence_threshold = args.silence_threshold if args.silence_threshold > \
                                                       EPSILON else None
         gc_enabled = args.gc_channels is not None
-        reader = AudioReader(
+        #reader = AudioReader(
+        #    args.data_dir,
+        #    coord,
+        #    sample_rate=wavenet_params['sample_rate'],
+        #    gc_enabled=gc_enabled,
+        #    receptive_field=WaveNetModel.calculate_receptive_field(wavenet_params["filter_width"],
+        #                                                           wavenet_params["dilations"],
+        #                                                           wavenet_params["scalar_input"],
+        #                                                           wavenet_params["initial_filter_width"]),
+        #    sample_size=args.sample_size,
+        #    silence_threshold=silence_threshold)
+
+        reader = CsvReader(
             args.data_dir,
+            DATA_DIM,
             coord,
-            sample_rate=wavenet_params['sample_rate'],
             gc_enabled=gc_enabled,
             receptive_field=WaveNetModel.calculate_receptive_field(wavenet_params["filter_width"],
                                                                    wavenet_params["dilations"],
                                                                    wavenet_params["scalar_input"],
                                                                    wavenet_params["initial_filter_width"]),
             sample_size=args.sample_size,
-            silence_threshold=silence_threshold)
+            queue_size=QUEUE_SIZE
+        )
         audio_batch = reader.dequeue(args.batch_size)
         if gc_enabled:
             gc_id_batch = reader.dequeue_gc(args.batch_size)
