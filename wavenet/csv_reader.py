@@ -5,7 +5,7 @@ import fnmatch
 import threading
 import tensorflow as tf
 
-FILE_PATTERN = r'([0-9]+).*([0-9]+).*\.csv'
+FILE_PATTERN = r'([0-9]+).*\.csv'
 FIND_FILES_PATTERN = '*.csv'
 # naming of variables
 
@@ -16,22 +16,27 @@ def find_files(file_dir, pattern=FIND_FILES_PATTERN):
             files.append(os.path.join(root, filename))
     return files
 
-def get_category_cardinality(files):
+def get_gc(filename):
     # need to be changed
     filenames = find_files(files)
+    id_reg_expression = re.compile(FILE_PATTERN)
+    matches = id_reg_expression.findall(filename)[0]
+    return matches
 
+def get_category_cardinality(files):
     id_reg_expression = re.compile(FILE_PATTERN)
     min_id = None
     max_id = None
-    for filename in filenames:
+    for filename in files:
+        filename = os.path.basename(filename)
         matches = id_reg_expression.findall(filename)[0]
         id, recording_id = [int(id_) for id_ in matches]
         if min_id is None or id < min_id:
             min_id = id
-        if max_is is None or id > max_id:
+        if max_id is None or id > max_id:
             max_id = id
-    return min_id, max_id
 
+    return min_id, max_id
 
 class CsvReader(object):
     def __init__(self, file_dir, data_dim, coord, gc_enabled, receptive_field, sample_size=32, queue_size=250*16):
@@ -88,10 +93,15 @@ class CsvReader(object):
             value = tf.transpose(value, [1, 0])
 
             value = tf.pad(value, [[self.receptive_field, 0], [0, 0]], 'CONSTANT')
+
             sess.run(self.queue.enqueue(value))
 
+            # Get category_id
             if self.gc_enabled:
-                sess.run(self.gc_queue.enqueue(value))
+                filename = os.path.basename(sess.run(key)[0])
+                category_id = filename.split(':')[0]
+                category_id = get_gc(category_id)
+                sess.run(self.gc_queue.enqueue(category_id))
 
 
     def start_threads(self, sess, n_threads=1):
