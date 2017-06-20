@@ -16,26 +16,23 @@ def find_files(file_dir, pattern=FIND_FILES_PATTERN):
             files.append(os.path.join(root, filename))
     return files
 
-def get_gc(filename):
+def get_gc(file):
     # need to be changed
-    filenames = find_files(files)
     id_reg_expression = re.compile(FILE_PATTERN)
-    matches = id_reg_expression.findall(filename)[0]
-    return matches
+    matches = id_reg_expression.findall(file)[0]
+    return int(matches)
 
 def get_category_cardinality(files):
     id_reg_expression = re.compile(FILE_PATTERN)
     min_id = None
     max_id = None
-    for filename in files:
-        filename = os.path.basename(filename)
-        matches = id_reg_expression.findall(filename)[0]
-        id, recording_id = [int(id_) for id_ in matches]
+    for _ in range(len(files)):
+        matches = id_reg_expression.findall(os.path.basename(files[_]))[0]
+        id = int(matches)
         if min_id is None or id < min_id:
             min_id = id
         if max_id is None or id > max_id:
             max_id = id
-
     return min_id, max_id
 
 class CsvReader(object):
@@ -61,12 +58,16 @@ class CsvReader(object):
 
         # This is needed for now to make the program go
         if self.gc_enabled:
+            self.gc_placeholder = tf.placeholder(dtype=tf.int32, shape=None)
             self.gc_queue = tf.PaddingFIFOQueue(self.queue_size,
                                                 ['int32'],
                                                 shapes=[()])
+            self.gc_enqueue = self.gc_queue.enqueue([self.gc_placeholder])
+
+
 
             # need to find better implementation for this.
-            _, self.gc_category_cardinality = get_category_cardinality(self.file_dir)
+            _, self.gc_category_cardinality = get_category_cardinality(find_files(self.file_dir))
             self.gc_category_cardinality += 1
             print("Detected --gc_cardinality={}".format(self.gc_category_cardinality))
         else:
@@ -101,7 +102,7 @@ class CsvReader(object):
                 filename = os.path.basename(sess.run(key)[0])
                 category_id = filename.split(':')[0]
                 category_id = get_gc(category_id)
-                sess.run(self.gc_queue.enqueue(category_id))
+                sess.run(self.gc_enqueue, feed_dict={self.gc_placeholder: category_id})
 
 
     def start_threads(self, sess, n_threads=1):
