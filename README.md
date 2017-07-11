@@ -33,4 +33,4 @@ Run the test suite
 
 ## Related projects
 
-- [tensorflow-wavenet](https://github.com/ibab/tensorflow-wavenet), a WaveNet generation.
+- [tensorflow-wavenet](https://github.com/ibab/tensorflow-wavenet), the WaveNet implementation this is based on.
