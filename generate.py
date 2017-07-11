@@ -141,7 +141,7 @@ def create_seed(filename,
     #                    lambda: tf.constant(window_size))
 
     data = pd.read_csv(filename, delimiter=",").values
-    
+
     return data[:window_size,:]
 
 
@@ -177,11 +177,11 @@ def main():
         next_sample = net.predict_proba(samples, args.gc_id)
 
     if args.fast_generation:
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
         sess.run(net.init_ops)
 
     variables_to_restore = {
-        var.name[:-2]: var for var in tf.all_variables()
+        var.name[:-2]: var for var in tf.global_variables()
         if not ('state_buffer' in var.name or 'pointer' in var.name)}
     saver = tf.train.Saver(variables_to_restore)
 
@@ -207,10 +207,10 @@ def main():
         #random_arr /= random_arr.sum()
         #random_arr[0][-1] = 0
         #random_arr[0][-2] = 1
-        
+
         waveform = np.zeros((net.receptive_field, quantization_channels))
         #waveform[-1] = random_arr
-        
+
     # if args.fast_generation and args.wav_seed:
     #     # When using the incremental generation, we need to
     #     # feed in all priming samples one by one before starting the
@@ -266,13 +266,13 @@ def main():
         #prediction[0][-1] = 1.0
         #prediction[0][-2] = 1.0
         #prediction[0][-1] = (np.sin(step/1000.)+1.)/2.
-        
+
         if args.bound:
           prediction[0][-2] = (np.cos(step/1000.)+1.)/2.
-        
+
         #waveform.append(prediction)
         waveform = np.append(waveform, prediction, axis=0)
-        
+
         # Show progress only once per second.
         current_sample_timestamp = datetime.now()
         time_since_print = current_sample_timestamp - last_sample_timestamp
