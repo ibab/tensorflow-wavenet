@@ -4,12 +4,14 @@ import random
 import re
 import threading
 
-import librosa
+# import librosa
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
-FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
-
+FILE_PATTERN = r'([0-9]+).*([0-9]+).*\.csv'
+FIND_FILES_PATTERN = '*.csv'
+DATA_DIM = 77
 
 def get_category_cardinality(files):
     id_reg_expression = re.compile(FILE_PATTERN)
@@ -32,7 +34,7 @@ def randomize_files(files):
         yield files[file_index]
 
 
-def find_files(directory, pattern='*.wav'):
+def find_files(directory, pattern=FIND_FILES_PATTERN):
     '''Recursively finds all files matching the pattern.'''
     files = []
     for root, dirnames, filenames in os.walk(directory):
@@ -56,9 +58,14 @@ def load_generic_audio(directory, sample_rate):
         else:
             # The file name matches the pattern for containing ids.
             category_id = int(ids[0][0])
-        audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
-        audio = audio.reshape(-1, 1)
-        yield audio, filename, category_id
+
+        # audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
+        # audio = audio.reshape(-1, 1)
+        #data = np.genfromtxt(filename ,delimiter=",")
+        
+        data = pd.read_csv(filename, delimiter=",").values
+        
+        yield data, filename, category_id
 
 
 def trim_silence(audio, threshold, frame_length=2048):
@@ -108,7 +115,7 @@ class AudioReader(object):
         self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
         self.queue = tf.PaddingFIFOQueue(queue_size,
                                          ['float32'],
-                                         shapes=[(None, 1)])
+                                         shapes=[(None, DATA_DIM)])
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
 
         if self.gc_enabled:
