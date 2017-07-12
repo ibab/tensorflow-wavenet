@@ -127,7 +127,7 @@ class WaveNetModel(object):
     @staticmethod
     def calculate_receptive_field(filter_width, dilations, scalar_input,
                                   initial_filter_width):
-    	# Not sure how LC needs to be taken into account here.
+    	# LC does not affect receptive field
         receptive_field = (filter_width - 1) * sum(dilations) + 1
         if scalar_input:
             receptive_field += initial_filter_width - 1
@@ -377,7 +377,7 @@ class WaveNetModel(object):
                 tf.histogram_summary(layer + '_biases_skip', skip_bias)
             # Not going to bother adding LC into here.
 
-        # Not sure why input_cut does what it does, and how that will affect us.
+        # Adding part of the input to residual output (identity)
         input_cut = tf.shape(input_batch)[1] - tf.shape(transformed)[1]
         input_batch = tf.slice(input_batch, [0, input_cut, 0], [-1, -1, -1])
 
