@@ -4,17 +4,11 @@ import re
 import fnmatch
 import threading
 import tensorflow as tf
+import multiprocessing
 
 FILE_PATTERN = r'([0-9]+).*\.csv'
 FIND_FILES_PATTERN = '*.csv'
 # naming of variables
-
-def find_files(file_dir, pattern=FIND_FILES_PATTERN):
-    files = []
-    for root, dirnames, filenames in os.walk(file_dir):
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(root, filename))
-    return files
 
 def get_gc(file):
     # need to be changed
@@ -36,79 +30,79 @@ def get_category_cardinality(files):
     return min_id, max_id
 
 class CsvReader(object):
-    def __init__(self, file_dir, data_dim, coord, gc_enabled, receptive_field, sample_size=32, queue_size=250*16):
-        self.file_dir = file_dir
-        self.coord = coord
-        self.gc_enabled = gc_enabled
-        self.receptive_field = receptive_field
-        self.threads = []
-        self.data_dim = data_dim
-        self.sample_size = sample_size
-        self.queue_size = queue_size
-
-        # Obtain queue of filename
-        # tf.train.string_input_producer craetes FIFO queue of tensor object
-        self.filename_queue = tf.train.string_input_producer(find_files(self.file_dir))
-        self.reader = tf.TextLineReader()
-
-        # Sets up the tf queue to store data
-        self.queue = tf.PaddingFIFOQueue(self.queue_size,
-                                         ['float32'],
-                                         shapes=[(None, self.data_dim)])
-
-        # This is needed for now to make the program go
-        if self.gc_enabled:
-            self.gc_placeholder = tf.placeholder(dtype=tf.int32, shape=None)
-            self.gc_queue = tf.PaddingFIFOQueue(self.queue_size,
-                                                ['int32'],
-                                                shapes=[()])
-            self.gc_enqueue = self.gc_queue.enqueue([self.gc_placeholder])
+    def __init__(self, files, receptive_field, sample_size, data_dim=77, gc_enabled=None):
+        print(files)
+        self.data_batch = self.input_batch(files, data_dim, shuffle=False, batch_size=receptive_field+sample_size)
 
 
-
+        #TODO: GC
+        if gc_enabled:
             # need to find better implementation for this.
-            _, self.gc_category_cardinality = get_category_cardinality(find_files(self.file_dir))
+            _, self.gc_category_cardinality = get_category_cardinality(files)
             self.gc_category_cardinality += 1
             print("Detected --gc_cardinality={}".format(self.gc_category_cardinality))
         else:
             self.gc_category_cardinality = None
 
-    def dequeue(self, num_elements):
-        return self.queue.dequeue_many(num_elements)
-
-    def dequeue_gc(self, num_elements):
-        return self.gc_queue.dequeue_many(num_elements)
-
-    def thread_main(self, sess):
-        stop = False
-        # while thread is running keep fetching vlaues
-        while not stop:
-            if self.coord.should_stop():
-                stop = True
-                break
-
-            # Load dataset
-            key, value = self.reader.read_up_to(self.filename_queue, self.receptive_field + self.sample_size)
-            record_defaults = [[1.0] for _ in range(self.data_dim)]
-            value = tf.decode_csv(value, record_defaults=record_defaults)
-            value = tf.transpose(value, [1, 0])
-
-            value = tf.pad(value, [[self.receptive_field, 0], [0, 0]], 'CONSTANT')
-
-            sess.run(self.queue.enqueue(value))
-
-            # Get category_id
-            if self.gc_enabled:
-                filename = os.path.basename(sess.run(key)[0])
-                category_id = filename.split(':')[0]
-                category_id = get_gc(category_id)
-                sess.run(self.gc_enqueue, feed_dict={self.gc_placeholder: category_id})
+        #TODO: LC
 
 
-    def start_threads(self, sess, n_threads=1):
-        for _ in range(n_threads):
-            thread = threading.Thread(target=self.thread_main, args=(sess,))
-            thread.daemon = True
-            thread.start()
-            self.threads.append(thread)
-        return self.threads
+    def input_batch(self,
+                 filenames,
+                 data_dim,
+                 num_epochs=None,
+                 shuffle=True,
+                 skip_header_lines=0,
+                 batch_size=200):
+      """Generates an input function for training or evaluation.
+      This uses the input pipeline based approach using file name queue
+      to read data so that entire data is not loaded in memory.
+      Args:
+          filenames: [str] list of CSV files to read data from.
+          num_epochs: int how many times through to read the data.
+            If None will loop through data indefinitely
+          shuffle: bool, whether or not to randomize the order of data.
+            Controls randomization of both file order and line order within
+            files.
+          skip_header_lines: int set to non-zero in order to skip header lines
+            in CSV files.
+          batch_size: int First dimension size of the Tensors returned by
+            input_fn
+      Returns:
+          A function () -> (features, indices) where features is a dictionary of
+            Tensors, and indices is a single Tensor of label indices.
+      """
+      filename_queue = tf.train.string_input_producer(
+          filenames, num_epochs=num_epochs, shuffle=shuffle)
+      reader = tf.TextLineReader(skip_header_lines=skip_header_lines)
+
+      _, rows = reader.read_up_to(filename_queue, num_records=batch_size)
+
+      # Parse the CSV File
+      record_defaults = [[1.0] for _ in range(data_dim)]
+      features = tf.decode_csv(rows, record_defaults=record_defaults)
+
+      # This operation builds up a buffer of parsed tensors, so that parsing
+      # input data doesn't block training
+      # If requested it will also shuffle
+      if shuffle:
+        features = tf.train.shuffle_batch(
+            features,
+            batch_size,
+            min_after_dequeue=2 * batch_size + 1,
+            capacity=batch_size * 10,
+            num_threads=multiprocessing.cpu_count(),
+            enqueue_many=True,
+            allow_smaller_final_batch=True
+        )
+      else:
+        features = tf.train.batch(
+            features,
+            batch_size,
+            capacity=batch_size * 10,
+            num_threads=multiprocessing.cpu_count(),
+            enqueue_many=True,
+            allow_smaller_final_batch=True
+        )
+
+      return features
