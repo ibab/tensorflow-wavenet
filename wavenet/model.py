@@ -646,7 +646,8 @@ class WaveNetModel(object):
                     tf.cast(input_batch, tf.float32),
                     [self.batch_size, -1, 1])
             else:
-                network_input = encoded
+                # TODO: HACKY WAY! Implement real batches..
+                network_input = tf.reshape(encoded, [1,-1,self.quantization_channels])
 
             # Cut off the last sample of network input to preserve causality.
             network_input_width = tf.shape(network_input)[1] - 1

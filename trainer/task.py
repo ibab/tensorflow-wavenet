@@ -202,30 +202,19 @@ def run(target,
     # https://www.tensorflow.org/api_docs/python/tf/train/replica_device_setter
     with tf.device(tf.train.replica_device_setter()):
 
-        coord = tf.train.Coordinator(clean_stop_exception_types=(
-            tf.errors.CancelledError, tf.errors.OutOfRangeError))
-
         gc_enabled = gc_channels is not None
 
         # Reader
         reader = CsvReader(
             train_files,
-            data_dim,
-            coord,
-            gc_enabled=gc_enabled,
             receptive_field=WaveNetModel.calculate_receptive_field(filter_width,
                                                                    dilations,
                                                                    False,
                                                                    initial_filter_width),
             sample_size=sample_size,
-            queue_size=QUEUE_SIZE
+            data_dim=77,
+            gc_enabled=gc_enabled
         )
-
-        data_batch = reader.dequeue(batch_size)
-        if gc_enabled:
-            gc_id_batch = reader.dequeue_gc(batch_size)
-        else:
-            gc_id_batch = None
 
         # Create network.
         net = WaveNetModel(
@@ -248,8 +237,8 @@ def run(target,
         if l2_regularization_strength == 0:
             l2_regularization_strength = None
 
-        loss = net.loss(input_batch=data_batch,
-                        global_condition_batch=gc_id_batch,
+        loss = net.loss(input_batch=reader.data_batch,
+                        global_condition_batch=None, # TODO: GC
                         l2_regularization_strength=l2_regularization_strength)
 
         optimizer = optimizer_factory[optimizer](
@@ -271,29 +260,17 @@ def run(target,
                                            hooks=hooks,
                                            save_checkpoint_secs=20,
                                            save_summaries_steps=0) as session: #TODO: SUMMARIES HERE
-        try:
 
-            # start the threads for reading files
-            threads = tf.train.start_queue_runners(sess=session, coord=coord)
-            reader.start_threads(session)
-            # Global step to keep track of global number of steps particularly in
-            # distributed setting
-            step = global_step_tensor.eval(session=session)
-            # Run the training graph which returns the step number as tracked by
-            # the global step tensor.
-            # When train epochs is reached, session.should_stop() will be true.
-            while (train_steps is None or
-                   step < train_steps) and not session.should_stop():
-                print("step %d" % step)
-                step, _ = session.run([global_step_tensor, train_op])
-
-        except KeyboardInterrupt:
-            # Introduce a line break after ^C is displayed so save message
-            # is on its own line.
-            print()
-        finally:
-            coord.request_stop()
-            coord.join(threads)
+        # Global step to keep track of global number of steps particularly in
+        # distributed setting
+        step = global_step_tensor.eval(session=session)
+        # Run the training graph which returns the step number as tracked by
+        # the global step tensor.
+        # When train epochs is reached, session.should_stop() will be true.
+        while (train_steps is None or
+               step < train_steps) and not session.should_stop():
+            print("step %d" % step)
+            step, _ = session.run([global_step_tensor, train_op])
 
 
 
@@ -344,7 +321,7 @@ if __name__ == "__main__":
   parser.add_argument('--train-files',
                       required=True,
                       type=str,
-                      help='Training files local or GCS')
+                      help='Training files local or GCS', nargs="+")
   parser.add_argument('--job-dir',
                       required=True,
                       type=str,
