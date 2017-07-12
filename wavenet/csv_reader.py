@@ -31,7 +31,6 @@ def get_category_cardinality(files):
 
 class CsvReader(object):
     def __init__(self, files, receptive_field, sample_size, data_dim=77, gc_enabled=None):
-        print(files)
         self.data_batch = self.input_batch(files, data_dim, shuffle=False, batch_size=receptive_field+sample_size)
 
 

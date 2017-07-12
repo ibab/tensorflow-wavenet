@@ -1,0 +1,12 @@
+trainingInput:
+  scaleTier: BASIC_GPU
+  hyperparameters:
+    goal: MAXIMIZE
+    maxTrials: 30
+    maxParallelTrials: 5
+    params:
+    - parameterName: residual_channels
+      type: INTEGER
+      minValue: 16
+      maxValue: 64
+      scaleType: UNIT_LINEAR_SCALE
