@@ -48,12 +48,34 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
 	# then, if they do, order then correctly in one to one order
 
 def order_midi_files(audio_files, midi_files):
-	for audio_file in audio_files:
-		# get name of audio file
-		# check if that file name is in midi file
-		# if it is keep it and then put the midi in the order
-		# if not remove audio and and then print error message
-		# 
+	midi_ind = []
+	# mapping both lists of files to lists of strings to compare them
+	# note: in Python 3 map() returns a map object, which can still be iterated through (list() not needed)
+	str_audio = map(str, audio_files)
+	str_midi = map(str, midi_files)
+
+	# remove extensions
+	for str in enumerate(str_audio):
+		str_audio(str) = os.path.splitext(str_audio(str))[0]
+
+	for str in enumerate(str_midi):
+		str_midi(str) = os.path.splitext(str_midi(str))[0]
+
+	# create two lists of the midi and wav mismatches
+	str_midi = [midi for midi in str_midi if midi not in str_audio]
+	str_audio = [wav for wav in str_audio if wav not in str_midi]
+
+	for midi in str_midi:
+		rem = audio_files.pop(str(midi + ".wav"))
+		print("No MIDI match found for .wav file {}. File removed.".format(rem))
+
+	for wav in str_audio:
+		rem = midi_files.pop(str(wav + ".mid"))
+		print("No raw audio match found for .mid file {}. File removed.".format(rem))
+
+	# now we have two lists of the same files
+	# sort list of midi_files according to the audio_files order
+
 
 def trim_silence(audio, threshold, frame_length=2048):
 	'''Removes silence at the beginning and end of a sample.'''
