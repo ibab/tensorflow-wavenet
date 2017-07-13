@@ -25,7 +25,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
 		print("Number of midi files is {}".format(len(midi_files)))
 
 		# Now make sure the files correspond and are in the same order
-		audio_files, midi_files = order_midi_files(audio_files, midi_files)
+		audio_files, midi_files = clean_files(audio_files, midi_files)
 		print("File clean up done. Final file count is {}".format(len(audio_files)))
 
 		randomized_files = randomize_files(audio_files)
@@ -43,12 +43,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
 
 			yield audio, filename, midi_file
 
-	# now we have all the audio files and the midi files
-	# first, check if all the files in the audio have a corresponding midi file
-	# then, if they do, order then correctly in one to one order
-
-def order_midi_files(audio_files, midi_files):
-	midi_ind = []
+def clean_files(audio_files, midi_files):
 	# mapping both lists of files to lists of strings to compare them
 	# note: in Python 3 map() returns a map object, which can still be iterated through (list() not needed)
 	str_audio = map(str, audio_files)
@@ -72,10 +67,6 @@ def order_midi_files(audio_files, midi_files):
 	for wav in str_audio:
 		rem = midi_files.pop(str(wav + ".mid"))
 		print("No raw audio match found for .mid file {}. File removed.".format(rem))
-
-	# now we have two lists of the same files
-	# sort list of midi_files according to the audio_files order
-
 
 def trim_silence(audio, threshold, frame_length=2048):
 	'''Removes silence at the beginning and end of a sample.'''
