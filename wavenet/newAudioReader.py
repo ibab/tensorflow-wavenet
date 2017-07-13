@@ -61,11 +61,11 @@ def clean_files(audio_files, midi_files):
 	str_audio = [wav for wav in str_audio if wav not in str_midi]
 
 	for midi in str_midi:
-		rem = audio_files.pop(str(midi + ".wav"))
+		rem = audio_files.pop(eval(midi + ".wav"))
 		print("No MIDI match found for .wav file {}. File removed.".format(rem))
 
 	for wav in str_audio:
-		rem = midi_files.pop(str(wav + ".mid"))
+		rem = midi_files.pop(eval(wav + ".mid"))
 		print("No raw audio match found for .mid file {}. File removed.".format(rem))
 
 def trim_silence(audio, threshold, frame_length=2048):
