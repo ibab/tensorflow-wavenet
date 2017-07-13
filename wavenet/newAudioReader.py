@@ -9,11 +9,11 @@ import fnmatch
 
 def find_files(dir, format):
 	'''Recursively finds all files matching the pattern.'''
-    files = []
-    for root, dirnames, filenames in os.walk(directory):
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(root, filename))
-    return files
+	files = []
+	for root, dirnames, filenames in os.walk(directory):
+		for filename in fnmatch.filter(filenames, pattern):
+			files.append(os.path.join(root, filename))
+	return files
 
 def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
 	# get all audio files and print their number
@@ -22,7 +22,26 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
 
 	if lc_enabled:
 		midi_files = find_files(data_dir, '*.mid')
+		print("Number of midi files is {}".format(len(midi_files)))
+
+		# Now make sure the files correspond and are in the same order
 		audio_files, midi_files = order_midi_files(audio_files, midi_files)
+		print("File clean up done. Final file count is {}".format(len(audio_files)))
+
+		randomized_files = randomize_files(audio_files)
+		for filename in randomized_files:
+			# get GC embedding here if using it
+
+			# now load audio file using librosa
+			audio, _ = librosa.load(filename, sr = sample_rate, mono = True)
+			
+			# reshape single channel for broadcast
+			audio = audio.reshape(-1, 1)
+
+			# now we get the LC timeseries file here
+			lc_file = get_lc_file(filename)
+
+			yield audio, filename, midi_file
 
 	# now we have all the audio files and the midi files
 	# first, check if all the files in the audio have a corresponding midi file
@@ -36,18 +55,28 @@ def order_midi_files(audio_files, midi_files):
 		# if not remove audio and and then print error message
 		# 
 
+def trim_silence(audio, threshold, frame_length=2048):
+	'''Removes silence at the beginning and end of a sample.'''
+	if audio.size < frame_length:
+		frame_length = audio.size
+	energy = librosa.feature.rmse(audio, frame_length=frame_length)
+	frames = np.nonzero(energy > threshold)
+	indices = librosa.core.frames_to_samples(frames)[1]
+
+	# Note: indices can be an empty array, if the whole audio was silence.
+	return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
 
 class AudioReader():
 	def __init__(self,
-	             data_dir,
-	             coord,
-	             sample_rate = 16000,
-	             gc_enabled = False,
-	             lc_enabled = False,
-	             receptive_field,
-	             sample_size = None,
-	             silence_threshold = None,
-	             q_size = 32):
+				 data_dir,
+				 coord,
+				 sample_rate = 16000,
+				 gc_enabled = False,
+				 lc_enabled = False,
+				 receptive_field,
+				 sample_size = None,
+				 silence_threshold = None,
+				 q_size = 32):
 		# Input member vars initialiations
 		self.data_dir = data_dir
 		self.coord = coord
@@ -86,9 +115,19 @@ class AudioReader():
 		def dq_lc(self, num_elements):
 			return self.q_lc.dequeue_many(num_elements)
 
-		def thread(self, sess):
+		def input_stream(self, sess):
 			stop = False
 
 			# keep looping until traning is done
 			while not stop:
 				iterator = load_files(self.data_dir, self.sample_rate)
+
+			for 
+
+		def start_threads(self, sess, n_threads=1):
+			for _ in range(n_threads):
+				thread = threading.Thread(target = self.input_stream, args=(sess,))
+				thread.daemon = True  # Thread will close when parent quits.
+				thread.start()
+				self.threads.append(thread)
+			return self.threads
