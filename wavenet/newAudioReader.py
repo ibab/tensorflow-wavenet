@@ -55,11 +55,11 @@ def order_midi_files(audio_files, midi_files):
 	str_midi = map(str, midi_files)
 
 	# remove extensions
-	for str in enumerate(str_audio):
-		str_audio(str) = os.path.splitext(str_audio(str))[0]
+	for wav in enumerate(str_audio):
+		str_audio(wav) = os.path.splitext(str_audio(wav))[0]
 
-	for str in enumerate(str_midi):
-		str_midi(str) = os.path.splitext(str_midi(str))[0]
+	for midi in enumerate(str_midi):
+		str_midi(midi) = os.path.splitext(str_midi(midi))[0]
 
 	# create two lists of the midi and wav mismatches
 	str_midi = [midi for midi in str_midi if midi not in str_audio]
