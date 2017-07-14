@@ -324,6 +324,10 @@ class WaveNetModel(object):
 
         # LOCAL CONDITION
         # Create conv filter and gate using LC params.
+        # We need to check the dimensions of the conv_filter so that we know
+        # the 1x1 conv of LC batch and filter can be element-wise added to the filter.
+        # We also need to know how this param must be adjusted to accommodate a time series:
+        # y(t), convolved with lc_filter, will change at every step.
         if local_condition_batch is not None:
         	weights_lc_filter = variables['lc_filtweights']
         	conv_filter = conv_filter + tf.nn.conv1d(local_condition_batch,
