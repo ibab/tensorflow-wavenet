@@ -1,11 +1,12 @@
 import os
 import re
-import threading
-import tensorflow as tf
-import numpy as np
-import librosa
+import midi
 import random
+import librosa
 import fnmatch
+import threading
+import numpy as np
+import tensorflow as tf
 
 def find_files(dir, format):
 	'''Recursively finds all files matching the pattern.'''
@@ -33,19 +34,21 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
 		# get GC embedding here if using it
 
 		# now load audio file using librosa, audio is now a horizontal array of float32s
-		# Throwawav _ is the sample rate returned back
+		# throwaway _ is the sample rate returned back
 		audio, _ = librosa.load(filename, sr = sample_rate, mono = True)
 		
 		# this reshape makes it a vertical array
 		audio = audio.reshape(-1, 1)
 
-		# TODO: This is where we get the GC ID mapping from audio 
-		# gc_id = get_gc_id(audio)
+		# TODO: This is where we get the GC ID mapping from audio
+		# later, we can add support for conditioning on genre title, etc.
+		# gc_id = get_gc_id(filename)
 
 		# now we get the LC timeseries file here
+		# load in the midi or any other local conditioning file
 		if lc_enabled:
-			# TODO: This is where we load in the midi or any other local conditioning file
-			# lc_timeseries = get_lc_file(filename)
+		    midi_name = os.path.splitext(filename)[0] + ".mid"
+			lc_timeseries = midi.read_midifile(midi_name)
 
 		yield audio, filename, gc_id, lc_timeseries
 
@@ -75,6 +78,10 @@ def clean_files(audio_files, midi_files):
 		fname = midi + ".mid"
 		midi_files.remove(fname)
 		print("No raw audio match found for .mid file {}. MIDI file removed.".format(fname))
+		
+def map_midi(audio, lc_timeseries)
+    '''Upsampling midi and mapping it to the wav samples.'''
+    
 
 def trim_silence(audio, threshold, frame_length = 2048):
 	'''Removes silence at the beginning and end of a sample.'''
@@ -98,6 +105,7 @@ class AudioReader():
 				 sample_size = None,
 				 silence_threshold = None,
 				 q_size = 32):
+				     
 		# Input member vars initialiations
 		self.data_dir = data_dir
 		self.coord = coord
@@ -114,7 +122,7 @@ class AudioReader():
 		
 		# DATA QUEUES
 
-		# Audio sampels are float32s with encoded as a one hot, so shape is 1 X quantization_channels
+		# Audio samples are float32s with encoded as a one hot, so shape is 1 X quantization_channels
 		self.audio_placeholder = tf.placeholder(dtype = tf.float32, shape = None)
 		self.q_audio = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.float32], shapes = [(None, 1)])
 		self.enq_audio = self.q_audio.enqueue([self.audio_placeholder])
@@ -155,7 +163,7 @@ class AudioReader():
 		def input_stream(self, sess):
 			stop = False
 
-			# keep looping until traning is done
+			# keep looping until training is done
 			while not stop:
 				iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled)
 
@@ -178,11 +186,25 @@ class AudioReader():
 							  .format(filename))
 
 					# now pad beginning of samples with n = receptive_field number of 0s 
+					# TODO: figure out why we are padding this ???
 					audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
 
 					# now 
 					if self.sample_size:
+						# TODO: understand the reason for this piece voodoo from the original reader
+						while len(audio) > self.receptive_field:
+							piece = audio[:(self.receptice_field + self.sample_size), :]
+							sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
 
+							# add GC mapping to q if enabled
+							if self.gc_enabled:
+								sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
+
+							# add LC mapping to queue if enabled
+							if self.lc_enabled:
+								# TODO:
+								# lc = map_midi(piece)
+								sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc})
 					else:
 						# otherwise feed the whole audio sample in its entireity
 						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
@@ -199,9 +221,9 @@ class AudioReader():
 
 
 
-		def start_threads(self, sess, n_threads=1):
+		def start_threads(self, sess, n_threads = 1):
 			for _ in range(n_threads):
-				thread = threading.Thread(target = self.input_stream, args=(sess,))
+				thread = threading.Thread(target = self.input_stream, args = (sess,))
 				thread.daemon = True  # Thread will close when parent quits.
 				thread.start()
 				self.threads.append(thread)
