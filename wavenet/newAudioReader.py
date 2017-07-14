@@ -68,7 +68,7 @@ def clean_files(audio_files, midi_files):
 	for midi in str_midi:
 		fname = midi + ".mid"
 		midi_files.remove(fname)
-		print("No raw audio match found for .mid file {}. MIDI file removed.".format(rem))
+		print("No raw audio match found for .mid file {}. MIDI file removed.".format(fname))
 
 def trim_silence(audio, threshold, frame_length=2048):
 	'''Removes silence at the beginning and end of a sample.'''
