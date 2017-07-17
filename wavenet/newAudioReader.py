@@ -7,6 +7,7 @@ import fnmatch
 import threading
 import numpy as np
 import tensorflow as tf
+from enum import Enum
 
 def find_files(dir, format):
 	'''Recursively finds all files matching the pattern.'''
@@ -48,6 +49,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 		# load in the midi or any other local conditioning file
 		if lc_enabled:
 		    midi_name = os.path.splitext(filename)[0] + ".mid"
+		    # returns list of events with ticks in relative time
 			lc_timeseries = midi.read_midifile(midi_name)
 
 		yield audio, filename, gc_id, lc_timeseries
@@ -84,6 +86,7 @@ def clean_midi_files(audio_files, lc_files):
 	
 def map_midi(audio, lc_timeseries)
     '''Upsampling midi and mapping it to the wav samples.'''
+    # TODO
     
 
 def trim_silence(audio, threshold, frame_length = 2048):
@@ -209,7 +212,7 @@ class AudioReader():
 							if self.lc_enabled:
 								# TODO:
 								# lc = map_midi(piece)
-								sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc})
+								sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
 					else:
 						# otherwise feed the whole audio sample in its entireity
 						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
@@ -221,8 +224,8 @@ class AudioReader():
 						# add LC mapping to queue if enabled
 						if lc_enabled:
 							# TODO: this is where the midi gets upsampled and mapped to the wav samples
-							# lc = map_midi(audio, lc_timeseries)
-							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc})
+							# lc = map_midi(audio, start_sample, lc_timeseries)
+							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
 
 
 
@@ -233,3 +236,67 @@ class AudioReader():
 				thread.start()
 				self.threads.append(thread)
 			return self.threads
+
+
+
+# Template for the midi mapper
+class MidiMapper():
+    
+    def __init__(self,
+                start_sample,
+                sample_rate,
+                end_sample,
+                midi):
+        
+        self.start_sample = start_sample
+        self.sample_rate = sample_rate
+        self.end_sample = end_sample
+        self.midi = midi
+        self.tempo, self.ticks_per_beat = get_midi_metadata(self.midi)
+        self.events = enum
+            
+      
+    
+    def sample_to_millisecond(self, sample_num, sample_rate):
+        '''takes in a sample number of the wav and the sample rate and 
+            gets the corresponding millisecond of the sample in the song'''
+        return 1000 * sample_num / sample_rate
+        
+        
+    def tick_delta_to_milliseconds(self, delta_ticks):
+        # converts a range of ticks into a range of milliseconds
+        return self.tempo * delta_ticks / self.ticks_per_beat
+        
+    
+    def get_midi_metadata(self):
+        # get all the metadata here from the file header
+        return tempo, ticks_per_beat
+        
+    
+    def make_midi_mappings(self, midi, sample_rate, tempo, start_sample = 0, end_sample = None):
+        
+        state = []
+        
+        # First get the start and end times of the midi section to be extracted and upsampled
+        current_time = sample_to_milliseconds(start_sample, sample_rate)
+        end_time = sample_to_milliseconds(end_sample, sample_rate)
+        
+        while current_time is not end_time or midi is not at_end:
+            curr_event = get current event # Need to first descend into pattern THEN to track
+            
+            if   curr_event.name is "Note On" and delta_tick is 0:
+                # add note to state list
+            elif curr_event.name is "Note On" and delta_ticks is not 0:
+                # first add to embeddings and then add note to state list, then update time
+            elif curr_event.name is "Note Off" and delta_ticks is 0:
+                # take out of state list
+            elif curr_event.name is "Note Off" and delta_ticks is not 0:
+                # first add to embeddings and then take out of state list, then update time
+            elif curr_event.name is "End of Track":
+                # pad until end of song or warn if too long, then update time
+            else:
+                continue
+
+            current_time = current_time + tick_delta_to_milliseconds(delta_ticks)
+    
+        
