@@ -16,17 +16,17 @@ def find_files(dir, format):
 			files.append(os.path.join(root, filename))
 	return files
 
-def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
+def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 	# get all audio files and print their number
 	audio_files = find_files(data_dir, '*.wav')
 	print("Number of audio files is {}".format(len(audio_files)))
 
 	if lc_enabled:
-		midi_files = find_files(data_dir, '*.mid')
-		print("Number of midi files is {}".format(len(midi_files)))
+		lc_files = find_files(data_dir, lc_fileformat)
+		print("Number of midi files is {}".format(len(lc_files)))
 
 		# Now make sure the files correspond and are in the same order
-		audio_files, midi_files = clean_files(audio_files, midi_files)
+		audio_files, lc_files = clean_midi_files(audio_files, lc_files)
 		print("File clean up done. Final file count is {}".format(len(audio_files)))
 
 	randomized_files = randomize_files(audio_files)
@@ -52,11 +52,11 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled):
 
 		yield audio, filename, gc_id, lc_timeseries
 
-def clean_files(audio_files, midi_files):
+def clean_midi_files(audio_files, lc_files):
 	# mapping both lists of files to lists of strings to compare them
 	# note: in Python 3 map() returns a map object, which can still be iterated through (list() not needed)
 	str_audio = map(str, audio_files)
-	str_midi = map(str, midi_files)
+	str_midi = map(str, lc_files)
 
 	# remove extensions
 	for wav in enumerate(str_audio):
@@ -76,9 +76,12 @@ def clean_files(audio_files, midi_files):
 
 	for midi in str_midi:
 		fname = midi + ".mid"
-		midi_files.remove(fname)
+		lc_files.remove(fname)
 		print("No raw audio match found for .mid file {}. MIDI file removed.".format(fname))
 		
+	return audio_files, lc_files
+
+	
 def map_midi(audio, lc_timeseries)
     '''Upsampling midi and mapping it to the wav samples.'''
     
@@ -101,6 +104,7 @@ class AudioReader():
 				 sample_rate = 16000,
 				 gc_enabled = False,
 				 lc_enabled = False,
+				 lc_fileformat = None,
 				 receptive_field,
 				 sample_size = None,
 				 silence_threshold = None,
@@ -112,6 +116,7 @@ class AudioReader():
 		self.sample_rate = sample_rate
 		self.gc_enabled = gc_enabled
 		self.lc_enabled = lc_enabled
+		self.lc_fileformat = lc_fileformat
 		self.receptive_field = receptive_field
 		self.sample_size = sample_size
 		self.silence_threshold = silence_threshold
@@ -141,15 +146,15 @@ class AudioReader():
 			self.enq_lc = self.q_lc.enqueue([self.lc_placeholder])
 
 		# now load in the files and see if they exist
-		audio_files = find_files(data_dir, '*.wav')
+		audio_files = find_files(self.data_dir, '*.wav')
 		if not audio_files:
 			raise ValueError("No WAV files found in '{}'.".format(data_dir))
 		
 		# if LC is enabled, check if local conditioning files exist
 		if lc_enabled:
-			midi_files = find_files(data_dir, '*.mid')
-			if not midi_files:
-				raise ValueError("No MIDI files found in '{}'".format(data_dir))
+			lc_files = find_files(self.data_dir, self.lc_fileformat)
+			if not lc_files:
+				raise ValueError("No MIDI files found in '{}'".format(self.data_dir))
 
 		def dq_audio(self, num_elements):
 			return self.q_audio.dequeue_many(num_elements)
@@ -165,7 +170,7 @@ class AudioReader():
 
 			# keep looping until training is done
 			while not stop:
-				iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled)
+				iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled, self.lc_fileformat)
 
 			for audio, filename, gc_id, lc_timeseries in iterator:
 				if self.coord.should_stop():
