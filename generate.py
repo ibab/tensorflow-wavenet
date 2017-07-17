@@ -49,7 +49,7 @@ def get_arguments():
     parser.add_argument(
         '--samples',
         type=int,
-        default=16000,
+        default=SAMPLES,
         help='How many waveform samples to generate. '
         'Will be ignored if --seconds is also provided.')
     parser.add_argument(
