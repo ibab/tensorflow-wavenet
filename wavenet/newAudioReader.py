@@ -257,7 +257,6 @@ class MidiMapper():
 		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q" )
 		
 
-
 	def sample_to_milliseconds(self, sample_num, sample_rate):
 		'''takes in a sample number of the wav and the sample rate and 
 			gets the corresponding millisecond of the sample in the song'''
@@ -268,6 +267,9 @@ class MidiMapper():
 		'''converts a range of midi ticks into a range of milliseconds'''
 		return self.tempo * delta_ticks / self.ticks_per_beat
 		
+	def gap_threshold(self):
+		# returns longest time gap accepted between wav and midi file - half a beat
+		return tick_delta_to_milliseconds(self.ticks_per_beat) / 2
 	
 	def get_midi_metadata(self):
 		'''gets all the metadata here from the midi file header'''
@@ -299,7 +301,7 @@ class MidiMapper():
 		# use tf.uint8 to save memory since we will most likely not need more than 256 embeddings	
 		empty_embedding = tf.zeros(shape = [1, lc_channels], dtype = tf.unit8)
 		
-		counter = 0
+		counter = 0 #placeholder - will be first NoteOn
 		while current_time is not end_time:
 			# first get the current midi event
 			curr_event = midi_track[counter]
@@ -307,12 +309,11 @@ class MidiMapper():
 			# extract the time tick deltas and the event types form the midi
 			delta_ticks = curr_event.tick
 			event_name  = curr_event.name
-			event_data_byte0  = curr_event.data[0]
-			event_data_byte1 = curr_event.data[1]
+			event_data  = curr_event.data
 			
 			if   event_name is "Note On"  and delta_ticks is 0:
 				# add note (data[0])
-				note_state.append(event_data_byte0)
+				note_state.append(event_data[0])
 				
 			elif event_name is "Note On"  and delta_ticks is not 0:
 				# first add to embeddings and then add note to state array, then update time
@@ -324,11 +325,11 @@ class MidiMapper():
 				enq_embeddings(upsample_time, note_state)
 				
 				# and then add the note to the state
-				note_state.append(event_data_byte0)
+				note_state.append(event_data[0])
 				
 			elif event_name is "Note Off" and delta_ticks is 0:
 				# take out of state array by value
-				note_state.remove(event_data_byte0)
+				note_state.remove(event_data[0])
 				
 			elif event_name is "Note Off" and delta_ticks is not 0:
 				# first add to embeddings and then take out of state array, then update time
@@ -338,23 +339,42 @@ class MidiMapper():
 				enq_embeddings(upsample_time, note_state)
 				
 				# and then remove the note from the state
-				note_state.remove(event_data_byte0)
+				note_state.remove(event_data[0])
 				
 			elif event_name is "End of Track":
 				# warn if gap between midi and wav, then update time
 				# the embedding is already zero-padded, so no need to pad it
-				if current_time < end_time:
+				# get the bpm and find how many seconds for one beat and then half that
+				if (end_time - current_time) > gap_threshold():
 					# the MIDI ended, but the .wav sample hasn't reached its end
-					print("The given .wav file is shorter than the matching MIDI file. Please check that the MIDI and .wav line up correctly.")
+					print("The given .wav file is longer than the matching MIDI file. Please check that the MIDI and .wav line up correctly.")
+					current_time = end_time # to break outer while loop
 				else:
-					current_time = end_time # to break the outer while loop
-				break
+					current_time = end_time # if not already, to break outer while loop
 			
+			elif event_name is "Set Tempo" and delta_ticks is 0:
+				
+				# mid-song tempo change
+				self.tempo = new_tempo
+			elif event_name is "Set Tempo" and delta_ticks is not 0:
+				# 
+				upsampe_time = ticks_to_milliseconds(delta_ticks)
+				enq_embedddings(upsample_time, note_state)
 			else:
-				# print error message or warning here - we are ignoring events other than note on/off
-				print("Event other than Note On/Off or End of Track detected. Event ignored. Continuing.")
+				# We are ignoring events other than note on/off or tempo
+				print("Event other than Note On/Off, Tempo Change, or End of Track detected. Event ignored. Continuing.")
 				continue
 
 			# inc
 			counter += 1
 			current_time = current_time + tick_delta_to_milliseconds(delta_ticks)
+			
+		# current_time = end_time, but the MIDI isn't at the end of the track yet
+		if midi_track[counter].name is not "End of Track":
+			print("The given MIDI file is longer than the matching .wav file. Please check that the MIDI and .wav line up correctly.")
+			# then continue like it isn't our fault
+			
+		
+		
+		
+		
