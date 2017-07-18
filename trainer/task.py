@@ -213,7 +213,9 @@ def run(target,
                                                                    initial_filter_width),
             sample_size=sample_size,
             data_dim=77,
-            gc_enabled=gc_enabled
+            data_suffix=".dat.csv",
+            emotion_suffix=".emo.csv",
+            phoneme_suffix=".pho.csv"
         )
 
         # Create network.
