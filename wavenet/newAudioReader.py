@@ -246,44 +246,86 @@ class MidiMapper():
 				sample_rate,
 				end_sample,
 				midi,
-				q_size):
+				q_size,
+				lc_channels):
 		
 		self.start_sample = start_sample
 		self.sample_rate = sample_rate
 		self.end_sample = end_sample
 		self.midi = midi
 		self.q_size = q_size
-		self.tempo, self.ticks_per_beat = get_midi_metadata(self.midi)
-		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q" )
+		self.lc_channels = lc_channels
+		# self.tempo IS THE SAME AS microseconds per beat 
+		# self.resolutiion IS THE SAME AS ticks per beat or PPQ
+		self.tempo, self.resolution, self.first_note_index = get_midi_metadata(self.midi)
+		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q")
+		self.embedding_place = tf.placeholder( dtype = tf.unit8, shape = (1, lc_channels))
 		
 
 	def sample_to_milliseconds(self, sample_num, sample_rate):
 		'''takes in a sample number of the wav and the sample rate and 
 			gets the corresponding millisecond of the sample in the song'''
-		return 1000 * sample_num / sample_rate
+		return (1000 * sample_num / sample_rate)
 		
 		
 	def tick_delta_to_milliseconds(self, delta_ticks):
 		'''converts a range of midi ticks into a range of milliseconds'''
-		return self.tempo * delta_ticks / self.ticks_per_beat
+		# microsec/beat * tick * beat/tick / 1000
+		return (((self.tempo * delta_ticks) / self.resolution) / 1000)
 		
-	def gap_threshold(self):
-		# returns longest time gap accepted between wav and midi file - half a beat
-		return tick_delta_to_milliseconds(self.ticks_per_beat) / 2
+		
+	def milliseconds_per_tick(self):
+		'''takes in the tempo and the resolution and outputs the number of milliseconds per tick'''
+		return ((self.tempo / 1000) / self.resolution)
+	
 	
 	def get_midi_metadata(self):
 		'''gets all the metadata here from the midi file header'''
+		event_name = None
+		tempo = None
+		track = self.midi[0]
+		first_note_index = 0
 		
-		return tempo, ticks_per_beat
+		# we want the tempo in microsec/beat - the set tempo events set the tempo as tt tt tt - 
+		# 24-bit binary representing microseconds (time) per beat 
+		# (instead of beat per time/BPM)
+
+		# this is getting the index of first note event in the midi to ignore all other BS
+		# and also the tempo hehe
+		while event_name is not "Note On" or "Note Off":
+			event_name = track[first_note_index].name
+			if event_name is "Set Tempo":
+				# indicating a tempo is set before the first note as initial tempo
+				# get the 24-bit binary as a string
+				tempo_binary = "{0:b}".format(track[first_note_index].data[0]) +
+							   "{0:b}".format(track[first_note_index].data[1]) +
+							   "{0:b}".format(track[first_note_index].data[2])
+				# convert the index string to microsec/beat
+				tempo = int(tempo_binary, 2)
+				# do nothing with the timestamps etc. if there is more than one initial tempo it will overwrite
+				
+			first_note_index += 1
+
+		# this is the PPQ (pulses per quarter note, aka ticks per beat). Constant.
+		resolution = self.midi.resolution
+		
+		return tempo, resolution, first_note_index
 		
 		
-	def enq_embeddings(self, upsample_time, note_state):
+	def enq_embeddings(self, delta_ticks, note_state):
 		'''takes in the notes to be upsampled as a state array and the time to be upsampled for 
 		and then upsamples the notes according to the wav sampling rate, makes embeddings and adds them  
 		to the tf queue''' 
+		upsample_time = self.tick_delta_to_milliseconds(delta_ticks)
 		
+		for i in range(upsample_time * self.sample_rate):
+			insert = np.zeros(1, self.lc_channels)
+			for j in range(len(note_state)):
+				insert[note_state[j]]] = 1
+			# lc_q.enqueue()
+			
 		
-		
+	
 	def upsample(self, midi, sample_rate, start_sample = 0, end_sample = None):
 		
 		# stores the current state of the midi: ie. which notes are on 
@@ -299,7 +341,6 @@ class MidiMapper():
 
 		# now to avoid making a vector every single loop iteration, make a zeros embedding vector here
 		# use tf.uint8 to save memory since we will most likely not need more than 256 embeddings	
-		empty_embedding = tf.zeros(shape = [1, lc_channels], dtype = tf.unit8)
 		
 		counter = 0 #placeholder - will be first NoteOn
 		while current_time is not end_time:
@@ -312,40 +353,28 @@ class MidiMapper():
 			event_data  = curr_event.data
 			
 			if   event_name is "Note On"  and delta_ticks is 0:
-				# add note (data[0])
+				# append
 				note_state.append(event_data[0])
 				
 			elif event_name is "Note On"  and delta_ticks is not 0:
-				# first add to embeddings and then add note to state array, then update time
-				
-				# convert tick range into time range
-				upsample_time = tick_delta_to_milliseconds(delta_ticks)
-				
-				# upsample urrent state of notes into the embeddings and add to lc_queue
-				enq_embeddings(upsample_time, note_state)
-				
-				# and then add the note to the state
+				# upsample, enq, append
+				self.enq_embeddings(delta_ticks, note_state)
 				note_state.append(event_data[0])
 				
 			elif event_name is "Note Off" and delta_ticks is 0:
-				# take out of state array by value
+				# remove
 				note_state.remove(event_data[0])
 				
 			elif event_name is "Note Off" and delta_ticks is not 0:
-				# first add to embeddings and then take out of state array, then update time
-				upsample_time = tick_delta_to_milliseconds(delta_ticks)
-				
-				# upsample urrent state of notes into the embeddings and add to lc_queue
-				enq_embeddings(upsample_time, note_state)
-				
-				# and then remove the note from the state
+				#  upsample, enq, remove
+				self.enq_embeddings(delta_ticks, note_state)
 				note_state.remove(event_data[0])
 				
 			elif event_name is "End of Track":
 				# warn if gap between midi and wav, then update time
 				# the embedding is already zero-padded, so no need to pad it
 				# get the bpm and find how many seconds for one beat and then half that
-				if (end_time - current_time) > gap_threshold():
+				if (end_time - current_time) > (self.resolution / 2000):
 					# the MIDI ended, but the .wav sample hasn't reached its end
 					print("The given .wav file is longer than the matching MIDI file. Please check that the MIDI and .wav line up correctly.")
 					current_time = end_time # to break outer while loop
@@ -353,28 +382,28 @@ class MidiMapper():
 					current_time = end_time # if not already, to break outer while loop
 			
 			elif event_name is "Set Tempo" and delta_ticks is 0:
-				
 				# mid-song tempo change
-				self.tempo = new_tempo
+				# tempo is represented in microseconds per beat as tt tt tt - 24-bit (3-byte) hex
+				# convert first to binary string and then to a decimal number (microsec/beat)
+				tempo_binary = "{0:b}".format(curr_event.data[0]) + "{0:b}".format(curr_event.data[1]) + "{0:b}".format(curr_event.data[2])
+				self.tempo = int(tempo_binary, 2)
+				
 			elif event_name is "Set Tempo" and delta_ticks is not 0:
-				# 
-				upsampe_time = ticks_to_milliseconds(delta_ticks)
-				enq_embedddings(upsample_time, note_state)
+				tempo_binary = "{0:b}".format(curr_event.data[0]) + "{0:b}".format(curr_event.data[1]) + "{0:b}".format(curr_event.data[2])
+				self.tempo = int(tempo_binary, 2)
+				
+				upsample_time = ticks_to_milliseconds(delta_ticks)
+				self.enq_embeddings(upsample_time, note_state)
+				
 			else:
-				# We are ignoring events other than note on/off or tempo
-				print("Event other than Note On/Off, Tempo Change, or End of Track detected. Event ignored. Continuing.")
-				continue
+				# We are ignoring events other than note on/off or tempo. Do nothing with these events.
+				# print("Event other than Note On/Off, Tempo Change, or End of Track detected. Event ignored.")
 
-			# inc
+			# increment
 			counter += 1
-			current_time = current_time + tick_delta_to_milliseconds(delta_ticks)
+			current_time = current_time + self.tick_delta_to_milliseconds(delta_ticks)
 			
 		# current_time = end_time, but the MIDI isn't at the end of the track yet
 		if midi_track[counter].name is not "End of Track":
 			print("The given MIDI file is longer than the matching .wav file. Please check that the MIDI and .wav line up correctly.")
 			# then continue like it isn't our fault
-			
-		
-		
-		
-		
