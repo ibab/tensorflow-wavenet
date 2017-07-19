@@ -51,6 +51,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 			midi_name = os.path.splitext(filename)[0] + ".mid"
 			# returns list of events with ticks in relative time
 			lc_timeseries = midi.read_midifile(midi_name)
+			print(lc_timeseries)
 
 		yield audio, filename, gc_id, lc_timeseries
 
@@ -83,11 +84,6 @@ def clean_midi_files(audio_files, lc_files):
 		print("No raw audio match found for .mid file {}. MIDI file removed.".format(fname))
 		
 	return audio_files, lc_files
-
-	
-def map_midi(audio, lc_timeseries)
-	'''Upsampling midi and mapping it to the wav samples.'''
-	# TODO
 	
 
 def trim_silence(audio, threshold, frame_length = 2048):
