@@ -8,8 +8,9 @@ import threading
 import numpy as np
 import tensorflow as tf
 
-def find_files(dir, format):
+def find_files(directory, pattern):
 	'''Recursively finds all files matching the pattern.'''
+	print("PLS WORK")
 	files = []
 	for root, dirnames, filenames in os.walk(directory):
 		for filename in fnmatch.filter(filenames, pattern):
@@ -19,6 +20,7 @@ def find_files(dir, format):
 
 
 def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
+	print("is this working")
 	# get all audio files and print their number
 	audio_files = find_files(data_dir, '*.wav')
 	print("Number of audio files is {}".format(len(audio_files)))
