@@ -14,6 +14,7 @@ def find_files(dir, format):
 	for root, dirnames, filenames in os.walk(directory):
 		for filename in fnmatch.filter(filenames, pattern):
 			files.append(os.path.join(root, filename))
+			print("Files found.")
 	return files
 
 
@@ -51,7 +52,6 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 			midi_name = os.path.splitext(filename)[0] + ".mid"
 			# returns list of events with ticks in relative time
 			lc_timeseries = midi.read_midifile(midi_name)
-			print(lc_timeseries)
 
 		yield audio, filename, gc_id, lc_timeseries
 
@@ -64,10 +64,10 @@ def clean_midi_files(audio_files, lc_files):
 
 	# remove extensions
 	for wav in enumerate(str_audio):
-		str_audio(wav) = os.path.splitext(str_audio(wav))[0]
+		str_audio[wav] = os.path.splitext(str_audio(wav))[0]
 
 	for midi in enumerate(str_midi):
-		str_midi(midi) = os.path.splitext(str_midi(midi))[0]
+		str_midi[midi] = os.path.splitext(str_midi(midi))[0]
 
 	# create two lists of the midi and wav mismatches
 	str_midi = [midi for midi in str_midi if midi not in str_audio]
@@ -99,16 +99,16 @@ def trim_silence(audio, threshold, frame_length = 2048):
 
 class AudioReader():
 	def __init__(self,
-				 data_dir,
-				 coord,
-				 sample_rate = 16000,
-				 gc_enabled = False,
-				 lc_enabled = False,
-				 lc_fileformat = None,
-				 receptive_field,
-				 sample_size = None,
-				 silence_threshold = None,
-				 q_size = 32):
+				data_dir,
+				coord,
+				receptive_field,
+				gc_enabled=False,
+				lc_enabled=False,
+				lc_fileformat=None,
+				sample_size=None,
+				silence_threshold=None,
+				sample_rate=16000,
+				q_size=32):
 					 
 		# Input member vars initialiations
 		self.data_dir = data_dir
@@ -187,7 +187,7 @@ class AudioReader():
 				audio = audio.reshape(-1, 1)
 
 				# now check if the whole audio was trimmed away
-				if audio.size = 0:
+				if audio.size == 0:
 					print("Warning: {} was ignored as it contains only "
 						  "silence. Consider decreasing trim_silence "
 						  "threshold, or adjust volume of the audio."
@@ -300,9 +300,7 @@ class MidiMapper():
 			if event_name is "Set Tempo":
 				# indicating a tempo is set before the first note as initial tempo
 				# get the 24-bit binary as a string
-				tempo_binary = "{0:b}".format(track[first_note_index].data[0]) +
-							   "{0:b}".format(track[first_note_index].data[1]) +
-							   "{0:b}".format(track[first_note_index].data[2])
+				tempo_binary = "{0:b}".format(track[first_note_index].data[0]) + "{0:b}".format(track[first_note_index].data[1]) + "{0:b}".format(track[first_note_index].data[2])
 				# convert the index string to microsec/beat
 				tempo = int(tempo_binary, 2)
 				# do nothing with the timestamps etc. if there is more than one initial tempo it will overwrite
@@ -405,7 +403,7 @@ class MidiMapper():
 				
 			else:
 				# We are ignoring events other than note on/off or tempo. Do nothing with these events.
-				# print("Event other than Note On/Off, Tempo Change, or End of Track detected. Event ignored.")
+				print("Event other than Note On/Off, Tempo Change, or End of Track detected. Event ignored.")
 
 			# increment
 			counter += 1
