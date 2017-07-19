@@ -10,7 +10,5 @@ from newAudioReader import find_files, load_files, clean_midi_files, trim_silenc
 DATA_DIR = "/projectnb/textconv/WaveNet/Datasets/unit_test"
 LC_FILEFORMAT = "*.mid"
 
-if __name__ == '__main__':
-	print("hi :(")
-
+if __name__ == "__main__":
 	load_files(DATA_DIR, 16000, False, True, LC_FILEFORMAT)

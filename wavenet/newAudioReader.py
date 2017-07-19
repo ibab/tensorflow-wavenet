@@ -10,17 +10,16 @@ import tensorflow as tf
 
 def find_files(directory, pattern):
 	'''Recursively finds all files matching the pattern.'''
-	print("PLS WORK")
 	files = []
 	for root, dirnames, filenames in os.walk(directory):
 		for filename in fnmatch.filter(filenames, pattern):
 			files.append(os.path.join(root, filename))
 			print("Files found.")
+			print(files)
 	return files
 
 
 def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
-	print("is this working")
 	# get all audio files and print their number
 	audio_files = find_files(data_dir, '*.wav')
 	print("Number of audio files is {}".format(len(audio_files)))
@@ -31,9 +30,11 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 
 		# Now make sure the files correspond and are in the same order
 		audio_files, lc_files = clean_midi_files(audio_files, lc_files)
-		print("File clean up done. Final file count is {}".format(len(audio_files)))
+		print("File clean up done. Final file count is {}".format(len(audio_files) + len(lc_files)))
 
+	# Returns a generator
 	randomized_files = randomize_files(audio_files)
+
 	for filename in randomized_files:
 		# get GC embedding here if using it
 
@@ -51,42 +52,49 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 		# now we get the LC timeseries file here
 		# load in the midi or any other local conditioning file
 		if lc_enabled:
+			# entire path name
 			midi_name = os.path.splitext(filename)[0] + ".mid"
-			# returns list of events with ticks in relative time
+			# This is the entire midi pattern, including the track
 			lc_timeseries = midi.read_midifile(midi_name)
 
-		yield audio, filename, gc_id, lc_timeseries
+		# returns generator
+		yield audio, filename, lc_timeseries #gc_id not incorporated. 
 
 
 def clean_midi_files(audio_files, lc_files):
 	# mapping both lists of files to lists of strings to compare them
-	# note: in Python 3 map() returns a map object, which can still be iterated through (list() not needed)
-	str_audio = map(str, audio_files)
-	str_midi = map(str, lc_files)
+	str_audio = np.char.mod('%s', audio_files)
+	str_midi = np.char.mod('%s', lc_files)
 
 	# remove extensions
-	for wav in enumerate(str_audio):
-		str_audio[wav] = os.path.splitext(str_audio(wav))[0]
+	for i, wav in enumerate(str_audio):
+		str_audio[i] = os.path.splitext(str_audio[i])[0] 
 
-	for midi in enumerate(str_midi):
-		str_midi[midi] = os.path.splitext(str_midi(midi))[0]
+	for i, midi in enumerate(str_midi):
+		str_midi[i] = os.path.splitext(str_midi[i])[0]
 
 	# create two lists of the midi and wav mismatches
-	str_midi = [midi for midi in str_midi if midi not in str_audio]
-	str_audio = [wav for wav in str_audio if wav not in str_midi]
+	str_midi_missing = [wav for wav in str_audio if wav not in str_midi]
+	str_wav_missing = [midi for midi in str_midi if midi not in str_audio]
 
-	for wav in str_audio:
+	for wav in str_midi_missing:
 		fname = wav + ".wav"
 		audio_files.remove(fname)
 		print("No MIDI match found for .wav file {}. Raw audio file removed.".format(fname))
 
-	for midi in str_midi:
+	for midi in str_wav_missing:
 		fname = midi + ".mid"
 		lc_files.remove(fname)
 		print("No raw audio match found for .mid file {}. MIDI file removed.".format(fname))
 		
 	return audio_files, lc_files
 	
+
+def randomize_files(files):
+    for file in files:
+        file_index = random.randint(0, (len(files) - 1))
+        yield files[file_index]
+
 
 def trim_silence(audio, threshold, frame_length = 2048):
 	'''Removes silence at the beginning and end of a sample.'''
@@ -133,7 +141,6 @@ class AudioReader():
 		self.audio_placeholder = tf.placeholder(dtype = tf.float32, shape = None)
 		self.q_audio = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.float32], shapes = [(None, 1)])
 		self.enq_audio = self.q_audio.enqueue([self.audio_placeholder])
-
 
 		if self.gc_enabled:
 			# GC samples are embedding vectors with the shape of 1 X GC_channels
