@@ -16,6 +16,7 @@ def find_files(dir, format):
 			files.append(os.path.join(root, filename))
 	return files
 
+
 def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 	# get all audio files and print their number
 	audio_files = find_files(data_dir, '*.wav')
@@ -52,6 +53,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 			lc_timeseries = midi.read_midifile(midi_name)
 
 		yield audio, filename, gc_id, lc_timeseries
+
 
 def clean_midi_files(audio_files, lc_files):
 	# mapping both lists of files to lists of strings to compare them
@@ -150,7 +152,7 @@ class AudioReader():
 		# now load in the files and see if they exist
 		audio_files = find_files(self.data_dir, '*.wav')
 		if not audio_files:
-			raise ValueError("No WAV files found in '{}'.".format(data_dir))
+			raise ValueError("No WAV files found in '{}'.".format(self.data_dir))
 		
 		# if LC is enabled, check if local conditioning files exist
 		if lc_enabled:
@@ -158,83 +160,85 @@ class AudioReader():
 			if not lc_files:
 				raise ValueError("No MIDI files found in '{}'".format(self.data_dir))
 
-		def dq_audio(self, num_elements):
-			return self.q_audio.dequeue_many(num_elements)
+	def dq_audio(self, num_elements):
+		return self.q_audio.dequeue_many(num_elements)
 
-		def dq_gc(self, num_elements):
-			return self.q_gc.dequeue_many(num_elements)
 
-		def dq_lc(self, num_elements):
-			return self.q_lc.dequeue_many(num_elements)
+	def dq_gc(self, num_elements):
+		return self.q_gc.dequeue_many(num_elements)
 
-		def input_stream(self, sess):
-			stop = False
+	
+	def dq_lc(self, num_elements):
+		return self.q_lc.dequeue_many(num_elements)
 
-			# keep looping until training is done
-			while not stop:
-				iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled, self.lc_fileformat)
+	
+	def input_stream(self, sess):
+		stop = False
 
-			for audio, filename, gc_id, lc_timeseries in iterator:
-				if self.coord.should_stop():
-					stop = True
-					break
+		# keep looping until training is done
+		while not stop:
+			iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled, self.lc_fileformat)
 
-				# TODO: If we remove this silence trimming we can use the randomised queue
-				# instead of the padding queue so that we dont have to take care of midi with silence
-				if self.silence_threshold is not None:
-					audio = trim_silence(audio[:, 0], self.silence_threshold)
-					audio = audio.reshape(-1, 1)
+		for audio, filename, gc_id, lc_timeseries in iterator:
+			if self.coord.should_stop():
+				stop = True
+				break
 
-					# now check if the whole audio was trimmed away
-					if audio.size = 0:
-						print("Warning: {} was ignored as it contains only "
-							  "silence. Consider decreasing trim_silence "
-							  "threshold, or adjust volume of the audio."
-							  .format(filename))
+			# TODO: If we remove this silence trimming we can use the randomised queue
+			# instead of the padding queue so that we dont have to take care of midi with silence
+			if self.silence_threshold is not None:
+				audio = trim_silence(audio[:, 0], self.silence_threshold)
+				audio = audio.reshape(-1, 1)
 
-					# now pad beginning of samples with n = receptive_field number of 0s 
-					# TODO: figure out why we are padding this ???
-					audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
+				# now check if the whole audio was trimmed away
+				if audio.size = 0:
+					print("Warning: {} was ignored as it contains only "
+						  "silence. Consider decreasing trim_silence "
+						  "threshold, or adjust volume of the audio."
+						  .format(filename))
 
-					# now 
-					if self.sample_size:
-						# TODO: understand the reason for this piece voodoo from the original reader
-						while len(audio) > self.receptive_field:
-							piece = audio[:(self.receptice_field + self.sample_size), :]
-							sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
+				# now pad beginning of samples with n = receptive_field number of 0s 
+				# TODO: figure out why we are padding this ???
+				audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
 
-							# add GC mapping to q if enabled
-							if self.gc_enabled:
-								sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
-
-							# add LC mapping to queue if enabled
-							if self.lc_enabled:
-								# TODO:
-								# lc = map_midi(piece)
-								sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
-					else:
-						# otherwise feed the whole audio sample in its entireity
-						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
+				# now 
+				if self.sample_size:
+					# TODO: understand the reason for this piece voodoo from the original reader
+					while len(audio) > self.receptive_field:
+						piece = audio[:(self.receptice_field + self.sample_size), :]
+						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
 
 						# add GC mapping to q if enabled
-						if gc_enabled:
+						if self.gc_enabled:
 							sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
-						
+
 						# add LC mapping to queue if enabled
-						if lc_enabled:
-							# TODO: this is where the midi gets upsampled and mapped to the wav samples
-							# lc = map_midi(audio, start_sample, lc_timeseries)
+						if self.lc_enabled:
+							# TODO:
+							# lc = map_midi(piece)
 							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
+				else:
+					# otherwise feed the whole audio sample in its entireity
+					sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
+
+					# add GC mapping to q if enabled
+					if gc_enabled:
+						sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
+					
+					# add LC mapping to queue if enabled
+					if lc_enabled:
+						# TODO: this is where the midi gets upsampled and mapped to the wav samples
+						# lc = map_midi(audio, start_sample, lc_timeseries)
+						sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
 
 
-
-		def start_threads(self, sess, n_threads = 1):
-			for _ in range(n_threads):
-				thread = threading.Thread(target = self.input_stream, args = (sess,))
-				thread.daemon = True  # Thread will close when parent quits.
-				thread.start()
-				self.threads.append(thread)
-			return self.threads
+	def start_threads(self, sess, n_threads = 1):
+		for _ in range(n_threads):
+			thread = threading.Thread(target = self.input_stream, args = (sess,))
+			thread.daemon = True  # Thread will close when parent quits.
+			thread.start()
+			self.threads.append(thread)
+		return self.threads
 
 
 
@@ -247,25 +251,28 @@ class MidiMapper():
 				end_sample,
 				midi,
 				q_size,
-				lc_channels):
-		
+				lc_channels,
+				sess):
+		# input variabels
 		self.start_sample = start_sample
 		self.sample_rate = sample_rate
 		self.end_sample = end_sample
 		self.midi = midi
 		self.q_size = q_size
 		self.lc_channels = lc_channels
+		self.sess = sess
+
 		# self.tempo IS THE SAME AS microseconds per beat 
 		# self.resolutiion IS THE SAME AS ticks per beat or PPQ
 		self.tempo, self.resolution, self.first_note_index = get_midi_metadata(self.midi)
 		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q")
-		self.embedding_place = tf.placeholder( dtype = tf.unit8, shape = (1, lc_channels))
-		
+		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.unit8, shape = None)
+		self.enq_lc = self.lc_q.enqueue_many([self.lc_embedding_placeholder])
 
-	def sample_to_milliseconds(self, sample_num, sample_rate):
+	def sample_to_milliseconds(self, sample_num):
 		'''takes in a sample number of the wav and the sample rate and 
 			gets the corresponding millisecond of the sample in the song'''
-		return (1000 * sample_num / sample_rate)
+		return (1000 * sample_num / self.sample_rate)
 		
 		
 	def tick_delta_to_milliseconds(self, delta_ticks):
@@ -318,13 +325,18 @@ class MidiMapper():
 		to the tf queue''' 
 		upsample_time = self.tick_delta_to_milliseconds(delta_ticks)
 		
+		# TODO: figure out if batching all  inserts from the loops into a giant block
+		# of inserts will be more efficient if used with enqueue_many
+
+		inserts = np.zeros(1, self.lc_channels, upsample_time * self.sample_rate)
 		for i in range(upsample_time * self.sample_rate):
 			insert = np.zeros(1, self.lc_channels)
 			for j in range(len(note_state)):
-				insert[note_state[j]]] = 1
-			# lc_q.enqueue()
-			
-		
+				insert[note_state[j]] = 1
+			inserts[i] = insert
+
+			self.sess.run(self.enq_lc, feed_dict = {self.lc_embedding_placeholder : inserts})
+				
 	
 	def upsample(self, midi, sample_rate, start_sample = 0, end_sample = None):
 		
@@ -336,8 +348,8 @@ class MidiMapper():
 		midi_track = midi[0]
 		
 		# First get the start and end times of the midi section to be extracted and upsampled
-		current_time = sample_to_milliseconds(start_sample, sample_rate)
-		end_time = sample_to_milliseconds(end_sample, sample_rate)
+		current_time = sample_to_milliseconds(start_sample)
+		end_time = sample_to_milliseconds(end_sample)
 
 		# now to avoid making a vector every single loop iteration, make a zeros embedding vector here
 		# use tf.uint8 to save memory since we will most likely not need more than 256 embeddings	
