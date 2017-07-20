@@ -130,6 +130,7 @@ class AudioReader():
 		self.sample_size = sample_size
 		self.silence_threshold = silence_threshold
 		self.q_size = q_size
+		self.sess = None
 
 		# Non-input member vars initialization
 		self.threads = []
@@ -186,7 +187,7 @@ class AudioReader():
 
 			# ADAPT
 			# for MiDi LoCo, instatiate MidiMapper()
-			if lc_enabled:
+			if self.lc_enabled:
 				mapper = MidiMapper(sample_rate = self.sample_rate,
 									q_size = self.q_size,
 									lc_channels = self.lc_channels,
@@ -233,11 +234,13 @@ class AudioReader():
 						# add LC mapping to queue if enabled
 						if self.lc_enabled:
 							# TODO: sanity check the following four lines
-							previous_end += self.receptive_field + 1
-							new_end += self.receptive_field
 							mapper.set_sample_range(start_sample = previous_end, end_sample = new_end)
 							lc_encode = mapper.upsample(start_sample = previous_end, end_sample = new_end)
 							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
+							# after queueing, shift audio frame to the next one
+							previous_end = new_end
+							new_end = new_end + self.receptive_field + self.sample_size
+
 				# DONT CHOP UP AUDIO
 				else:
 					# otherwise feed the whole audio sample in its entireity
@@ -258,6 +261,7 @@ class AudioReader():
 
 
 	def start_threads(self, sess, n_threads = 1):
+		self.sess = sess
 		for _ in range(n_threads):
 			thread = threading.Thread(target = self.input_stream, args = (sess,))
 			thread.daemon = True  # Thread will close when parent quits.
@@ -289,7 +293,7 @@ class MidiMapper():
 		self.resolution = None
 		self.first_note_index = None
 
-		# tensorflow Q stuff
+		# tensorflow Q init
 		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q")
 		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.unit8, shape = None)
 		self.enq_lc = self.lc_q.enqueue_many([self.lc_embedding_placeholder])
