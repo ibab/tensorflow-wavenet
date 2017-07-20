@@ -251,18 +251,12 @@ class AudioReader():
 class MidiMapper():
 	
 	def __init__(self,
-				start_sample,
-				sample_rate,
-				end_sample,
-				midi,
-				q_size,
-				lc_channels,
-				sess):
+				 sample_rate,
+				 q_size,
+				 lc_channels,
+				 sess):
 		# input variabels
-		self.start_sample = start_sample
 		self.sample_rate = sample_rate
-		self.end_sample = end_sample
-		self.midi = midi
 		self.q_size = q_size
 		self.lc_channels = lc_channels
 		self.sess = sess
@@ -273,6 +267,20 @@ class MidiMapper():
 		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q")
 		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.unit8, shape = None)
 		self.enq_lc = self.lc_q.enqueue_many([self.lc_embedding_placeholder])
+
+
+	def set_sample_range(self, start_sample, end_sample):
+		'''Allow the sample range to change at runtime so new MidiMappers
+			do not have to be instantiated for the same midi file '''
+		self.start_sample = start_sample
+		self.end_sample = end_sample
+
+
+	def srt_midi(self, midi):
+		'''Allow midi file to be reassigned at runtime so that new MidiMappers
+		   do not have to be instantiated for the each new midi file'''
+		self.midi = midi
+
 
 	def sample_to_milliseconds(self, sample_num):
 		'''takes in a sample number of the wav and the sample rate and 
@@ -333,7 +341,7 @@ class MidiMapper():
 		# TODO: figure out if batching all  inserts from the loops into a giant block
 		# of inserts will be more efficient if used with enqueue_many
 
-		inserts = np.zeros(1, self.lc_channels, upsample_time * self.sample_rate)
+		inserts = np.zeros(shahpe = (1, self.lc_channels, upsample_time * self.sample_rate), dtype = np.unit8)
 		for i in range(upsample_time * self.sample_rate):
 			insert = np.zeros(1, self.lc_channels)
 			for j in range(len(note_state)):
