@@ -43,7 +43,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 		# this reshape makes it a vertical array
 		audio = audio.reshape(-1, 1)
 
-		# TODO: This is where we get the GC ID mapping from audio
+		# ADAPT: This is where we get the GC ID mapping from audio
 		# later, we can add support for conditioning on genre title, etc.
 		gc_id = None # get_gc_id(filename)
 
@@ -187,7 +187,7 @@ class AudioReader():
 			# ADAPT
 			# for MiDi LoCo, instatiate MidiMapper()
 			if lc_enabled:
-				mapper = MidiMapper(smaple_rate = self.sample_rate,
+				mapper = MidiMapper(sample_rate = self.sample_rate,
 									q_size = self.q_size,
 									lc_channels = self.lc_channels,
 									sess = self.sess)
@@ -232,11 +232,11 @@ class AudioReader():
 
 						# add LC mapping to queue if enabled
 						if self.lc_enabled:
-							# TODO:
-							# lc = map_midi(piece)
-							previous_end += self.receptive_field
+							# TODO: sanity check the following four lines
+							previous_end += self.receptive_field + 1
 							new_end += self.receptive_field
 							mapper.set_sample_range(start_sample = previous_end, end_sample = new_end)
+							lc_encode = mapper.upsample(start_sample = previous_end, end_sample = new_end)
 							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
 				# DONT CHOP UP AUDIO
 				else:
@@ -285,7 +285,7 @@ class MidiMapper():
 		# self.resolution IS THE SAME AS ticks per beat or PPQ
 		self.start_sample = None
 		self.end_sample = None
-		self.tmepo = None
+		self.tempo = None
 		self.resolution = None
 		self.first_note_index = None
 
@@ -355,8 +355,9 @@ class MidiMapper():
 
 		# this is the PPQ (pulses per quarter note, aka ticks per beat). Constant.
 		resolution = self.midi.resolution
-		self.
-		return tempo, resolution, first_note_index
+		self.tempo = tempo
+		self.resolution = resolution
+		self.first_note_index = first_note_index
 		
 		
 	def enq_embeddings(self, delta_ticks, note_state):
@@ -454,8 +455,14 @@ class MidiMapper():
 			# increment
 			counter += 1
 			current_time = current_time + self.tick_delta_to_milliseconds(delta_ticks)
-			
+
+
+		# save current midi track pointer in case song is cunked up
+		self.first_note_index = counter
+		
 		# current_time = end_time, but the MIDI isn't at the end of the track yet
 		if midi_track[counter].name is not "End of Track":
 			print("The given MIDI file is longer than the matching .wav file. Please check that the MIDI and .wav line up correctly.")
 			# then continue like it isn't our fault
+
+		return self.lc_q.dequeue_many(self.lc_q.size())
