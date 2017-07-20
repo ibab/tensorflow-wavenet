@@ -16,12 +16,13 @@ class CsvReader(object):
         # Initialize the main data batch. This uses raw values, no lookup table.
         self.data_batch = self.input_batch(files, config["data_dim"], batch_size=batch_size)
 
+
         if emotion_suffix:
             emotion_dim = config["emotion_dim"]
             emotion_categories = config["emotion_categories"]
 
             self.emotion_cardinality = len(emotion_categories)
-            self.emotion_batch = self.input_batch([i+config["emotion_suffix"] for i in files],
+            self.gc_batch = self.input_batch([i+config["emotion_suffix"] for i in files],
                                                   emotion_dim,
                                                   batch_size=batch_size,
                                                   mapping_strings=emotion_categories)
@@ -31,7 +32,7 @@ class CsvReader(object):
             phoneme_categories = config["phoneme_categories"]
 
             self.phoneme_cardinality = len(phoneme_categories)
-            self.phoneme_batch = self.input_batch([i+config["phoneme_suffix"] for i in files],
+            self.lc_batch = self.input_batch([i+config["phoneme_suffix"] for i in files],
                                                   phoneme_dim,
                                                   batch_size=batch_size,
                                                   mapping_strings=emotion_categories)
