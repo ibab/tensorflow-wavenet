@@ -110,20 +110,21 @@ class AudioReader():
 				data_dir,
 				coord,
 				receptive_field,
-				gc_enabled=False,
-				lc_enabled=False,
-				lc_fileformat=None,
-				sample_size=None,
-				silence_threshold=None,
-				sample_rate=16000,
-				q_size=32):
-					 
+				gc_enabled = False,
+				lc_enabled = False,
+				lc_channels = None,
+				lc_fileformat = None,
+				sample_size = None,
+				silence_threshold = None,
+				sample_rate = 16000,
+				q_size = 32):
 		# Input member vars initialiations
 		self.data_dir = data_dir
 		self.coord = coord
 		self.sample_rate = sample_rate
 		self.gc_enabled = gc_enabled
 		self.lc_enabled = lc_enabled
+		self.lc_channels = lc_channels
 		self.lc_fileformat = lc_fileformat
 		self.receptive_field = receptive_field
 		self.sample_size = sample_size
@@ -180,7 +181,16 @@ class AudioReader():
 
 		# keep looping until training is done
 		while not stop:
+			# get the list of files and related data
 			iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled, self.lc_fileformat)
+
+			# ADAPT
+			# for MiDi LoCo, instatiate MidiMapper()
+			if lc_enabled:
+				mapper = MidiMapper(smaple_rate = self.sample_rate,
+				                    q_size = self.q_size,
+				                    lc_channels = self.lc_channels,
+				                    sess = self.sess)
 
 			for audio, filename, gc_id, lc_timeseries in iterator:
 				if self.coord.should_stop():
@@ -206,9 +216,14 @@ class AudioReader():
 
 					# now 
 					if self.sample_size:
+						# ADAPT:
+						# setup parametrs for MidiMapper
+						
+						start_sample = 0
+						end_sample = self.receptive_field
 						# TODO: understand the reason for this piece voodoo from the original reader
 						while len(audio) > self.receptive_field:
-							piece = audio[:(self.receptice_field + self.sample_size), :]
+							piece = audio[:(self.receptive_field + self.sample_size), :]
 							sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
 
 							# add GC mapping to q if enabled
@@ -230,6 +245,13 @@ class AudioReader():
 						
 						# add LC mapping to queue if enabled
 						if lc_enabled:
+							# ADAPT:
+							# first we pass the get the metadata to pass to the midi mapper
+							start_sample = 0
+							end_sample = len(audio) - 1
+							mapper.set_sample_range(start_sample, end_sample)
+							mapper.set_midi(lc_timeseries)
+							lc_encode = mapper.upsample()
 							# TODO: this is where the midi gets upsampled and mapped to the wav samples
 							# lc = map_midi(audio, start_sample, lc_timeseries)
 							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
@@ -249,10 +271,10 @@ class AudioReader():
 class MidiMapper():
 	
 	def __init__(self,
-				 sample_rate,
-				 q_size,
-				 lc_channels,
-				 sess):
+				 sample_rate = 16000,
+				 q_size = None,
+				 lc_channels = 128,
+				 sess = None):
 		# input variabels
 		self.sample_rate = sample_rate
 		self.q_size = q_size
@@ -261,7 +283,10 @@ class MidiMapper():
 
 		# self.tempo IS THE SAME AS microseconds per beat 
 		# self.resolutiion IS THE SAME AS ticks per beat or PPQ
-		self.tempo, self.resolution, self.first_note_index = get_midi_metadata(self.midi)
+		self.start_sample = None
+		self.end_sample = None
+
+		# tensorflow Q stuff
 		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q")
 		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.unit8, shape = None)
 		self.enq_lc = self.lc_q.enqueue_many([self.lc_embedding_placeholder])
@@ -274,10 +299,11 @@ class MidiMapper():
 		self.end_sample = end_sample
 
 
-	def srt_midi(self, midi):
+	def set_midi(self, midi):
 		'''Allow midi file to be reassigned at runtime so that new MidiMappers
 		   do not have to be instantiated for the each new midi file'''
 		self.midi = midi
+		self.tempo, self.resolution, self.first_note_index = self.get_midi_metadata(self.midi)
 
 
 	def sample_to_milliseconds(self, sample_num):
@@ -299,7 +325,7 @@ class MidiMapper():
 	
 	def get_midi_metadata(self):
 		'''gets all the metadata here from the midi file header'''
-		event_name = None
+		event_name = "Event"
 		tempo = None
 		track = self.midi[0]
 		first_note_index = 0
@@ -315,9 +341,9 @@ class MidiMapper():
 			if event_name is "Set Tempo":
 				# indicating a tempo is set before the first note as initial tempo
 				# get the 24-bit binary as a string
-				tempo_binary = "{0:b}".format(track[first_note_index].data[0]) +
-							   "{0:b}".format(track[first_note_index].data[1]) +
-							   "{0:b}".format(track[first_note_index].data[2])
+				tempo_binary = ("{0:b}".format(track[first_note_index].data[0])+
+							    "{0:b}".format(track[first_note_index].data[1])+
+							    "{0:b}".format(track[first_note_index].data[2]))
 				# convert the index string to microsec/beat
 				tempo = int(tempo_binary, 2)
 				# do nothing with the timestamps etc. if there is more than one initial tempo it will overwrite
@@ -349,18 +375,24 @@ class MidiMapper():
 			self.sess.run(self.enq_lc, feed_dict = {self.lc_embedding_placeholder : inserts})
 				
 	
-	def upsample(self, midi, sample_rate, start_sample = 0, end_sample = None):
+	def upsample(self, start_sample = 0, end_sample = None):
 		
 		# stores the current state of the midi: ie. which notes are on 
 		note_state = []
 
 		# input midi is the midi pattern, the output of read_midifile. Assume its format and get the first track of the midi
 		# This track is a list of events occurring in the midi
-		midi_track = midi[0]
+		midi_track = self.midi[0]
 		
 		# First get the start and end times of the midi section to be extracted and upsampled
 		current_time = sample_to_milliseconds(start_sample)
+
+		if end_sample is None:
+			end_sample = self.end_sample
 		end_time = sample_to_milliseconds(end_sample)
+
+		# now get metadata from midi
+		self.tempo, self.resolution, self.first_note_index = self.get_midi_metadata(self.midi)
 
 		# now to avoid making a vector every single loop iteration, make a zeros embedding vector here
 		# use tf.uint8 to save memory since we will most likely not need more than 256 embeddings	
@@ -408,15 +440,15 @@ class MidiMapper():
 				# mid-song tempo change
 				# tempo is represented in microseconds per beat as tt tt tt - 24-bit (3-byte) hex
 				# convert first to binary string and then to a decimal number (microsec/beat)
-				tempo_binary = "{0:b}".format(curr_event.data[0]) + 
-							   "{0:b}".format(curr_event.data[1]) +
-							   "{0:b}".format(curr_event.data[2])
+				tempo_binary = ("{0:b}".format(curr_event.data[0])+
+							    "{0:b}".format(curr_event.data[1])+
+							    "{0:b}".format(curr_event.data[2]))
 				self.tempo = int(tempo_binary, 2)
 				
 			elif event_name is "Set Tempo" and delta_ticks is not 0:
-				tempo_binary = "{0:b}".format(curr_event.data[0]) +
-							   "{0:b}".format(curr_event.data[1]) +
-							   "{0:b}".format(curr_event.data[2])
+				tempo_binary = ("{0:b}".format(curr_event.data[0])+
+							    "{0:b}".format(curr_event.data[1])+
+							    "{0:b}".format(curr_event.data[2]))
 				self.tempo = int(tempo_binary, 2)
 				
 				upsample_time = ticks_to_milliseconds(delta_ticks)
