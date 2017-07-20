@@ -295,7 +295,7 @@ class MidiMapper():
 
 		# tensorflow Q init
 		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q")
-		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.unit8, shape = None)
+		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.uint8, shape = None)
 		self.enq_lc = self.lc_q.enqueue_many([self.lc_embedding_placeholder])
 
 
