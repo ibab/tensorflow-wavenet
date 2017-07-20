@@ -465,4 +465,4 @@ class MidiMapper():
 			print("The given MIDI file is longer than the matching .wav file. Please check that the MIDI and .wav line up correctly.")
 			# then continue like it isn't our fault
 
-		return self.lc_q.dequeue_many(self.lc_q.size())
+		return self.lc_q.dequeue_many(self.lc_q.size(end_sample - start_sample))
