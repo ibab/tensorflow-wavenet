@@ -47,6 +47,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 		# later, we can add support for conditioning on genre title, etc.
 		
 		if gc_enabled:
+			gc_id = None
 			# gc_id = get_gc_id(filename)
 		else:
 			gc_id = None # get_gc_id(filename)
