@@ -89,9 +89,9 @@ def clean_midi_files(audio_files, lc_files):
 	
 
 def randomize_files(files):
-    for file in files:
-        file_index = random.randint(0, (len(files) - 1))
-        yield files[file_index]
+	for file in files:
+		file_index = random.randint(0, (len(files) - 1))
+		yield files[file_index]
 
 
 def trim_silence(audio, threshold, frame_length = 2048):
@@ -188,9 +188,9 @@ class AudioReader():
 			# for MiDi LoCo, instatiate MidiMapper()
 			if lc_enabled:
 				mapper = MidiMapper(smaple_rate = self.sample_rate,
-				                    q_size = self.q_size,
-				                    lc_channels = self.lc_channels,
-				                    sess = self.sess)
+									q_size = self.q_size,
+									lc_channels = self.lc_channels,
+									sess = self.sess)
 
 			for audio, filename, gc_id, lc_timeseries in iterator:
 				if self.coord.should_stop():
@@ -209,52 +209,52 @@ class AudioReader():
 							  "silence. Consider decreasing trim_silence "
 							  "threshold, or adjust volume of the audio."
 							  .format(filename))
+						continue
 
-					# now pad beginning of samples with n = receptive_field number of 0s 
-					# TODO: figure out why we are padding this ???
-					audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
+				# now pad beginning of samples with n = receptive_field number of 0s 
+				# TODO: figure out why we are padding this ???
+				audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
 
-					# now 
-					if self.sample_size:
-						# ADAPT:
-						# setup parametrs for MidiMapper
-						
-						start_sample = 0
-						end_sample = self.receptive_field
-						# TODO: understand the reason for this piece voodoo from the original reader
-						while len(audio) > self.receptive_field:
-							piece = audio[:(self.receptive_field + self.sample_size), :]
-							sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
-
-							# add GC mapping to q if enabled
-							if self.gc_enabled:
-								sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
-
-							# add LC mapping to queue if enabled
-							if self.lc_enabled:
-								# TODO:
-								# lc = map_midi(piece)
-								sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
-					else:
-						# otherwise feed the whole audio sample in its entireity
-						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
+				# CHOP UP AUDIO
+				if self.sample_size:
+					# ADAPT:
+					# setup parametrs for MidiMapper
+					previous_end = 0
+					new_end = self.receptive_field
+					# TODO: understand the reason for this piece voodoo from the original reader
+					while len(audio) > self.receptive_field:
+						piece = audio[:(self.receptive_field + self.sample_size), :]
+						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
 
 						# add GC mapping to q if enabled
-						if gc_enabled:
+						if self.gc_enabled:
 							sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
-						
+
 						# add LC mapping to queue if enabled
-						if lc_enabled:
-							# ADAPT:
-							# first we pass the get the metadata to pass to the midi mapper
-							start_sample = 0
-							end_sample = len(audio) - 1
-							mapper.set_sample_range(start_sample, end_sample)
-							mapper.set_midi(lc_timeseries)
-							lc_encode = mapper.upsample()
-							# TODO: this is where the midi gets upsampled and mapped to the wav samples
-							# lc = map_midi(audio, start_sample, lc_timeseries)
+						if self.lc_enabled:
+							# TODO:
+							# lc = map_midi(piece)
+							previous_end += self.receptive_field
+							new_end += self.receptive_field
+							mapper.set_sample_range(start_sample = previous_end, end_sample = new_end)
 							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
+				# DONT CHOP UP AUDIO
+				else:
+					# otherwise feed the whole audio sample in its entireity
+					sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
+
+					# add GC mapping to q if enabled
+					if gc_enabled:
+						sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
+					
+					# add LC mapping to queue if enabled
+					if lc_enabled:
+						# ADAPT:
+						# first we pass the get the metadata to pass to the midi mapper
+						mapper.set_sample_range(start_sample = 0, end_sample = len(audio) - 1)
+						mapper.set_midi(lc_timeseries)
+						lc_encode = mapper.upsample()
+						sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
 
 
 	def start_threads(self, sess, n_threads = 1):
@@ -282,9 +282,12 @@ class MidiMapper():
 		self.sess = sess
 
 		# self.tempo IS THE SAME AS microseconds per beat 
-		# self.resolutiion IS THE SAME AS ticks per beat or PPQ
+		# self.resolution IS THE SAME AS ticks per beat or PPQ
 		self.start_sample = None
 		self.end_sample = None
+		self.tmepo = None
+		self.resolution = None
+		self.first_note_index = None
 
 		# tensorflow Q stuff
 		self.lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.uint8,], name = "lc_embeddings_q")
@@ -342,8 +345,8 @@ class MidiMapper():
 				# indicating a tempo is set before the first note as initial tempo
 				# get the 24-bit binary as a string
 				tempo_binary = ("{0:b}".format(track[first_note_index].data[0])+
-							    "{0:b}".format(track[first_note_index].data[1])+
-							    "{0:b}".format(track[first_note_index].data[2]))
+								"{0:b}".format(track[first_note_index].data[1])+
+								"{0:b}".format(track[first_note_index].data[2]))
 				# convert the index string to microsec/beat
 				tempo = int(tempo_binary, 2)
 				# do nothing with the timestamps etc. if there is more than one initial tempo it will overwrite
@@ -352,7 +355,7 @@ class MidiMapper():
 
 		# this is the PPQ (pulses per quarter note, aka ticks per beat). Constant.
 		resolution = self.midi.resolution
-		
+		self.
 		return tempo, resolution, first_note_index
 		
 		
@@ -387,17 +390,11 @@ class MidiMapper():
 		# First get the start and end times of the midi section to be extracted and upsampled
 		current_time = sample_to_milliseconds(start_sample)
 
-		if end_sample if None:
+		if end_sample is None:
 			end_sample = self.end_sample
 		end_time = sample_to_milliseconds(end_sample)
 
-		# now get metadata from midi
-		self.tempo, self.resolution, self.first_note_index = self.get_midi_metadata(self.midi)
-
-		# now to avoid making a vector every single loop iteration, make a zeros embedding vector here
-		# use tf.uint8 to save memory since we will most likely not need more than 256 embeddings	
-		
-		counter = 0 #placeholder - will be first NoteOn
+		counter = self.first_note_index
 		while current_time is not end_time:
 			# first get the current midi event
 			curr_event = midi_track[counter]
@@ -408,20 +405,16 @@ class MidiMapper():
 			event_data  = curr_event.data
 			
 			if   event_name is "Note On"  and delta_ticks is 0:
-				# append
 				note_state.append(event_data[0])
 				
 			elif event_name is "Note On"  and delta_ticks is not 0:
-				# upsample, enq, append
 				self.enq_embeddings(delta_ticks, note_state)
 				note_state.append(event_data[0])
 				
 			elif event_name is "Note Off" and delta_ticks is 0:
-				# remove
 				note_state.remove(event_data[0])
 				
 			elif event_name is "Note Off" and delta_ticks is not 0:
-				#  upsample, enq, remove
 				self.enq_embeddings(delta_ticks, note_state)
 				note_state.remove(event_data[0])
 				
@@ -441,14 +434,14 @@ class MidiMapper():
 				# tempo is represented in microseconds per beat as tt tt tt - 24-bit (3-byte) hex
 				# convert first to binary string and then to a decimal number (microsec/beat)
 				tempo_binary = ("{0:b}".format(curr_event.data[0])+
-							    "{0:b}".format(curr_event.data[1])+
-							    "{0:b}".format(curr_event.data[2]))
+								"{0:b}".format(curr_event.data[1])+
+								"{0:b}".format(curr_event.data[2]))
 				self.tempo = int(tempo_binary, 2)
 				
 			elif event_name is "Set Tempo" and delta_ticks is not 0:
 				tempo_binary = ("{0:b}".format(curr_event.data[0])+
-							    "{0:b}".format(curr_event.data[1])+
-							    "{0:b}".format(curr_event.data[2]))
+								"{0:b}".format(curr_event.data[1])+
+								"{0:b}".format(curr_event.data[2]))
 				self.tempo = int(tempo_binary, 2)
 				
 				upsample_time = ticks_to_milliseconds(delta_ticks)
