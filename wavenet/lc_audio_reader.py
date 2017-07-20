@@ -45,7 +45,12 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 
 		# ADAPT: This is where we get the GC ID mapping from audio
 		# later, we can add support for conditioning on genre title, etc.
-		gc_id = None # get_gc_id(filename)
+		
+		if gc_enabled:
+			# gc_id = get_gc_id(filename)
+		else:
+			gc_id = None # get_gc_id(filename)
+
 
 		# now we get the LC timeseries file here
 		# load in the midi or any other local conditioning file
@@ -54,6 +59,8 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 			midi_name = os.path.splitext(filename)[0] + ".mid"
 			# This is the entire midi pattern, including the track
 			lc_timeseries = midi.read_midifile(midi_name)
+		else:
+			lc_timeseries = None
 
 		# returns generator
 		yield audio, filename, gc_id, lc_timeseries #gc_id not incorporated. 
