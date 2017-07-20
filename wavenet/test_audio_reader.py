@@ -9,6 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 from lc_audio_reader import find_files, load_files, randomize_files, clean_midi_files, trim_silence, AudioReader, MidiMapper
+from model import calculate_receptive_field
 
 TEST_DATA_DIR = "/projectnb/textconv/WaveNet/Datasets/unit_test"
 LC_FILEFORMAT = "*.mid"
@@ -55,13 +56,31 @@ def load_file_test():
 		print("Load file test passed.")
 
 
-#class AudioReaderTest(tf.test.TestCase):
+class AudioReaderTest(tf.test.TestCase):
 
-#	def 
+	def setUpReader(self):
 
+		# calculate receptive field of vanilla model to input into the reader
+		dilations = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+
+		receptive_field = calculate_receptive_field(2, dilations, False, 32)
+
+		self.audio_reader = AudioReader(data_dir = TEST_DATA_DIR,
+										coord = tf.Coordinator(),
+										receptive_field = receptive_field,
+										lc_enabled = True,
+										lc_channels = 128,
+										lc_fileformat = LC_FILEFORMAT)
+
+		self.midi_mapper = MidiMapper(sess = tf.Session())
+
+		print("Readers created.")
 
 
 if __name__ == '__main__':
 	load_file_test()
-
-#	tf.test.main()
+	tf.test.main()
