@@ -32,9 +32,6 @@ from tensorflow.python.saved_model import signature_constants as sig_constants
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-DATA_DIM = 77
-QUEUE_SIZE = 250*10
-
 class EvaluationRunHook(tf.train.SessionRunHook):
   """EvaluationRunHook performs continuous evaluation of the model.
 
@@ -163,18 +160,19 @@ def run(target,
         train_steps,
         job_dir,
         train_files,
+        reader_config,
         batch_size,
         learning_rate,
         residual_channels,
         dilation_channels,
         skip_channels,
         dilations,
-        data_dim,
         use_biases,
+        gc_channels,
+        lc_channels,
         filter_width,
         sample_size,
         initial_filter_width,
-        gc_channels,
         l2_regularization_strength,
         momentum,
         optimizer):
@@ -202,7 +200,8 @@ def run(target,
     # https://www.tensorflow.org/api_docs/python/tf/train/replica_device_setter
     with tf.device(tf.train.replica_device_setter()):
 
-        gc_enabled = gc_channels is not None
+        with open(reader_config) as json_file:
+            reader_config = json.load(json_file)
 
         # Reader
         reader = CsvReader(
@@ -212,10 +211,7 @@ def run(target,
                                                                    False,
                                                                    initial_filter_width),
             sample_size=sample_size,
-            data_dim=77,
-            data_suffix=".dat.csv",
-            emotion_suffix=".emo.csv",
-            phoneme_suffix=".pho.csv"
+            config=reader_config
         )
 
         # Create network.
@@ -232,7 +228,7 @@ def run(target,
             initial_filter_width=initial_filter_width,
             histograms=False,
             global_condition_channels=gc_channels,
-            global_condition_cardinality=reader.gc_category_cardinality)
+            local_condition_channels=lc_channels)
 
         global_step_tensor = tf.contrib.framework.get_or_create_global_step()
 
@@ -240,7 +236,8 @@ def run(target,
             l2_regularization_strength = None
 
         loss = net.loss(input_batch=reader.data_batch,
-                        global_condition_batch=None, # TODO: GC
+                        global_condition=reader.gc_batch,
+                        local_condition=reader.lc_batch,
                         l2_regularization_strength=l2_regularization_strength)
 
         optimizer = optimizer_factory[optimizer](
@@ -364,8 +361,9 @@ if __name__ == "__main__":
                       default=0.9, help='Specify the momentum to be '
                       'used by sgd or rmsprop optimizer. Ignored by the '
                       'adam optimizer. Default: 0.9.')
-  parser.add_argument('--gc_channels', type=int, default=None,
-                      help='Number of global condition channels. Default: None. Expecting: Int')
+
+  parser.add_argument('--reader_config', type=str,
+                      default="reader_config.json", help='Specify the path to the config file.')
 
 
   #Wavenet Params
@@ -402,7 +400,14 @@ if __name__ == "__main__":
                       type=bool,
                       default=True,
                       help='Part of Wavenet Params')
-
+  parser.add_argument('--gc_channels',
+                      type=int,
+                      default=256,
+                      help='Part of Wavenet Params')
+  parser.add_argument('--lc_channels',
+                      type=int,
+                      default=128,
+                      help='Part of Wavenet Params')
 
   parser.add_argument('--verbosity',
                       choices=[
