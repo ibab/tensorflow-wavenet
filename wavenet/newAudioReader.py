@@ -47,7 +47,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 
 		# TODO: This is where we get the GC ID mapping from audio
 		# later, we can add support for conditioning on genre title, etc.
-		# gc_id = get_gc_id(filename)
+		gc_id = None # get_gc_id(filename)
 
 		# now we get the LC timeseries file here
 		# load in the midi or any other local conditioning file
@@ -58,7 +58,7 @@ def load_files(data_dir, sample_rate, gc_enabled, lc_enabled, lc_fileformat):
 			lc_timeseries = midi.read_midifile(midi_name)
 
 		# returns generator
-		yield audio, filename, lc_timeseries #gc_id not incorporated. 
+		yield audio, filename, gc_id, lc_timeseries #gc_id not incorporated. 
 
 
 def clean_midi_files(audio_files, lc_files):
@@ -184,57 +184,57 @@ class AudioReader():
 		while not stop:
 			iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled, self.lc_fileformat)
 
-		for audio, filename, gc_id, lc_timeseries in iterator:
-			if self.coord.should_stop():
-				stop = True
-				break
+			for audio, filename, gc_id, lc_timeseries in iterator:
+				if self.coord.should_stop():
+					stop = True
+					break
 
-			# TODO: If we remove this silence trimming we can use the randomised queue
-			# instead of the padding queue so that we dont have to take care of midi with silence
-			if self.silence_threshold is not None:
-				audio = trim_silence(audio[:, 0], self.silence_threshold)
-				audio = audio.reshape(-1, 1)
+				# TODO: If we remove this silence trimming we can use the randomised queue
+				# instead of the padding queue so that we dont have to take care of midi with silence
+				if self.silence_threshold is not None:
+					audio = trim_silence(audio[:, 0], self.silence_threshold)
+					audio = audio.reshape(-1, 1)
 
-				# now check if the whole audio was trimmed away
-				if audio.size == 0:
-					print("Warning: {} was ignored as it contains only "
-						  "silence. Consider decreasing trim_silence "
-						  "threshold, or adjust volume of the audio."
-						  .format(filename))
+					# now check if the whole audio was trimmed away
+					if audio.size == 0:
+						print("Warning: {} was ignored as it contains only "
+							  "silence. Consider decreasing trim_silence "
+							  "threshold, or adjust volume of the audio."
+							  .format(filename))
 
-				# now pad beginning of samples with n = receptive_field number of 0s 
-				# TODO: figure out why we are padding this ???
-				audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
+					# now pad beginning of samples with n = receptive_field number of 0s 
+					# TODO: figure out why we are padding this ???
+					audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
 
-				# now 
-				if self.sample_size:
-					# TODO: understand the reason for this piece voodoo from the original reader
-					while len(audio) > self.receptive_field:
-						piece = audio[:(self.receptice_field + self.sample_size), :]
-						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
+					# now 
+					if self.sample_size:
+						# TODO: understand the reason for this piece voodoo from the original reader
+						while len(audio) > self.receptive_field:
+							piece = audio[:(self.receptice_field + self.sample_size), :]
+							sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : piece})
+
+							# add GC mapping to q if enabled
+							if self.gc_enabled:
+								sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
+
+							# add LC mapping to queue if enabled
+							if self.lc_enabled:
+								# TODO:
+								# lc = map_midi(piece)
+								sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
+					else:
+						# otherwise feed the whole audio sample in its entireity
+						sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
 
 						# add GC mapping to q if enabled
-						if self.gc_enabled:
+						if gc_enabled:
 							sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
-
+						
 						# add LC mapping to queue if enabled
-						if self.lc_enabled:
-							# TODO:
-							# lc = map_midi(piece)
+						if lc_enabled:
+							# TODO: this is where the midi gets upsampled and mapped to the wav samples
+							# lc = map_midi(audio, start_sample, lc_timeseries)
 							sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
-				else:
-					# otherwise feed the whole audio sample in its entireity
-					sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
-
-					# add GC mapping to q if enabled
-					if gc_enabled:
-						sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
-					
-					# add LC mapping to queue if enabled
-					if lc_enabled:
-						# TODO: this is where the midi gets upsampled and mapped to the wav samples
-						# lc = map_midi(audio, start_sample, lc_timeseries)
-						sess.run(self.enq_lc, feed_dict = {self.lc_placeholder : lc_encode})
 
 
 	def start_threads(self, sess, n_threads = 1):
@@ -309,7 +309,9 @@ class MidiMapper():
 			if event_name is "Set Tempo":
 				# indicating a tempo is set before the first note as initial tempo
 				# get the 24-bit binary as a string
-				tempo_binary = "{0:b}".format(track[first_note_index].data[0]) + "{0:b}".format(track[first_note_index].data[1]) + "{0:b}".format(track[first_note_index].data[2])
+				tempo_binary = "{0:b}".format(track[first_note_index].data[0]) +
+							   "{0:b}".format(track[first_note_index].data[1]) +
+							   "{0:b}".format(track[first_note_index].data[2])
 				# convert the index string to microsec/beat
 				tempo = int(tempo_binary, 2)
 				# do nothing with the timestamps etc. if there is more than one initial tempo it will overwrite
@@ -400,11 +402,15 @@ class MidiMapper():
 				# mid-song tempo change
 				# tempo is represented in microseconds per beat as tt tt tt - 24-bit (3-byte) hex
 				# convert first to binary string and then to a decimal number (microsec/beat)
-				tempo_binary = "{0:b}".format(curr_event.data[0]) + "{0:b}".format(curr_event.data[1]) + "{0:b}".format(curr_event.data[2])
+				tempo_binary = "{0:b}".format(curr_event.data[0]) + 
+							   "{0:b}".format(curr_event.data[1]) +
+							   "{0:b}".format(curr_event.data[2])
 				self.tempo = int(tempo_binary, 2)
 				
 			elif event_name is "Set Tempo" and delta_ticks is not 0:
-				tempo_binary = "{0:b}".format(curr_event.data[0]) + "{0:b}".format(curr_event.data[1]) + "{0:b}".format(curr_event.data[2])
+				tempo_binary = "{0:b}".format(curr_event.data[0]) +
+							   "{0:b}".format(curr_event.data[1]) +
+							   "{0:b}".format(curr_event.data[2])
 				self.tempo = int(tempo_binary, 2)
 				
 				upsample_time = ticks_to_milliseconds(delta_ticks)
