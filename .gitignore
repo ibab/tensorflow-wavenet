@@ -1,4 +1,6 @@
 logdir/
 data/
 *.pyc
-
+build/
+dist/
+trainer.egg-info/

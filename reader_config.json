@@ -1,19 +1,20 @@
 {
-  "data_dim": 77,
+  "data_suffix": ".dat",
+  "data_dim": 57,
 
-  "enable_emotion": true,
-  "emotion_dim": 3,
-  "emotion_suffix": "_emo.csv",
+  "emotion_enabled": true,
+  "emotion_dim": 1,
+  "emotion_suffix": ".emo",
   "emotion_categories": ["Angry", "Happy", "Sad", "Neutral", "Frustrated",
-               "Excited", "Fearful", "Disgusted", "Excited", "Other"],
+               "Excited", "Fearful", "Disgusted", "Other"],
 
-  "enable_phoneme": true,
-  "phoneme_dim": 2,
-  "phoneme_suffix": "_pho.csv",
+  "phoneme_enabled": true,
+  "phoneme_dim": 4,
+  "phoneme_suffix": ".pho",
   "phoneme_categories": ["AA", "AE", "AH", "AO", "AW", "AX", "AXR", "AY", "B", "CH", "D",
     "DD", "DX", "DH", "EH", "ER", "EY", "F", "G", "HH", "IH", "IX", "IY", "JH",
     "K", "KD", "L", "M", "N", "NG", "OW", "OY", "P", "R", "S", "SH", "T", "TD",
     "TH", "TS", "UH", "UW", "V", "W", "Y", "Z", "ZH", "SIL", "+LAUGHTER+",
-    "+LIPSMACK+", "+GARBAGE+", "+BREATHING+"],
+    "+LIPSMACK+", "+GARBAGE+", "+BREATHING+"]
 
 }

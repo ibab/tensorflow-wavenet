@@ -222,13 +222,13 @@ def run(target,
             residual_channels=residual_channels,
             dilation_channels=dilation_channels,
             skip_channels=skip_channels,
-            quantization_channels=data_dim,
+            quantization_channels=reader.data_dim,
             use_biases=use_biases,
             scalar_input=False,
             initial_filter_width=initial_filter_width,
             histograms=False,
-            global_condition_channels=gc_channels,
-            local_condition_channels=lc_channels)
+            global_channels=gc_channels,
+            local_channels=lc_channels)
 
         global_step_tensor = tf.contrib.framework.get_or_create_global_step()
 
@@ -347,7 +347,7 @@ if __name__ == "__main__":
   #WAVENET.PY
   parser.add_argument('--sample_size',
                       type=int,
-                      default=1000,
+                      default=32,
                       help='Concatenate and cut audio samples to this many '
                       'samples. Default: 1000')
   parser.add_argument('--l2_regularization_strength', type=float,
@@ -373,8 +373,8 @@ if __name__ == "__main__":
                       help='Part of Wavenet Params')
   parser.add_argument('--dilations',
                       type=list,
-                      default=[1, 2, 4, 8, 16, 32, 64, 128,
-                               1, 2, 4, 8, 16, 32, 64, 128],
+                      default=[1, 2, 4, 8, 16, 32, 64,
+                               1, 2, 4, 8, 16, 32, 64],
                       help='Part of Wavenet Params')
   parser.add_argument('--residual_channels',
                       type=int,
@@ -387,10 +387,6 @@ if __name__ == "__main__":
   parser.add_argument('--skip_channels',
                       type=int,
                       default=512,
-                      help='Part of Wavenet Params')
-  parser.add_argument('--data_dim',
-                      type=int,
-                      default=DATA_DIM,
                       help='Part of Wavenet Params')
   parser.add_argument('--initial_filter_width',
                       type=int,

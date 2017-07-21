@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from .ops import causal_conv, mu_law_encode
+from .ops import causal_conv
 
 
 def create_variable(name, shape):
@@ -160,7 +160,7 @@ class WaveNetModel(object):
                              self.dilation_channels,
                              self.skip_channels])
 
-                        if self.global_condition_channels is not None:
+                        if self.global_channels is not None:
                             current['gcond_filter'] = create_variable(
                                 'filter',
                                 [self.global_channels,
@@ -170,7 +170,7 @@ class WaveNetModel(object):
                                 [self.global_channels,
                                  self.dilation_channels])
 
-                        if self.local_condition_channels is not None:
+                        if self.global_channels is not None:
                             current['lcond_filter'] = create_variable(
                                 'filter',
                                 [1,
@@ -265,6 +265,11 @@ class WaveNetModel(object):
         if global_condition is not None:
             weights_gcond_filter = variables['gcond_filter']
             weights_gcond_gate = variables['gcond_gate']
+
+            print conv_filter
+            #global_condition = tf.reshape(global_condition, [1, -1, self.global_channels])
+            print global_condition
+
             conv_filter = conv_filter + \
                 tf.matmul(global_condition, weights_gcond_filter)
             conv_gate = conv_gate + \
@@ -273,6 +278,10 @@ class WaveNetModel(object):
         if local_condition is not None:
             weights_lcond_filter = variables['lcond_filter']
             weights_lcond_gate = variables['lcond_gate']
+
+            ### TODO: WARNING: This is a hack because CSV reader isnt working yet...
+            local_condition = tf.reshape(local_condition, [1, -1, self.local_channels])
+
             conv_filter = conv_filter + tf.nn.conv1d(local_condition,
                 weights_lcond_filter, stride=1, padding='SAME')
             conv_gate = conv_gate + tf.nn.conv1d(local_condition,
@@ -344,7 +353,7 @@ class WaveNetModel(object):
         return output
 
     def _generator_dilation_layer(self, input_batch, state_batch, layer_index,
-                                  dilation, global_condition, local_condition):
+                                  dilation, global_condition = None, local_condition=None):
         variables = self.variables['dilated_stack'][layer_index]
 
         weights_filter = variables['filter']
@@ -410,8 +419,8 @@ class WaveNetModel(object):
             for layer_index, dilation in enumerate(self.dilations):
                 with tf.name_scope('layer{}'.format(layer_index)):
                     output, current_layer = self._create_dilation_layer(
-                        current_layer, layer_index, dilation, global_condition,
-                        local_condition, output_width)
+                        current_layer, layer_index, dilation, output_width, global_condition,
+                        local_condition, )
                     outputs.append(output)
 
         with tf.name_scope('postprocessing'):
@@ -618,19 +627,19 @@ class WaveNetModel(object):
                 gc_encoded = None
 
             if local_condition is not None:
-                lc_encoded = tf.one_hot(local_condition, self.local_channels) # TODO get channels.
+                lc_encoded = tf.one_hot(local_condition, self.local_channels / 4) # TODO get channels.
             else:
                 lc_encoded = None
 
             # Cut off the last sample of network input to preserve causality.
             # TODO: Is this necessary? It is not in the LC implementation...
-            network_input_width = tf.shape(network_input)[1] - 1
-            network_input = tf.slice(network_input, [0, 0, 0],
-                                     [-1, network_input_width, -1])
+            #network_input_width = tf.shape(network_input)[1] - 1
+            #network_input = tf.slice(network_input, [0, 0, 0],
+            #                         [-1, network_input_width, -1])
 
             raw_output = self._create_network(network_input,
-                global_condition=gc_encoded,
-                local_condition=lc_encoded)
+                                              global_condition=gc_encoded,
+                                              local_condition=lc_encoded)
 
             with tf.name_scope('loss'):
                 # Cut off the samples corresponding to the receptive field
@@ -639,7 +648,7 @@ class WaveNetModel(object):
                     tf.reshape(
                         encoded,
                         [self.batch_size, -1, self.quantization_channels]),
-                    [0, self.receptive_field, 0],
+                    [0, self.receptive_field - 1, 0],
                     [-1, -1, -1])
                 target_output = tf.reshape(target_output,
                                            [-1, self.quantization_channels])
