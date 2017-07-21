@@ -24,7 +24,7 @@ F3 = 233.08  # B-flat frequency in hz
 
 def make_sine_waves(global_conditioning):
     """Creates a time-series of sinusoidal audio amplitudes."""
-    sample_period = 1.0/SAMPLE_RATE_HZ
+    sample_period = 1.0 / SAMPLE_RATE_HZ
     times = np.arange(0.0, SAMPLE_DURATION, sample_period)
 
     if global_conditioning:
@@ -79,8 +79,7 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
             feed_dict[gc_placeholder] = gc
         results = sess.run(operations, feed_dict=feed_dict)
 
-        sample = np.random.choice(
-           np.arange(QUANTIZATION_CHANNELS), p=results[0])
+        sample = np.random.choice(np.arange(QUANTIZATION_CHANNELS), p=results[0])
         waveform.append(sample)
 
     # Skip the first number of samples equal to the size of the receptive
@@ -167,7 +166,7 @@ def check_waveform(assertion, generated_waveform, gc_category):
         # than at other frequences.
         # This is a weak criterion, but still detects implementation errors
         # in the code.
-        assertion(expected_power, 10.0*other_freqs_lut[gc_category])
+        assertion(expected_power, 10.0 * other_freqs_lut[gc_category])
 
 
 class TestNet(tf.test.TestCase):
@@ -234,8 +233,7 @@ class TestNet(tf.test.TestCase):
 
         loss = self.net.loss(input_batch=audio_placeholder,
                              global_condition_batch=gc_placeholder)
-        optimizer = optimizer_factory[self.optimizer_type](
-                      learning_rate=self.learning_rate, momentum=self.momentum)
+        optimizer = optimizer_factory[self.optimizer_type](learning_rate=self.learning_rate, momentum=self.momentum)
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.global_variables_initializer()
