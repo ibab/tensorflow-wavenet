@@ -77,7 +77,7 @@ class CsvReader(object):
         features = tf.train.batch(
             features,
             batch_size,
-            capacity=batch_size * 10,
+            capacity=batch_size * 100,
             num_threads=multiprocessing.cpu_count(),
             enqueue_many=True,
             allow_smaller_final_batch=False

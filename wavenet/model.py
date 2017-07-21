@@ -266,9 +266,9 @@ class WaveNetModel(object):
             weights_gcond_filter = variables['gcond_filter']
             weights_gcond_gate = variables['gcond_gate']
 
-            print conv_filter
+            #print conv_filter
             # global_condition = tf.reshape(global_condition, [1, -1, self.global_channels])
-            print global_condition
+            #print global_condition
 
             conv_filter = conv_filter + tf.matmul(global_condition, weights_gcond_filter)
             conv_gate = conv_gate + tf.matmul(global_condition, weights_gcond_gate)
