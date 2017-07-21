@@ -7,6 +7,7 @@ import fnmatch
 import threading
 import numpy as np
 import tensorflow as tf
+import time
 
 def find_files(directory, pattern):
 	'''Recursively finds all files matching the pattern.'''
@@ -99,6 +100,7 @@ def clean_midi_files(audio_files, lc_files):
 def randomize_files(files):
 	for file in files:
 		file_index = random.randint(0, (len(files) - 1))
+		print("called")
 		yield files[file_index]
 
 
@@ -152,14 +154,14 @@ class AudioReader():
 
 		if self.gc_enabled:
 			# GC samples are embedding vectors with the shape of 1 X GC_channels
-			self.gc_placeholder = tf.placeholder(dtype = tf.int32, shape = ())
-			self.q_gc = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.int32], shapes = [(None, 1)])
+			self.gc_placeholder = tf.placeholder(dtype = tf.uint8, shape = ())
+			self.q_gc = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.uint8], shapes = [(None, 1)])
 			self.enq_gc = self.q_gc.enqueue([self.gc_placeholder])
 
 		if self.lc_enabled:	
 			# LC samples are embedding vectors with the shape of 1 X LC_channels
-			self.lc_placeholder = tf.placeholder(dtype = tf.int32, shape = None)
-			self.q_lc = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.int32], shapes = [(None, 1)])
+			self.lc_placeholder = tf.placeholder(dtype = tf.uint8, shape = None)
+			self.q_lc = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.uint8], shapes = [(None, 1)])
 			self.enq_lc = self.q_lc.enqueue([self.lc_placeholder])
 
 		# now load in the files and see if they exist
@@ -255,11 +257,11 @@ class AudioReader():
 					sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
 
 					# add GC mapping to q if enabled
-					if gc_enabled:
+					if self.gc_enabled:
 						sess.run(self.enq_gc, feed_dict = {self.gc_placeholder : gc_id})
 					
 					# add LC mapping to queue if enabled
-					if lc_enabled:
+					if self.lc_enabled:
 						# ADAPT:
 						# first we pass the get the metadata to pass to the midi mapper
 						mapper.set_sample_range(start_sample = 0, end_sample = len(audio) - 1)
@@ -318,7 +320,7 @@ class MidiMapper():
 		'''Allow midi file to be reassigned at runtime so that new MidiMappers
 		   do not have to be instantiated for the each new midi file'''
 		self.midi = midi
-		self.tempo, self.resolution, self.first_note_index = self.get_midi_metadata(self.midi)
+		self.get_midi_metadata()
 
 
 	def sample_to_milliseconds(self, sample_num):
@@ -340,9 +342,9 @@ class MidiMapper():
 	
 	def get_midi_metadata(self):
 		'''gets all the metadata here from the midi file header'''
-		event_name = "Event"
 		tempo = None
 		track = self.midi[0]
+		event_name = track[0].name
 		first_note_index = 0
 		
 		# we want the tempo in microsec/beat - the set tempo events set the tempo as tt tt tt - 
@@ -351,15 +353,16 @@ class MidiMapper():
 
 		# this is getting the index of first note event in the midi to ignore all other BS
 		# and also the tempo hehe
-		while event_name is not "Note On" or "Note Off":
+		while event_name is not midi.NoteOnEvent.name and event_name is not midi.NoteOffEvent.name:
 			event_name = track[first_note_index].name
-			if event_name is "Set Tempo":
+			if event_name is midi.SetTempoEvent.name:
 				# indicating a tempo is set before the first note as initial tempo
 				# get the 24-bit binary as a string
-				tempo_binary = ("{0:b}".format(track[first_note_index].data[0])+
-								"{0:b}".format(track[first_note_index].data[1])+
-								"{0:b}".format(track[first_note_index].data[2]))
+				tempo_binary = (format(track[first_note_index].data[0], '08b')+
+								format(track[first_note_index].data[1], '08b')+
+								format(track[first_note_index].data[2], '08b'))
 				# convert the index string to microsec/beat
+				
 				tempo = int(tempo_binary, 2)
 				# do nothing with the timestamps etc. if there is more than one initial tempo it will overwrite
 				
@@ -367,9 +370,14 @@ class MidiMapper():
 
 		# this is the PPQ (pulses per quarter note, aka ticks per beat). Constant.
 		resolution = self.midi.resolution
-		self.tempo = tempo
+		if tempo is None:
+			self.tempo = 500000
+		else:
+			self.tempo = tempo
+
 		self.resolution = resolution
 		self.first_note_index = first_note_index
+		print("First note index set to {} from get metadata".format(self.first_note_index))
 		
 		
 	def enq_embeddings(self, delta_ticks, note_state):
@@ -381,15 +389,15 @@ class MidiMapper():
 		# TODO: figure out if batching all  inserts from the loops into a giant block
 		# of inserts will be more efficient if used with enqueue_many
 
-		inserts = np.zeros(shahpe = (1, self.lc_channels, upsample_time * self.sample_rate), dtype = np.unit8)
+		inserts = np.zeros(shape = (upsample_time * self.sample_rate, self.lc_channels), dtype = np.uint8)
 		for i in range(upsample_time * self.sample_rate):
-			insert = np.zeros(1, self.lc_channels)
-			for j in range(len(note_state)):
+			insert = np.zeros(shape = (self.lc_channels))
+			for j in range(len(note_state) - 1):
 				insert[note_state[j]] = 1
 			inserts[i] = insert
 
 			self.sess.run(self.enq_lc, feed_dict = {self.lc_embedding_placeholder : inserts})
-				
+
 	
 	def upsample(self, start_sample = 0, end_sample = None):
 		
@@ -401,14 +409,15 @@ class MidiMapper():
 		midi_track = self.midi[0]
 		
 		# First get the start and end times of the midi section to be extracted and upsampled
-		current_time = sample_to_milliseconds(start_sample)
+		current_time = self.sample_to_milliseconds(start_sample)
 
 		if end_sample is None:
 			end_sample = self.end_sample
-		end_time = sample_to_milliseconds(end_sample)
+		end_time = self.sample_to_milliseconds(end_sample)
 
 		counter = self.first_note_index
 		while current_time is not end_time:
+			print(counter)
 			# first get the current midi event
 			curr_event = midi_track[counter]
 			
@@ -417,21 +426,21 @@ class MidiMapper():
 			event_name  = curr_event.name
 			event_data  = curr_event.data
 			
-			if   event_name is "Note On"  and delta_ticks is 0:
+			if   event_name is midi.NoteOnEvent.name  and delta_ticks is 0:
 				note_state.append(event_data[0])
 				
-			elif event_name is "Note On"  and delta_ticks is not 0:
+			elif event_name is midi.NoteOnEvent.name  and delta_ticks is not 0:
 				self.enq_embeddings(delta_ticks, note_state)
 				note_state.append(event_data[0])
 				
-			elif event_name is "Note Off" and delta_ticks is 0:
+			elif event_name is midi.NoteOffEvent.name and delta_ticks is 0:
 				note_state.remove(event_data[0])
 				
-			elif event_name is "Note Off" and delta_ticks is not 0:
+			elif event_name is midi.NoteOffEvent.name and delta_ticks is not 0:
 				self.enq_embeddings(delta_ticks, note_state)
 				note_state.remove(event_data[0])
 				
-			elif event_name is "End of Track":
+			elif event_name is midi.EndOfTrackEvent.name:
 				# warn if gap between midi and wav, then update time
 				# the embedding is already zero-padded, so no need to pad it
 				# get the bpm and find how many seconds for one beat and then half that
@@ -442,19 +451,19 @@ class MidiMapper():
 				else:
 					current_time = end_time # if not already, to break outer while loop
 			
-			elif event_name is "Set Tempo" and delta_ticks is 0:
+			elif event_name is midi.SetTempoEvent.name and delta_ticks is 0:
 				# mid-song tempo change
 				# tempo is represented in microseconds per beat as tt tt tt - 24-bit (3-byte) hex
 				# convert first to binary string and then to a decimal number (microsec/beat)
-				tempo_binary = ("{0:b}".format(curr_event.data[0])+
-								"{0:b}".format(curr_event.data[1])+
-								"{0:b}".format(curr_event.data[2]))
+				tempo_binary = (format(curr_event.data[0], '08b')+
+								format(curr_event.data[1], '08b')+
+								format(curr_event.data[2], '08b'))
 				self.tempo = int(tempo_binary, 2)
 				
 			elif event_name is "Set Tempo" and delta_ticks is not 0:
-				tempo_binary = ("{0:b}".format(curr_event.data[0])+
-								"{0:b}".format(curr_event.data[1])+
-								"{0:b}".format(curr_event.data[2]))
+				tempo_binary = (format(curr_event.data[0], '08b')+
+								format(curr_event.data[1], '08b')+
+								format(curr_event.data[2], '08b'))
 				self.tempo = int(tempo_binary, 2)
 				
 				upsample_time = ticks_to_milliseconds(delta_ticks)
@@ -462,7 +471,7 @@ class MidiMapper():
 				
 			else:
 				# We are ignoring events other than note on/off or tempo. Do nothing with these events.
-				print("Event other than Note On/Off, Tempo Change, or End of Track detected. Event ignored.")
+				_ = 1
 
 			# increment
 			counter += 1
