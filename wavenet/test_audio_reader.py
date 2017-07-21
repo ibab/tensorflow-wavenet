@@ -17,8 +17,8 @@ def load_file_test():
 		'''Expects two midi and two audio files named the same file name and checks if the load files works as expected.'''
 
 		# Set ground truths
-		expected_audio_len = [18, 19]
-		expected_filename = ['/projectnb/textconv/WaveNet/Datasets/unit_test/mond_1_format0', '/projectnb/textconv/WaveNet/Datasets/unit_test/ty_juli_format0']
+		expected_audio_len = [1812828, 5879478]
+		expected_filename = ['/projectnb/textconv/WaveNet/Datasets/unit_test/mond_1_format0.wav', '/projectnb/textconv/WaveNet/Datasets/unit_test/ty_juli_format0.wav']
 		expected_gc_id = [None, None]
 		expected_lc_timeseries = [3347, 2679]
 
@@ -32,23 +32,17 @@ def load_file_test():
 			# Note: files are randomized, so we cannot check sequentially if they match or not
 			# check audio length
 			audio_len = len(audio)
-			if audio_len in expected_audio_len:
-				ind = expected_audio_len.index(audio_len)
-				assert (audio_len == expected_audio_len[ind]), "Length of audio file {} not expected.".format(index_counter)
+			assert (audio_len in expected_audio_len), "Length of audio file {} not expected.".format(index_counter)
 
 			# check file name
-			if filename in expected_filename:
-				ind = expected_filename.index(filename)
-				assert (filename == expected_filename[ind]), "Filename of audio file {} not expected.".format(index_counter)
+			assert (filename in expected_filename), "Filename of audio file {} not expected.".format(index_counter)
 
 			# gc_id should be none, randomized or not
-			assert (gc_id == expected_gc_id[index_counter]), "Unexpected GC ID."
+			assert (gc_id in expected_gc_id), "Unexpected GC ID."
 
 			# check midi output length
 			lc_length = len(lc_timeseries[0])
-			if lc_length in expected_lc_timeseries:
-				ind = expected_lc_timeseries.index(lc_length)
-				assert (lc_length == expected_lc_timeseries[ind]), "Length of MIDI timeseries {} not expected.".format(index_counter)
+			assert (lc_length in expected_lc_timeseries), "Length of MIDI timeseries {} not expected.".format(index_counter)
 
 			index_counter += 1
 
@@ -58,23 +52,38 @@ def load_file_test():
 class AudioReaderTest(tf.test.TestCase):
 
 	def setUp(self):
+		self.coord = tf.train.Coordinator()
+		self.threads = None
+
 		self.reader = AudioReader(data_dir = TEST_DATA_DIR,
-										coord = tf.train.Coordinator(),
-										receptive_field = 5117, #as opposed to 5120
-										lc_enabled = True,
-										lc_channels = 128,
-										lc_fileformat = LC_FILEFORMAT)
+									coord = self.coord,
+									receptive_field = 5117, #as opposed to 5120
+									lc_enabled = True,
+									lc_channels = 128,
+									lc_fileformat = LC_FILEFORMAT)
 
 
 	def testReader(self):
 
 		with self.test_session() as sess:
-			sess.run(tf.global_variables_initializer())
-			self.reader.start_threads(sess)
+
 			dqd_audio = self.reader.dq_audio(100)
+			print("Here 1")
 			dqd_upsampled_midi = self.reader.dq_lc(100)
+			print(dqd_audio)
+			print(dqd_upsampled_midi)
+			print("Here 2")
+
+			self.threads = tf.train.start_queue_runners(sess = sess, coord = self.coord)
+			print("Here 3")
+			sess.run(tf.global_variables_initializer())
+			print("Here 4")
+			self.reader.start_threads(sess)
+			print("Here 5")
+
+			self.coord.request_stop()
+			self.coord.join(self.threads)
 
 
 if __name__ == '__main__':
-	load_file_test()
 	tf.test.main()
