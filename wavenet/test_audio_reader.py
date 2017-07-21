@@ -9,7 +9,6 @@ import numpy as np
 import tensorflow as tf
 
 from lc_audio_reader import find_files, load_files, randomize_files, clean_midi_files, trim_silence, AudioReader, MidiMapper
-from model import calculate_receptive_field
 
 TEST_DATA_DIR = "/projectnb/textconv/WaveNet/Datasets/unit_test"
 LC_FILEFORMAT = "*.mid"
@@ -58,27 +57,22 @@ def load_file_test():
 
 class AudioReaderTest(tf.test.TestCase):
 
-	def setUpReader(self):
-
-		# calculate receptive field of vanilla model to input into the reader
-		dilations = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-                  	 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-
-		receptive_field = calculate_receptive_field(2, dilations, False, 32)
-
-		self.audio_reader = AudioReader(data_dir = TEST_DATA_DIR,
-										coord = tf.Coordinator(),
-										receptive_field = receptive_field,
+	def setUp(self):
+		self.reader = AudioReader(data_dir = TEST_DATA_DIR,
+										coord = tf.train.Coordinator(),
+										receptive_field = 5117, #as opposed to 5120
 										lc_enabled = True,
 										lc_channels = 128,
 										lc_fileformat = LC_FILEFORMAT)
 
-		self.midi_mapper = MidiMapper(sess = tf.Session())
 
-		print("Readers created.")
+	def testReader(self):
+
+		with self.test_session() as sess:
+			sess.run(tf.global_variables_initializer())
+			self.reader.start_threads(sess)
+			dqd_audio = self.reader.dq_audio(100)
+			dqd_upsampled_midi = self.reader.dq_lc(100)
 
 
 if __name__ == '__main__':
