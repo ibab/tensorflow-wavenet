@@ -4,3 +4,4 @@ data/
 build/
 dist/
 trainer.egg-info/
+output/
