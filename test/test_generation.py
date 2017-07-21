@@ -19,7 +19,7 @@ class TestGeneration(tf.test.TestCase):
     def testGenerateSimple(self):
         '''Generate a few samples using the naive method and
         perform sanity checks on the output.'''
-        waveform = tf.placeholder(tf.int32)
+        waveform = tf.placeholder(tf.float32)
         np.random.seed(0)
         data = np.random.randint(128, size=1000)
         proba = self.net.predict_proba(waveform)
@@ -34,7 +34,7 @@ class TestGeneration(tf.test.TestCase):
     def testGenerateFast(self):
         '''Generate a few samples using the fast method and
         perform sanity checks on the output.'''
-        waveform = tf.placeholder(tf.int32)
+        waveform = tf.placeholder(tf.float32)
         np.random.seed(0)
         data = np.random.randint(128)
         proba = self.net.predict_proba_incremental(waveform)
@@ -48,7 +48,7 @@ class TestGeneration(tf.test.TestCase):
         self.assertTrue(np.all((proba >= 0) & (proba <= (128 - 1))))
 
     def testCompareSimpleFast(self):
-        waveform = tf.placeholder(tf.int32)
+        waveform = tf.placeholder(tf.float32)
         np.random.seed(0)
         data = np.random.randint(128, size=1000)
         proba = self.net.predict_proba(waveform)

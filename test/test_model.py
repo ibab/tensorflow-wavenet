@@ -7,7 +7,7 @@ import random
 import os
 
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
-                     optimizer_factory, mu_law_decode)
+                     optimizer_factory)
 
 SAMPLE_RATE_HZ = 2000.0  # Hz
 TRAIN_ITERATIONS = 400
