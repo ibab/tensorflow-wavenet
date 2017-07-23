@@ -57,17 +57,16 @@ class AudioReaderTest(tf.test.TestCase):
 		self.coord = tf.train.Coordinator()
 		self.threads = None
 
-		self.reader = AudioReader(data_dir = TEST_DATA_DIR,
-									coord = self.coord,
-									receptive_field = 5117, #as opposed to 5120
-									lc_enabled = True,
-									lc_channels = 128,
-									lc_fileformat = LC_FILEFORMAT)
-
-
 	def testReader(self):
 
 		with self.test_session() as sess:
+			self.reader = AudioReader(data_dir = TEST_DATA_DIR,
+							coord = self.coord,
+							receptive_field = 5117, #as opposed to 5120
+							lc_enabled = True,
+							lc_channels = 128,
+							lc_fileformat = LC_FILEFORMAT,
+							sess = sess)
 
 			dqd_audio = self.reader.dq_audio(100)
 			print("Here 1")
@@ -80,9 +79,11 @@ class AudioReaderTest(tf.test.TestCase):
 			print("Here 3")
 			sess.run(tf.global_variables_initializer())
 			print("Here 4")
-			self.reader.start_threads(sess)
+			self.reader.start_threads()
 			print("Here 5")
-			time.sleep(100)
+			time.sleep(10)
+
+			print("TIME'S UP")
 
 			self.coord.request_stop()
 			self.coord.join(self.threads)
