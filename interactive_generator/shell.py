@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from __future__ import print_function
 from suds.client import Client
 from termcolor import colored
@@ -48,7 +51,7 @@ class EveShell(cmd.Cmd):
         request = EveShell.client.service.speakExtended("59746f2101ec1", "LJpcC67e3u", "Heather", speakString, metadata=True)
 
         if request.resultCode == 1:
-            print(request.resultDescription)
+            print(" %s" % request.resultDescription)
 
             urlOpener = urllib.URLopener()
             urlOpener.retrieve(request.fileUrl, "/tmp/sound.ogg")
@@ -74,7 +77,7 @@ class EveShell(cmd.Cmd):
 
             # Stream the phonemes
             for phoneme in phonemeFrames:
-                print(" %s " % phoneme, end='\n')
+                print("Current phoneme: %s " % colored(phoneme, 'white', 'on_grey', attrs=['bold']), end=' \r ')
                 sys.stdout.flush()
                 sleep(1.0 / EveShell.fps)
 
