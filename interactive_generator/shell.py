@@ -7,6 +7,17 @@ import subprocess
 import cmd, sys
 import xml.etree.ElementTree
 
+
+"""
+
+This is an interactive script for testing EveNet.
+
+TODO:
+  - Map from Cereproc phonemes to Sophia phonemes
+  - Integrate with ROS & Generator script.
+
+"""
+
 class EveShell(cmd.Cmd):
 
     # Cerevoice
