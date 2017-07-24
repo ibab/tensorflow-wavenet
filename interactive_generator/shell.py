@@ -1,6 +1,11 @@
+from __future__ import print_function
 from suds.client import Client
 from termcolor import colored
+from time import sleep
+import urllib
+import subprocess
 import cmd, sys
+import xml.etree.ElementTree
 
 class EveShell(cmd.Cmd):
 
@@ -20,17 +25,47 @@ class EveShell(cmd.Cmd):
     currentEmotion = 0
 
     # Config
+    fps = 48.0
+
+    # Config
     intro = '\nWelcome to EveNet interactive shell.   Type help or ? to list commands.\n'
     prompt = '(' + emotions[currentEmotion] + ') '
 
     # ----- basic turtle commands -----
     def do_say(self, arg):
         'Say something using current emotion.'
-        speakString = type(arg)
+        speakString = arg
         request = EveShell.client.service.speakExtended("59746f2101ec1", "LJpcC67e3u", "Heather", speakString, metadata=True)
 
         if request.resultCode == 1:
-            print(request)
+            print(request.resultDescription)
+
+            urlOpener = urllib.URLopener()
+            urlOpener.retrieve(request.fileUrl, "/tmp/sound.ogg")
+            urlOpener.retrieve(request.metadataUrl, "/tmp/metadata.xml")
+
+            # play in background...
+            play("/tmp/sound.ogg")
+
+            # parse XML
+            metaDataTree = xml.etree.ElementTree.parse('/tmp/metadata.xml').getroot()
+            phonemeFrames = []
+
+            for phoneme in metaDataTree.findall("phone"):
+                value = phoneme.items()[2][1]
+                start = float(phoneme.items()[0][1])
+                end = float(phoneme.items()[1][1])
+                nrOfFrames = int((end-start)*48.0)
+
+                for _ in range(nrOfFrames):
+                    phonemeFrames.append(value)
+
+            for phoneme in phonemeFrames:
+                print(" %s " % phoneme, end='')
+                sys.stdout.flush()
+                sleep(1.0 / EveShell.fps)
+
+            print("")
 
         else:
             print("ERROR")
@@ -70,16 +105,17 @@ def parse(arg):
     'Convert a series of zero or more numbers to an argument tuple'
     return tuple(map(int, arg.split()))
 
+def play(audio_file_path):
+    subprocess.Popen(["ffplay", "-nodisp", "-autoexit", "-nostats", "-loglevel", "0", audio_file_path])
+
+
 if __name__ == '__main__':
+    try:
+        shell = EveShell()
 
+        for i,emo in enumerate(shell.emotions):
+            print("%d: %s" % (i, emo))
 
-
-
-
-
-    shell = EveShell()
-
-    for i,emo in enumerate(shell.emotions):
-        print("%d: %s" % (i, emo))
-
-    shell.cmdloop()
+        shell.cmdloop()
+    except KeyboardInterrupt:
+        print("\nkthxbye")
