@@ -204,12 +204,14 @@ def run(target,
                 reader_config = json.load(json_file)
 
             # Reader
+            receptive_field_size = WaveNetModel.calculate_receptive_field(filter_width,
+                                                                          dilations,
+                                                                          False,
+                                                                          initial_filter_width)
+
             reader = CsvReader(
                 train_files,
-                receptive_field=WaveNetModel.calculate_receptive_field(filter_width,
-                                                                       dilations,
-                                                                       False,
-                                                                       initial_filter_width),
+                receptive_field=receptive_field_size,
                 sample_size=sample_size,
                 config=reader_config
             )
@@ -245,6 +247,38 @@ def run(target,
             trainable = tf.trainable_variables()
 
             train_op = optimizer.minimize(loss, var_list=trainable, global_step=global_step_tensor)
+
+            ## Add Generation operator to graph for later use in generate.py
+            tf.add_to_collection("config", tf.constant(reader.data_dim, name='data_dim'))
+            tf.add_to_collection("config", tf.constant(receptive_field_size, name='receptive_field_size'))
+            tf.add_to_collection("config", tf.constant(sample_size, name='sample_size'))
+
+            feed_size = receptive_field_size + sample_size # TODO: should this include sample size?
+
+            samples = tf.placeholder(tf.float32, shape=(receptive_field_size, reader.data_dim), name="samples")
+            gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
+            lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")
+
+            gc = tf.one_hot(gc, gc_channels)
+            lc = tf.one_hot(lc, lc_channels)
+
+            tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
+
+            """
+            if filter_width <= 2:
+                samples_fast = tf.placeholder(tf.float32, shape=(1, reader.data_dim), name="samples_fast")
+                gc_fast = tf.placeholder(tf.int32, shape=(1), name="gc_fast")
+                lc_fast = tf.placeholder(tf.int32, shape=(1), name="lc_fast")
+
+                gc_fast = tf.one_hot(gc_fast, gc_channels)
+                lc_fast = tf.one_hot(lc_fast, lc_channels)
+
+                tf.add_to_collection("predict_proba_incremental", net.predict_proba_incremental(samples_fast, gc_fast, lc_fast))
+                tf.add_to_collection("push_ops", net.push_ops)
+            """
+
+
+
 
         # Creates a MonitoredSession for training
         # MonitoredSession is a Session-like object that handles

@@ -368,8 +368,12 @@ class WaveNetModel(object):
         if local_condition is not None:
             weights_lcond_filter = variables['lcond_filter']
             weights_lcond_gate = variables['lcond_gate']
-            conv_filter = conv_filter + tf.nn.conv1d(local_condition, weights_lcond_filter, stride=1, padding='SAME')
-            conv_gate = conv_gate + tf.nn.conv1d(local_condition, weights_lcond_gate, stride=1, padding='SAME')
+
+            # TODO: WARNING: This is a hack because CSV reader isnt working yet...
+            local_condition = tf.reshape(local_condition, [1, -1, self.local_channels])
+
+            output_filter = output_filter + tf.nn.conv1d(local_condition, weights_lcond_filter, stride=1, padding='SAME')
+            output_gate = output_gate + tf.nn.conv1d(local_condition, weights_lcond_gate, stride=1, padding='SAME')
 
         if self.use_biases:
             output_filter = output_filter + variables['filter_bias']
@@ -378,12 +382,12 @@ class WaveNetModel(object):
         out = tf.tanh(output_filter) * tf.sigmoid(output_gate)
 
         weights_dense = variables['dense']
-        transformed = tf.matmul(out, weights_dense[0, :, :])
+        transformed = tf.matmul(out, weights_dense)
         if self.use_biases:
             transformed = transformed + variables['dense_bias']
 
         weights_skip = variables['skip']
-        skip_contribution = tf.matmul(out, weights_skip[0, :, :])
+        skip_contribution = tf.matmul(out, weights_skip)
         if self.use_biases:
             skip_contribution = skip_contribution + variables['skip_bias']
 
@@ -514,26 +518,14 @@ class WaveNetModel(object):
 
         return tf.nn.sigmoid(conv2)
 
-    def _one_hot(self, input_batch):
-        '''One-hot encodes the waveform amplitudes.
-
-        This allows the definition of the network as a categorical distribution
-        over a finite set of possible amplitudes.
-        '''
-        with tf.name_scope('one_hot_encode'):
-            # encoded = tf.one_hot(
-            #     input_batch,
-            #     depth=self.quantization_channels,
-            #     dtype=tf.float32)
-            # shape = [self.batch_size, -1, self.quantization_channels]
-            # encoded = tf.reshape(encoded, shape)
-            print input_batch.get_shape()
+    def _data_encode(self, input_batch):
+        with tf.name_scope('data_encode'):
             encoded = input_batch
             shape = [self.batch_size, -1, self.quantization_channels]
             encoded = tf.reshape(encoded, shape)
         return encoded
 
-    def predict_proba(self, waveform, global_condition=None,
+    def predict_proba(self, samples, global_condition=None,
                       local_condition=None, name='wavenet'):
         '''Computes the probability distribution of the next sample based on
         all samples in the input waveform.
@@ -541,10 +533,10 @@ class WaveNetModel(object):
         as an input, see predict_proba_incremental for a faster alternative.'''
         with tf.name_scope(name):
             if self.scalar_input:
-                encoded = tf.cast(waveform, tf.float32)
+                encoded = tf.cast(samples, tf.float32)
                 encoded = tf.reshape(encoded, [-1, 1])
             else:
-                encoded = self._one_hot(waveform)
+                encoded = self._data_encode(samples)
 
             raw_output = self._create_network(encoded, global_condition, local_condition)
             out = tf.reshape(raw_output, [-1, self.quantization_channels])
@@ -558,7 +550,7 @@ class WaveNetModel(object):
             #    [1, self.quantization_channels])
             return out
 
-    def predict_proba_incremental(self, waveform, global_condition=None,
+    def predict_proba_incremental(self, samples, global_condition=None,
                                   local_condition=None, name='wavenet'):
         '''Computes the probability distribution of the next sample
         incrementally, based on a single sample and all previously passed
@@ -570,7 +562,7 @@ class WaveNetModel(object):
             raise NotImplementedError("Incremental generation does not "
                                       "support scalar input yet.")
         with tf.name_scope(name):
-            encoded = self._one_hot(waveform)
+            encoded = self._data_encode(samples)
             encoded = tf.reshape(encoded, [-1, self.quantization_channels])
 
             raw_output = self._create_generator(encoded, global_condition, local_condition)
@@ -582,7 +574,6 @@ class WaveNetModel(object):
             #     [tf.shape(proba)[0] - 1, 0],
             #     [1, self.quantization_channels])
             # return tf.reshape(last, [-1])
-            print out.get_shape()
             return out
 
     def loss(self,

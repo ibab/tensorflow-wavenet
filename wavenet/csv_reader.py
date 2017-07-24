@@ -13,6 +13,7 @@ class CsvReader(object):
         # We use batch size in tf.train.batch to indicate one chunk of data.
         # TODO: Implement a second queue around these blocks if needed.
         batch_size = receptive_field + sample_size
+        self.batch_size = batch_size
 
         self.data_dim = config["data_dim"]
 
