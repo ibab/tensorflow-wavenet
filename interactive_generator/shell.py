@@ -17,7 +17,8 @@ This is an interactive script for testing EveNet.
 TODO:
   - Map from Cereproc phonemes to Sophia phonemes
   - Integrate with ROS & Generator script.
-
+  - Remove my personal password from this script :)
+  
 """
 
 class EveShell(cmd.Cmd):
