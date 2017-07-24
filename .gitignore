@@ -5,3 +5,4 @@ build/
 dist/
 trainer.egg-info/
 output/
+__pycache__
