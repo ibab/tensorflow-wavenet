@@ -253,8 +253,6 @@ def run(target,
             tf.add_to_collection("config", tf.constant(receptive_field_size, name='receptive_field_size'))
             tf.add_to_collection("config", tf.constant(sample_size, name='sample_size'))
 
-            feed_size = receptive_field_size + sample_size # TODO: should this include sample size?
-
             samples = tf.placeholder(tf.float32, shape=(receptive_field_size, reader.data_dim), name="samples")
             gc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="gc")
             lc = tf.placeholder(tf.int32, shape=(receptive_field_size), name="lc")
@@ -264,6 +262,7 @@ def run(target,
 
             tf.add_to_collection("predict_proba", net.predict_proba(samples, gc, lc))
 
+            # TODO: Implement fast generation
             """
             if filter_width <= 2:
                 samples_fast = tf.placeholder(tf.float32, shape=(1, reader.data_dim), name="samples_fast")

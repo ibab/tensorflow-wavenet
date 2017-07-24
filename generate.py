@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import argparse
 from datetime import datetime
-import json
+from termcolor import colored
 import os
 
 # import librosa
@@ -11,10 +11,32 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from wavenet import WaveNetModel, CsvReader
+import json
+
+from socket import *
+import thread
+
+"""
+Training script for the EveNet network.
+
+Telnet:
+
+PHO AX
+EMO Neutral
+
+see reader config for valid...
+
+"""
+
+
+HOST = '127.0.0.1'# must be input parameter @TODO
+PORT = 9999 # must be input parameter @TODO
 
 SAMPLES = 1000
 LOGDIR = './output'
+
+CURRENT_EMOTION = "Undefined"
+CURRENT_PHONEME = "SIL"
 
 def get_arguments():
     def _str_to_bool(s):
@@ -40,6 +62,11 @@ def get_arguments():
         default=SAMPLES,
         help='How many waveform samples to generate')
     parser.add_argument(
+        '--out_path',
+        type=str,
+        default=None,
+        help='Directory in which to store the output')
+    parser.add_argument(
         '--logdir',
         type=str,
         default=LOGDIR,
@@ -55,6 +82,21 @@ def get_arguments():
         type=str,
         default=None,
         help='The data file to start generation from.. Must include .emo and .pho file.')
+    parser.add_argument(
+        '--emotion',
+        type=str,
+        default=CURRENT_EMOTION,
+        help='The emotion to be synthesized.')
+    parser.add_argument(
+        '--phoneme',
+        type=str,
+        default=CURRENT_PHONEME,
+        help='The phoneme to be synthesized')
+    parser.add_argument(
+        '--reader_config',
+        type=str,
+        default="./reader_config.json",
+        help='The configuration file for mapping phonemes and emotions to GC and LC')
 
     arguments = parser.parse_args()
 
@@ -67,10 +109,57 @@ def write_output(data, filename):
     print('Written CSV file at {}'.format(filename))
 
 
+with open(get_arguments().reader_config) as json_file:
+    mapping_config = json.load(json_file)
+
+def get_phoneme_id(phoneme):
+    return mapping_config['phoneme_categories'].index(phoneme)
+
+def get_emotion_id(emotion):
+    return mapping_config['emotion_categories'].index(emotion)
+
+
+""" Network stuff """
+def listener(serversock, arg):
+    while 1:
+        clientsock, addr = serversock.accept()
+        thread.start_new_thread(handler, (clientsock, addr))
+
+def handler(clientsock,addr):
+    global CURRENT_EMOTION, CURRENT_PHONEME
+    while 1:
+        data = clientsock.recv(1024)
+        command = data.split(" ")
+        arg = command[1].strip()
+
+        if command[0]=="EMO":
+            if mapping_config['emotion_categories'].index(arg) > -1:
+                CURRENT_EMOTION = arg
+        if command[0]=="PHO":
+            if mapping_config['phoneme_categories'].index(arg) > -1:
+                CURRENT_PHONEME = arg
+
+def start_socket():
+    print(colored("Listening on port %i" % PORT, 'cyan'))
+    serversock = socket(AF_INET, SOCK_STREAM)
+    serversock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    serversock.bind((HOST, PORT))
+    serversock.listen(5)
+
+    thread.start_new_thread(listener, (serversock, 0))
+
+
+
+
+
+
+
 def main():
     args = get_arguments()
     started_datestring = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
     logdir = os.path.join(args.logdir, 'generate', started_datestring)
+
+    start_socket()
 
     sess = tf.Session()
 
@@ -90,9 +179,6 @@ def main():
     for cfg_tensor in tf.get_collection("config"):
         config[cfg_tensor.name.split(":")[0]] = sess.run(cfg_tensor)
 
-    # TODO: should this really include sample_size?
-    feed_size = config['receptive_field_size'] + config['sample_size']
-
     if args.fast_generation:
         next_sample = tf.get_collection("predict_proba_incremental")[0]
     else:
@@ -101,11 +187,10 @@ def main():
     # TODO: Build up seed placeholders...
     if args.dat_seed:
         raise NotImplementedError("No seed function yet...")
-
     else:
-        data_feed = np.zeros([feed_size,config['data_dim']], dtype=np.float32)
-        gc_feed = np.zeros(feed_size, dtype=np.int32)
-        lc_feed = np.zeros(feed_size, dtype=np.int32)
+        data_feed = np.zeros([config['receptive_field_size'],config['data_dim']], dtype=np.float32)
+        gc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32)
+        lc_feed = np.zeros(config['receptive_field_size'], dtype=np.int32)
 
 
     last_sample_timestamp = datetime.now()
@@ -116,6 +201,7 @@ def main():
             outputs.extend(net.push_ops)
             window_data = data_feed[-1]
 
+            # See Alex repository for feeding in initial samples...
         else:
             if len(data_feed) > config['receptive_field_size']:
                 window_data = data_feed[-config['receptive_field_size']:]
@@ -133,17 +219,14 @@ def main():
 
         data_feed = np.append(data_feed, prediction, axis=0)
         ## TODO: HERE FEED IN THE CONDITIONINGS.
-        gc_feed = np.append(gc_feed, 3)
-        lc_feed = np.append(lc_feed, 3)
+        gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
+        lc_feed = np.append(lc_feed, get_phoneme_id(CURRENT_PHONEME))
 
-        print(prediction)
-
-        # Show progress only once per second.
-        #current_sample_timestamp = datetime.now()
-        #time_since_print = current_sample_timestamp - last_sample_timestamp
-        #if time_since_print.total_seconds() > 1.:
-        #    print('Sample {:3<d}/{:3<d}'.format(step + 1, args.samples), end='\r')
-        #    last_sample_timestamp = current_sample_timestamp
+        # TODO: Output to ROS here...
+        print("%5i %s %s \n %s" % (step,
+                                  colored(CURRENT_EMOTION, 'blue'),
+                                  colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
+                                  colored(str(prediction), 'grey')))
 
 
     # Introduce a newline to clear the carriage return from the progress.
@@ -160,12 +243,11 @@ def main():
     # writer.add_summary(summary_out)
 
     # Save the result as a wav file.
-    if args.wav_out_path:
+    if args.out_path:
         if not args.fast_generation:
-            waveform = waveform[net.receptive_field:]
-        samp = np.array(waveform).reshape([-1, quantization_channels])
-        out = sess.run(decode, feed_dict={samples: samp})
-        write_output(out, args.wav_out_path)
+            data_feed = data_feed[config['receptive_field_size']:]
+        samp = np.array(data_feed).reshape([-1, config['data_dim']])
+        write_output(samp, args.out_path)
 
     print('Finished generating. The result can be viewed in TensorBoard.')
 
