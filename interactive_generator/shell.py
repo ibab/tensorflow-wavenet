@@ -7,7 +7,6 @@ import subprocess
 import cmd, sys
 import xml.etree.ElementTree
 
-
 """
 
 This is an interactive script for testing EveNet.
@@ -55,8 +54,7 @@ class EveShell(cmd.Cmd):
             urlOpener.retrieve(request.fileUrl, "/tmp/sound.ogg")
             urlOpener.retrieve(request.metadataUrl, "/tmp/metadata.xml")
 
-            # play in background...
-            play("/tmp/sound.ogg")
+
 
             # parse XML
             metaDataTree = xml.etree.ElementTree.parse('/tmp/metadata.xml').getroot()
@@ -66,13 +64,17 @@ class EveShell(cmd.Cmd):
                 value = phoneme.items()[2][1]
                 start = float(phoneme.items()[0][1])
                 end = float(phoneme.items()[1][1])
-                nrOfFrames = int((end-start)*48.0)
+                nrOfFrames = int(round((end-start)*EveShell.fps))
 
                 for _ in range(nrOfFrames):
                     phonemeFrames.append(value)
 
+            # play in background...
+            play("/tmp/sound.ogg")
+
+            # Stream the phonemes
             for phoneme in phonemeFrames:
-                print(" %s " % phoneme, end='')
+                print(" %s " % phoneme, end='\n')
                 sys.stdout.flush()
                 sleep(1.0 / EveShell.fps)
 
