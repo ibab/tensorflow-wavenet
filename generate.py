@@ -35,7 +35,7 @@ PORT = 9999 # must be input parameter @TODO
 SAMPLES = 1000
 LOGDIR = './output'
 
-CURRENT_EMOTION = "Undefined"
+CURRENT_EMOTION = "Neutral"
 CURRENT_PHONEME = "SIL"
 
 def get_arguments():

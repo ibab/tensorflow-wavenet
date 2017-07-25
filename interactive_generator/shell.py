@@ -92,6 +92,7 @@ class EveShell(cmd.Cmd):
             sleep(1.0 / EveShell.fps)
 
         EveShell.sock.sendall(b'EMO Neutral')
+        EveShell.sock.sendall(b'PHO SIL')
         print("")
 
 
