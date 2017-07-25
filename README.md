@@ -1,5 +1,7 @@
 # EveNet: Expression of Emotion and Visimes Network
 
+[![Build Status](https://travis-ci.org/elggem/EveNet.svg?branch=master)](https://travis-ci.org/elggem/EveNet)
+
 This is a fork of ibab's excellent implementation of WaveNet. Here we are implementing changes for the generation of facial animations.
 
 ## Requirements
