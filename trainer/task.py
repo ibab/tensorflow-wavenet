@@ -296,10 +296,13 @@ def run(target,
             # Run the training graph which returns the step number as tracked by
             # the global step tensor.
             # When train epochs is reached, session.should_stop() will be true.
-            while (train_steps is None or
-                   step < train_steps) and not session.should_stop():
-                print("step %d" % step)
-                step, _ = session.run([global_step_tensor, train_op])
+            try:
+                while (train_steps is None or
+                       step < train_steps) and not session.should_stop():
+                    print("step %d" % step)
+                    step, _ = session.run([global_step_tensor, train_op])
+            except KeyboardInterrupt:
+                pass
 
 
 def dispatch(*args, **kwargs):

@@ -196,39 +196,41 @@ def main():
 
     last_sample_timestamp = datetime.now()
 
-    for step in range(args.samples):
-        if args.fast_generation:
-            outputs = [next_sample]
-            outputs.extend(net.push_ops)
-            window_data = data_feed[-1]
+    try:
+        for step in range(args.samples):
+            if args.fast_generation:
+                outputs = [next_sample]
+                outputs.extend(net.push_ops)
+                window_data = data_feed[-1]
 
-            # See Alex repository for feeding in initial samples...
-        else:
-            if len(data_feed) > config['receptive_field_size']:
-                window_data = data_feed[-config['receptive_field_size']:]
-                window_gc = gc_feed[-config['receptive_field_size']:]
-                window_lc = lc_feed[-config['receptive_field_size']:]
+                # See Alex repository for feeding in initial samples...
             else:
-                window_data = data_feed[:]
-                window_gc = gc_feed[:]
-                window_lc = lc_feed[:]
+                if len(data_feed) > config['receptive_field_size']:
+                    window_data = data_feed[-config['receptive_field_size']:]
+                    window_gc = gc_feed[-config['receptive_field_size']:]
+                    window_lc = lc_feed[-config['receptive_field_size']:]
+                else:
+                    window_data = data_feed[:]
+                    window_gc = gc_feed[:]
+                    window_lc = lc_feed[:]
 
-            outputs = [next_sample]
+                outputs = [next_sample]
 
-        # Run the WaveNet to predict the next sample.
-        prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc, 'lc:0': window_lc})[0]
+            # Run the WaveNet to predict the next sample.
+            prediction = sess.run(outputs, feed_dict={'samples:0': window_data, 'gc:0': window_gc, 'lc:0': window_lc})[0]
 
-        data_feed = np.append(data_feed, prediction, axis=0)
-        ## TODO: HERE FEED IN THE CONDITIONINGS.
-        gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
-        lc_feed = np.append(lc_feed, get_phoneme_id(CURRENT_PHONEME))
+            data_feed = np.append(data_feed, prediction, axis=0)
+            ## TODO: HERE FEED IN THE CONDITIONINGS.
+            gc_feed = np.append(gc_feed, get_emotion_id(CURRENT_EMOTION))
+            lc_feed = np.append(lc_feed, get_phoneme_id(CURRENT_PHONEME))
 
-        # TODO: Output to ROS here...
-        print("%5i %s %s \n %s" % (step,
-                                  colored(CURRENT_EMOTION, 'blue'),
-                                  colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
-                                  colored(str(prediction), 'grey')))
-
+            # TODO: Output to ROS here...
+            print("%5i %s %s \n %s" % (step,
+                                      colored(CURRENT_EMOTION, 'blue'),
+                                      colored(CURRENT_PHONEME, 'white', 'on_grey', attrs=['bold']),
+                                      colored(str(prediction), 'grey')))
+    except KeyboardInterrupt:
+        pass
 
     # Introduce a newline to clear the carriage return from the progress.
     print()
