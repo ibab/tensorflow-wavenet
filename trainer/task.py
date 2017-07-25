@@ -251,7 +251,7 @@ def run(target,
 
             train_op = optimizer.minimize(loss, var_list=trainable, global_step=global_step_tensor)
 
-            ## Add Generation operator to graph for later use in generate.py
+            # Add Generation operator to graph for later use in generate.py
             tf.add_to_collection("config", tf.constant(reader.data_dim, name='data_dim'))
             tf.add_to_collection("config", tf.constant(receptive_field_size, name='receptive_field_size'))
             tf.add_to_collection("config", tf.constant(sample_size, name='sample_size'))
@@ -278,9 +278,6 @@ def run(target,
                 tf.add_to_collection("predict_proba_incremental", net.predict_proba_incremental(samples_fast, gc_fast, lc_fast))
                 tf.add_to_collection("push_ops", net.push_ops)
             """
-
-
-
 
         # Creates a MonitoredSession for training
         # MonitoredSession is a Session-like object that handles

@@ -266,10 +266,6 @@ class WaveNetModel(object):
             weights_gcond_filter = variables['gcond_filter']
             weights_gcond_gate = variables['gcond_gate']
 
-            #print conv_filter
-            # global_condition = tf.reshape(global_condition, [1, -1, self.global_channels])
-            #print global_condition
-
             conv_filter = conv_filter + tf.matmul(global_condition, weights_gcond_filter)
             conv_gate = conv_gate + tf.matmul(global_condition, weights_gcond_gate)
 
@@ -293,15 +289,13 @@ class WaveNetModel(object):
 
         # The 1x1 conv to produce the residual output
         weights_dense = variables['dense']
-        transformed = tf.nn.conv1d(
-            out, weights_dense, stride=1, padding="SAME", name="dense")
+        transformed = tf.nn.conv1d(out, weights_dense, stride=1, padding="SAME", name="dense")
 
         # The 1x1 conv to produce the skip output
         skip_cut = tf.shape(out)[1] - output_width
         out_skip = tf.slice(out, [0, skip_cut, 0], [-1, -1, -1])
         weights_skip = variables['skip']
-        skip_contribution = tf.nn.conv1d(
-            out_skip, weights_skip, stride=1, padding="SAME", name="skip")
+        skip_contribution = tf.nn.conv1d(out_skip, weights_skip, stride=1, padding="SAME", name="skip")
 
         if self.use_biases:
             dense_bias = variables['dense_bias']
