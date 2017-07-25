@@ -1,4 +1,10 @@
 logdir/
-VCTK-Corpus/
+data/
 *.pyc
+build/
+dist/
+trainer.egg-info/
+output/
+__pycache__
 
+interactive_generator/cerevoice.py

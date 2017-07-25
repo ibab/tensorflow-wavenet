@@ -1,3 +1,3 @@
 #!/bin/sh
-pep8 **/*.py && \
+pep8 --ignore=E501 **/*.py && \
 nosetests -s --nologcapture test

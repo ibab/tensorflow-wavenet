@@ -1,2 +1,0 @@
-librosa>=0.5
-tensorflow>=1.0.0
