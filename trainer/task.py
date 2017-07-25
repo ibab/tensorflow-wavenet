@@ -20,10 +20,13 @@ Training script for the EveNet network.
 
 """
 
+from __future__ import print_function
+
 import argparse
 import json
 import os
 import threading
+import sys
 
 from wavenet import WaveNetModel, CsvReader, optimizer_factory
 
@@ -299,7 +302,8 @@ def run(target,
             try:
                 while (train_steps is None or
                        step < train_steps) and not session.should_stop():
-                    print("step %d" % step)
+                    print("step %d" % step, end=' \r ')
+                    sys.stdout.flush()
                     step, _ = session.run([global_step_tensor, train_op])
             except KeyboardInterrupt:
                 pass
