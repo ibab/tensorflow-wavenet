@@ -130,14 +130,15 @@ def handler(clientsock,addr):
     while 1:
         data = clientsock.recv(1024)
         command = data.split(" ")
-        arg = command[1].strip()
+        if len(command)==2:
+            arg = command[1].strip()
 
-        if command[0]=="EMO":
-            if mapping_config['emotion_categories'].index(arg) > -1:
-                CURRENT_EMOTION = arg
-        if command[0]=="PHO":
-            if mapping_config['phoneme_categories'].index(arg) > -1:
-                CURRENT_PHONEME = arg
+            if command[0]=="EMO":
+                if arg in mapping_config['emotion_categories']:
+                    CURRENT_EMOTION = arg
+            if command[0]=="PHO":
+                if arg in mapping_config['phoneme_categories']:
+                    CURRENT_PHONEME = arg
 
 def start_socket():
     print(colored("Listening on port %i" % PORT, 'cyan'))
