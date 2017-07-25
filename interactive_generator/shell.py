@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-from suds.client import Client
+from ttsserver.api import cerevoice
 from termcolor import colored
 from time import sleep
 import urllib
@@ -17,14 +17,15 @@ This is an interactive script for testing EveNet.
 TODO:
   - Map from Cereproc phonemes to Sophia phonemes
   - Integrate with ROS & Generator script.
-  - Remove my personal password from this script :)
 
 """
 
 class EveShell(cmd.Cmd):
 
     # Cerevoice
-    client = Client("https://cerevoice.com/soap/soap_1_1.php?WSDL")
+    api = cerevoice.CereVoice(voice_dir="/home/ralf/.hr/tts/voices",
+                              license_dir="/home/ralf/.hr/tts/licenses",
+                              voice="katherine")
 
     # Emotions
     emotions = [colored('Angry', 'red'),
@@ -50,44 +51,26 @@ class EveShell(cmd.Cmd):
     def do_say(self, arg):
         'Say something using current emotion.'
         speakString = arg
-        request = EveShell.client.service.speakExtended("59746f2101ec1", "LJpcC67e3u", "Kirsty", speakString, metadata=True)
+        request = EveShell.api.tts(speakString)
 
-        if request.resultCode == 1:
-            print(" %s" % request.resultDescription)
+        phonemeFrames = []
 
-            urlOpener = urllib.URLopener()
-            urlOpener.retrieve(request.fileUrl, "/tmp/sound.ogg")
-            urlOpener.retrieve(request.metadataUrl, "/tmp/metadata.xml")
+        for phoneme in request.phonemes:
+            nrOfFrames = int(round((phoneme['end']-phoneme['start'])*EveShell.fps))
+            for _ in range(nrOfFrames):
+                phonemeFrames.append(phoneme['name'])
 
+        # play in background...
+        play(request.wavout)
 
+        # Stream the phonemes
+        for phoneme in phonemeFrames:
+            print("Current phoneme: %s " % colored(phoneme, 'white', 'on_grey', attrs=['bold']), end=' \r ')
+            sys.stdout.flush()
+            sleep(1.0 / EveShell.fps)
 
-            # parse XML
-            metaDataTree = xml.etree.ElementTree.parse('/tmp/metadata.xml').getroot()
-            phonemeFrames = []
+        print("")
 
-            for phoneme in metaDataTree.findall("phone"):
-                value = phoneme.items()[2][1]
-                start = float(phoneme.items()[0][1])
-                end = float(phoneme.items()[1][1])
-                nrOfFrames = int(round((end-start)*EveShell.fps))
-
-                for _ in range(nrOfFrames):
-                    phonemeFrames.append(value)
-
-            # play in background...
-            play("/tmp/sound.ogg")
-
-            # Stream the phonemes
-            for phoneme in phonemeFrames:
-                print("Current phoneme: %s " % colored(phoneme, 'white', 'on_grey', attrs=['bold']), end=' \r ')
-                sys.stdout.flush()
-                sleep(1.0 / EveShell.fps)
-
-            print("")
-
-        else:
-            print("ERROR")
-            print(request)
 
     def do_emo(self, arg):
         'Switch emotion according to ID'
