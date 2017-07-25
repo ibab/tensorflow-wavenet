@@ -1,7 +1,7 @@
 from setuptools import find_packages
 from setuptools import setup
 
-REQUIRED_PACKAGES = ['pandas', 'numpy']
+REQUIRED_PACKAGES = ['pandas', 'numpy', 'termcolor']
 
 setup(name='trainer',
       version='0.1',

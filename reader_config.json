@@ -1,6 +1,6 @@
 {
   "data_suffix": ".dat",
-  "data_dim": 57,
+  "data_dim": 58,
 
   "emotion_enabled": true,
   "emotion_dim": 1,

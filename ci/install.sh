@@ -8,4 +8,4 @@ conda update -q conda
 
 conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
 source activate test
-pip install -r requirements_test.txt
+python setup.py install
