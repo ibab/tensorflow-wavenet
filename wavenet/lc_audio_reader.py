@@ -200,7 +200,6 @@ class AudioReader():
 			# for MiDi LoCo, instatiate MidiMapper()
 			if self.lc_enabled:
 				mapper = MidiMapper(sample_rate = self.sample_rate,
-									q_size = self.q_size,
 									lc_channels = self.lc_channels,
 									sess = self.sess)
 
@@ -227,7 +226,7 @@ class AudioReader():
 							  .format(filename))
 						continue
 
-				# now pad beginning of samples with n = receptive_field number of 0s 
+				# now pad beginning of samples with n = receptive_ field number of 0s 
 				# TODO: figure out why we are padding this ???
 				audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], 'constant')
 
@@ -293,7 +292,7 @@ class MidiMapper():
 	
 	def __init__(self,
 				 sample_rate = 16000,
-				 q_size = None,
+				 q_size = 100000,
 				 lc_channels = 128,
 				 sess = None):
 		# input variabels
@@ -327,7 +326,7 @@ class MidiMapper():
 		'''Allow midi file to be reassigned at runtime so that new MidiMappers
 		   do not have to be instantiated for the each new midi file'''
 		self.midi = midi
-		self.get_midi_metadata()
+		self.update_midi_metadata()
 
 
 	def sample_to_microseconds(self, sample_num):
@@ -352,7 +351,7 @@ class MidiMapper():
 		return ((self.tempo / self.resolution))
 	
 	
-	def get_midi_metadata(self):
+	def update_midi_metadata(self):
 		'''gets all the metadata here from the midi file header'''
 		tempo = None
 		track = self.midi[0]
@@ -511,4 +510,7 @@ class MidiMapper():
 			print("The given MIDI file is longer than the matching .wav file. Please check that the MIDI and .wav line up correctly.")
 			# then continue like it isn't our fault
 
-		return self.mapper_lc_q.dequeue_many(self.mapper_lc_q.size(end_sample - start_sample))
+		smaples = self.mapper_lc_q.dequeue_many(self.mapper_lc_q.size(end_sample - start_sample))
+
+		lc_batch = tf.pack(samples)
+		return lc_batch
