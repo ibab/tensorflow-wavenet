@@ -115,7 +115,7 @@ def trim_silence(audio, threshold, frame_length = 2048):
 	# Note: indices can be an empty array, if the whole audio was silence.
 	return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
 
-class AudioReader():
+class LCAudioReader():
 	def __init__(self,
 				data_dir,
 				coord,
@@ -124,9 +124,9 @@ class AudioReader():
 				lc_enabled = False,
 				lc_channels = None,
 				lc_fileformat = None,
+				sample_rate = 16000,
 				sample_size = None,
 				silence_threshold = None,
-				sample_rate = 16000,
 				q_size = 32,
 				sess = None):
 		# Input member vars initialiations
