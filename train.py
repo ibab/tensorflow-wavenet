@@ -227,6 +227,7 @@ def main():
             sample_size=args.sample_size,
             silence_threshold=silence_threshold)
         audio_batch = reader.dequeue(args.batch_size)
+        target_audio_batch = reader.dequeue_target(args.batch_size)
         if gc_enabled:
             gc_id_batch = reader.dequeue_gc(args.batch_size)
         else:
@@ -251,6 +252,7 @@ def main():
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(input_batch=audio_batch,
+                    target_batch=target_audio_batch,
                     global_condition_batch=gc_id_batch,
                     l2_regularization_strength=args.l2_regularization_strength)
     optimizer = optimizer_factory[args.optimizer](
