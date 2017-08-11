@@ -17,12 +17,11 @@ def load_file_test():
 		'''Expects two midi and two audio files named the same file name and checks if the load files works as expected.'''
 
 		# Set ground truths
-		expected_audio_len = [1812828, 5879478, 64007]
-		expected_filename = ['/home/vijay/Desktop/Summer2k17/Research/LCWavenet/test1_format0.wav',
-							 '/home/vijay/Desktop/Summer2k17/Research/LCWavenet/ty_juli_format0.wav',
-							 '/home/vijay/Desktop/Summer2k17/Research/LCWavenet/mond_1_format0.wav']
-		expected_gc_id = [None, None, None]
-		expected_lc_timeseries = [3347, 2679, 5]
+		expected_audio_len = []
+		expected_filename = ['/home/vijay/Desktop/Summer2k17/Research/LCWavenet/notes_test_format0.wav',
+							 '/home/vijay/Desktop/Summer2k17/Research/LCWavenet/scale_test_format0.wav']
+		expected_gc_id = [None, None]
+		expected_lc_timeseries_len = [3347, ]
 
 		# load_files yields a generator
 		iterator = load_files(TEST_DATA_DIR, 16000, False, True, LC_FILEFORMAT)
@@ -44,7 +43,7 @@ def load_file_test():
 
 			# check midi output length
 			lc_length = len(lc_timeseries[0])
-			assert (lc_length in expected_lc_timeseries), "Length of MIDI timeseries {} not expected.".format(index_counter)
+			assert (lc_length in expected_lc_timeseries_len), "Length of MIDI timeseries {} not expected.".format(index_counter)
 
 			index_counter += 1
 
@@ -68,9 +67,9 @@ class AudioReaderTest(tf.test.TestCase):
 							lc_fileformat = LC_FILEFORMAT,
 							sess = sess)
 
-			dqd_audio = self.reader.dq_audio(100)
+			dqd_audio = self.reader.dq_audio(1)
 			print("Here 1")
-			dqd_upsampled_midi = self.reader.dq_lc(100)
+			dqd_upsampled_midi = self.reader.dq_lc(1)
 			print(dqd_audio)
 			print(dqd_upsampled_midi)
 			print("Here 2")
