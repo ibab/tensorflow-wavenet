@@ -70,7 +70,9 @@ def trim_silence(audio, target_audio, threshold, frame_length=2048):
     indices = librosa.core.frames_to_samples(frames)[1]
 
     # Note: indices can be an empty array, if the whole audio was silence.
-    return (audio[indices[0]:indices[-1]], target_audio[indices[0]:indices[-1]]) if indices.size else (audio[0:0], target_audio[0:0])
+    return (audio[indices[0]:indices[-1]],
+            target_audio[indices[0]:indices[-1]]) if indices.size else (
+        audio[0:0], target_audio[0:0])
 
 
 def not_all_have_id(files):
@@ -112,11 +114,13 @@ class AudioReader(object):
                                          shapes=[(None, 1)])
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
 
-        self.target_sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
+        self.target_sample_placeholder = tf.placeholder(dtype=tf.float32,
+                                                        shape=None)
         self.target_queue = tf.PaddingFIFOQueue(queue_size,
                                                 ['float32'],
                                                 shapes=[(None, 1)])
-        self.target_enqueue = self.target_queue.enqueue([self.target_sample_placeholder])
+        self.target_enqueue = self.target_queue.enqueue(
+            [self.target_sample_placeholder])
 
         if self.gc_enabled:
             self.id_placeholder = tf.placeholder(dtype=tf.int32, shape=())
@@ -164,15 +168,21 @@ class AudioReader(object):
         # Go through the dataset multiple times
         while not stop:
             iterator = load_generic_audio(self.audio_dir, self.sample_rate)
-            target_iterator = load_generic_audio(self.target_audio_dir, self.sample_rate)
-            for (audio, filename, category_id), (target_audio, target_filename, target_category_id) in (iterator, target_iterator):
+            target_iterator = load_generic_audio(self.target_audio_dir,
+                                                 self.sample_rate)
+            for (audio, filename, category_id), (
+                    target_audio, target_filename, target_category_id) in (
+                    iterator, target_iterator):
                 if self.coord.should_stop():
                     stop = True
                     break
                 if self.silence_threshold is not None:
                     # Remove silence
-                    audio, target_audio = trim_silence(audio[:, 0], target_audio[:, 0], self.silence_threshold)
-                    audio, target_audio = audio.reshape(-1, 1), target_audio.reshape(-1, 1)
+                    audio, target_audio = trim_silence(audio[:, 0],
+                                                       target_audio[:, 0],
+                                                       self.silence_threshold)
+                    audio, target_audio = audio.reshape(-1, 1), \
+                        target_audio.reshape(-1, 1)
                     if audio.size == 0:
                         print("Warning: {} was ignored as it contains only "
                               "silence. Consider decreasing trim_silence "
@@ -181,7 +191,8 @@ class AudioReader(object):
 
                 audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]],
                                'constant')
-                target_audio = np.pad(target_audio, [[self.receptive_field, 0], [0, 0]],
+                target_audio = np.pad(target_audio,
+                                      [[self.receptive_field, 0], [0, 0]],
                                       'constant')
 
                 if self.sample_size:
@@ -195,7 +206,8 @@ class AudioReader(object):
                         sess.run(self.enqueue,
                                  feed_dict={
                                      self.sample_placeholder: piece,
-                                     self.target_sample_placeholder: target_piece
+                                     self.target_sample_placeholder:
+                                         target_piece
                                  })
                         audio = audio[self.sample_size:, :]
                         target_audio = target_audio[self.sample_size:, :]
