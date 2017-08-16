@@ -176,19 +176,32 @@ class LCAudioReader():
 			if not lc_files:
 				raise ValueError("No MIDI files found in '{}'".format(self.data_dir))
 
+	def get_gc_cardinality(self):
+		'''ADAPT:
+			this is where we return the total number of unique GC embeddings
+			for now, we do not have any particular scheme for GC'''
+		return None
+
 	def dq_audio(self, num_elements):
+		'''Deques audio samples. Each element is an entire sample batch'''
 		return self.q_audio.dequeue_many(num_elements)
 
 
 	def dq_gc(self, num_elements):
+		'''Deques corresponding GC embeddings samples. Each element is an entire sample batch'''
 		return self.q_gc.dequeue_many(num_elements)
 
 	
 	def dq_lc(self, num_elements):
+		'''Deques corresponding LC embeddings samples. Each element is an entire sample batch'''
 		return self.q_lc.dequeue_many(num_elements)
 
 	
 	def input_stream(self):
+		'''this is the main thread which gets the file names and GC embedding 
+			and LC file name from the load_files
+			and then pre-processes the audio for silence trimming (if enabled)
+			and then up smaples the local conditioning feeds them to the queues'''
 		stop = False
 
 		# keep looping until training is done
@@ -196,7 +209,7 @@ class LCAudioReader():
 			# get the list of files and related data
 			iterator = load_files(self.data_dir, self.sample_rate, self.gc_enabled, self.lc_enabled, self.lc_fileformat)
 
-			# ADAPT
+			# ADAPT:
 			# for MiDi LoCo, instatiate MidiMapper()
 			if self.lc_enabled:
 				mapper = MidiMapper(sample_rate = self.sample_rate,
