@@ -288,7 +288,7 @@ def main():
 									wavenet_params["dilations"],
 									wavenet_params["scalar_input"],
 									wavenet_params["initial_filter_width"]),
-							   gc_enabled = args.gc_enabled,
+							   gc_enabled = gc_enabled,
 							   lc_enabled = lc_enabled,
 							   lc_channels = args.lc_channels,
 							   lc_fileformat = args.lc_fileformat,
