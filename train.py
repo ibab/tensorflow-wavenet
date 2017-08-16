@@ -280,7 +280,7 @@ def main():
 
 		if args.lc_fileformat is not None and not lc_enabled:
 			raise ValueError("LC channels have to be set when a LC file format is specified.")
-				
+		
 		reader = LCAudioReader(data_dir = args.data_dir,
 							   coord = coord,
 							   receptive_field = WaveNetModel.calculate_receptive_field(
@@ -324,15 +324,15 @@ def main():
 		scalar_input = wavenet_params["scalar_input"],
 		initial_filter_width = wavenet_params["initial_filter_width"],
 		histograms = args.histograms,
-		global_condition_channels = args.gc_channels,
-		global_condition_cardinality = reader.get_gc_cardinality())
+		gc_channels = args.gc_channels,
+		gc_cardinality = reader.get_gc_cardinality())
 
 	if args.l2_regularization_strength == 0:
 		args.l2_regularization_strength = None
 
 	# create loss
 	loss = net.loss(input_batch = audio_batch,
-					global_condition_batch = gc_id_batch,
+					gc_batch = gc_id_batch,
 					lc_encoded_batch = lc_encoded_batch,
 					l2_regularization_strength = args.l2_regularization_strength)
 
