@@ -65,8 +65,9 @@ def get_args():
 		default = SAVE_EVERY,
 		help = 'How many samples before saving in-progress wav')
 	
-	parser.add_argument('--disable-fast-generation',
-		action = 'store_false',
+	parser.add_argument('--fast-generation',
+		type = bool,
+		default  = True,
 		help = 'Use fast generation')
 	
 	parser.add_argument('--wav-seed',
@@ -101,7 +102,7 @@ def get_args():
 
 	parser.add_argument('--lc-filepath',
 	    type = str,
-	    default = None,
+	    defauly = None,
 	    help = "Path to the file to be used for local condition based generation. Default: None. Expecting: string.")
 
 	args = parser.parse_args()
@@ -163,14 +164,15 @@ def main():
 		gc_cardinality = args.gc_cardinality,
 		lc_channels = args.lc_channels)
 
+
 	samples = tf.placeholder(tf.int32)
 
-	if not args.disable_fast_generation:
+	if args.fast_generation:
 		next_sample = net.predict_proba_incremental(samples, args.gc_id)
 	else:
 		next_sample = net.predict_proba(samples, args.gc_id)
 
-	if not args.disable_fast_generation:
+	if args.fast_generation:
 		sess.run(tf.global_variables_initializer())
 		sess.run(net.init_ops)
 
