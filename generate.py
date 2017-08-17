@@ -67,7 +67,7 @@ def get_args():
 	
 	parser.add_argument('--fast-generation',
 		type = bool,
-		default  = True,
+		default = True,
 		help = 'Use fast generation')
 	
 	parser.add_argument('--wav-seed',
@@ -102,7 +102,7 @@ def get_args():
 
 	parser.add_argument('--lc-filepath',
 	    type = str,
-	    defauly = None,
+	    default = None,
 	    help = "Path to the file to be used for local condition based generation. Default: None. Expecting: string.")
 
 	args = parser.parse_args()
