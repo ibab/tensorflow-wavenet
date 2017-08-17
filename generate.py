@@ -101,7 +101,7 @@ def get_args():
 
 	parser.add_argument('--lc-filepath',
 	    type = str,
-	    defauly = None,
+	    default = None,
 	    help = "Path to the file to be used for local condition based generation. Default: None. Expecting: string.")
 
 	args = parser.parse_args()
