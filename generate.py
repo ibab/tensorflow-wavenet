@@ -77,8 +77,8 @@ def get_args():
 	parser.add_argument('--gc-channels',
 		type = int,
 		default = None,
-		help = 'Number of global condition embedding channels. Omit if no global conditioning.')
-	
+		help = 'Number of global condition channels. Default: None. Expecting: int')
+
 	parser.add_argument('--gc-cardinality',
 		type = int,
 		default = None,
@@ -88,8 +88,24 @@ def get_args():
 		type = int,
 		default = None,
 		help = 'ID of category to generate, if globally conditioned.')
-	
+
+	parser.add_argument('--lc-channels',
+		type = int,
+		default = None,
+		help = "Number of local conditioning channels. Default: None. Expecting: int")
+
+	parser.add_argument('--lc-fileformat',
+		type = str,
+		default = None,
+		help = "Extension of files being used for local conditioning. Default: None. Expecting: string")
+
+	parser.add_argument('--lc-filepath',
+	    type = str,
+	    defauly = None,
+	    help = "Path to the file to be used for local condition based generation. Default: None. Expecting: string.")
+
 	args = parser.parse_args()
+
 	if args.gc_channels is not None:
 		if args.gc_cardinality is None:
 			raise ValueError("Globally conditioning but gc-cardinality not specified.")
@@ -126,6 +142,7 @@ def main():
 	args = get_args()
 	started_datestring = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 	logdir = os.path.join(args.logdir, 'generate', started_datestring)
+	
 	with open(args.wavenet_params, 'r') as config_file:
 		wavenet_params = json.load(config_file)
 
@@ -143,7 +160,8 @@ def main():
 		scalar_input = wavenet_params['scalar_input'],
 		initial_filter_width = wavenet_params['initial_filter_width'],
 		gc_channels = args.gc_channels,
-		gc_cardinality = args.gc_cardinality)
+		gc_cardinality = args.gc_cardinality,
+		lc_channels = args.lc_channels)
 
 	samples = tf.placeholder(tf.int32)
 
@@ -167,6 +185,7 @@ def main():
 	decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
 
 	quantization_channels = wavenet_params['quantization_channels']
+
 	if args.wav_seed:
 		seed = create_seed(args.wav_seed,
 						   wavenet_params['sample_rate'],

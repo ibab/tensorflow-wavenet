@@ -57,100 +57,100 @@ def get_arguments():
 								'TensorBoard. Default: ' + str(METADATA) + '.')
 	
 	parser.add_argument('--logdir',
-						type = str,
-						default = None,
-						help = 'Directory in which to store the logging '
-								'information for TensorBoard. '
-								'If the model already exists, it will restore '
-								'the state and will continue training. '
-								'Cannot use with --logdir_root and --restore_from.')
+		type = str,
+		default = None,
+		help = 'Directory in which to store the logging '
+				'information for TensorBoard. '
+				'If the model already exists, it will restore '
+				'the state and will continue training. '
+				'Cannot use with --logdir_root and --restore_from.')
 	
 	parser.add_argument('--logdir-root', type = str, default = None,
-						help = 'Root directory to place the logging '
-								'output and generated model. These are stored '
-								'under the dated subdirectory of --logdir_root. '
-								'Cannot use with --logdir.')
+		help = 'Root directory to place the logging '
+				'output and generated model. These are stored '
+				'under the dated subdirectory of --logdir_root. '
+				'Cannot use with --logdir.')
 	
 	parser.add_argument('--restore-from', type = str, default = None,
-						help = 'Directory in which to restore the model from. '
-								'This creates the new model under the dated directory '
-								'in --logdir_root. '
-								'Cannot use with --logdir.')
+		help = 'Directory in which to restore the model from. '
+				'This creates the new model under the dated directory '
+				'in --logdir_root. '
+				'Cannot use with --logdir.')
 	
 	parser.add_argument('--checkpoint-every',
-						type = int,
-						default = CHECKPOINT_EVERY,
-						help = 'How many steps to save each checkpoint after. Default: ' + str(CHECKPOINT_EVERY) + '.')
+		type = int,
+		default = CHECKPOINT_EVERY,
+		help = 'How many steps to save each checkpoint after. Default: ' + str(CHECKPOINT_EVERY) + '.')
 	
 	parser.add_argument('--num-steps',
-						type = int,
-						default = NUM_STEPS,
-						help = 'Number of training steps. Default: ' + str(NUM_STEPS) + '. Expects: int')
+		type = int,
+		default = NUM_STEPS,
+		help = 'Number of training steps. Default: ' + str(NUM_STEPS) + '. Expects: int')
 	
 	parser.add_argument('--learning-rate',
-						type = float,
-						default = LEARNING_RATE,
-						help = 'Learning rate for training. Default: ' + str(LEARNING_RATE) + '. Expects: float32')
-	
+		type = float,
+		default = LEARNING_RATE,
+		help = 'Learning rate for training. Default: ' + str(LEARNING_RATE) + '. Expects: float32')
+
 	parser.add_argument('--wavenet-params',
-						type = str,
-						default = WAVENET_PARAMS,
-						help = 'JSON file with the network parameters. Default: ' + WAVENET_PARAMS + '. Expects: string')
-	
+		type = str,
+		default = WAVENET_PARAMS,
+		help = 'JSON file with the network parameters. Default: ' + WAVENET_PARAMS + '. Expects: string')
+
 	parser.add_argument('--sample-size',
-						type = int,
-						default = SAMPLE_SIZE,
-						help = 'Concatenate and cut audio samples to this many '
-						'samples. Default: ' + str(SAMPLE_SIZE) + '. Expects: int')
+		type = int,
+		default = SAMPLE_SIZE,
+		help = 'Concatenate and cut audio samples to this many '
+		'samples. Default: ' + str(SAMPLE_SIZE) + '. Expects: int')
 	
 	parser.add_argument('--l2-regularization-strength',
-						type = float,
-						default = L2_REGULARIZATION_STRENGTH,
-						help = 'Coefficient in the L2 regularization. '
-						'Default: False. Expects: float32')
-	
+		type = float,
+		default = L2_REGULARIZATION_STRENGTH,
+		help = 'Coefficient in the L2 regularization. '
+		'Default: False. Expects: float32')
+
 	parser.add_argument('--silence-threshold',
-						type = float,
-						default = SILENCE_THRESHOLD,
-						help = 'Volume threshold below which to trim the start '
-						'and the end from the training set samples. Default: ' + str(SILENCE_THRESHOLD) + '. Expects: int')
+		type = float,
+		default = SILENCE_THRESHOLD,
+		help = 'Volume threshold below which to trim the start '
+		'and the end from the training set samples. Default: ' + str(SILENCE_THRESHOLD) + '. Expects: int')
 	
 	parser.add_argument('--optimizer',
-						type = str,
-						default = 'adam',
-						choices = optimizer_factory.keys(),
-						help = 'Select the optimizer specified by this option. Default: adam. Expects: string')
+		type = str,
+		default = 'adam',
+		choices = optimizer_factory.keys(),
+		help = 'Select the optimizer specified by this option. Default: adam. Expects: string')
 	
 	parser.add_argument('--momentum',
-						type = float,
-						default = MOMENTUM,
-						help = 'Specify the momentum to be '
-						'used by sgd or rmsprop optimizer. Ignored by the '
-						'adam optimizer. Default: ' + str(MOMENTUM) + '. Expects: float32')
+		type = float,
+		default = MOMENTUM,
+		help = 'Specify the momentum to be '
+		'used by sgd or rmsprop optimizer. Ignored by the '
+		'adam optimizer. Default: ' + str(MOMENTUM) + '. Expects: float32')
 	
 	parser.add_argument('--histograms',
-						action = 'store_true',
-						help = 'Whether to store histogram summaries. Default: False')
+		action = 'store_true',
+		help = 'Whether to store histogram summaries. Default: False')
 	
 	parser.add_argument('--gc-channels',
-						type = int,
-						default = None,
-						help = 'Number of global condition channels. Default: None. Expecting: int')
-	
+		type = int,
+		default = None,
+		help = 'Number of global condition channels. Default: None. Expecting: int')
+
 	parser.add_argument('--lc-channels',
-						type = int,
-						default = None,
-						help = "Number of local conditioning channels. Default: None. Expecting: int")
+		type = int,
+		default = None,
+		help = "Number of local conditioning channels. Default: None. Expecting: int")
 
 	parser.add_argument('--lc-fileformat',
-						type = str,
-						default = None,
-						help = "Extension of files being used for local conditioning. Default: None. Expecting: string")
+		type = str,
+		default = None,
+		help = "Extension of files being used for local conditioning. Default: None. Expecting: string")
 
 	parser.add_argument('--max-checkpoints',
-						type = int,
-						default = MAX_TO_KEEP,
-						help = 'Maximum amount of checkpoints that will be kept alive. Default: ' + str(MAX_TO_KEEP) + '.')
+		type = int,
+		default = MAX_TO_KEEP,
+		help = 'Maximum amount of checkpoints that will be kept alive. Default: ' + str(MAX_TO_KEEP) + '.')
 	
 	return parser.parse_args()
 
@@ -325,7 +325,8 @@ def main():
 		initial_filter_width = wavenet_params["initial_filter_width"],
 		histograms = args.histograms,
 		gc_channels = args.gc_channels,
-		gc_cardinality = reader.get_gc_cardinality())
+		gc_cardinality = reader.get_gc_cardinality(),
+		lc_channels = args.lc_channels)
 
 	if args.l2_regularization_strength == 0:
 		args.l2_regularization_strength = None
