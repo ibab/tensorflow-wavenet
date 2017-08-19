@@ -114,6 +114,13 @@ def get_args():
 		if args.gc_id is None:
 			raise ValueError("Globally conditioning enalbed but not GC ID specified.")
 
+	if args.lc_channels is not None:
+		if args.lc_fileformat is None:
+			raise ValueError("Local conditioning enabled with channels but no file format specified.")
+
+		if args.lc_filepath is None:
+			raise ValueError("No local conditioning file provided in the LC filepath")
+
 	return args
 
 
