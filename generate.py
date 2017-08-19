@@ -171,9 +171,10 @@ def main():
 		gc_cardinality = args.gc_cardinality,
 		lc_channels = args.lc_channels)
 
-
+	# TODO: decide where to load the midi file and upsample it using the MIDI mapper
 	samples = tf.placeholder(tf.int32)
 
+	# TODO: if we instantiate the mapper here, we would feed the LC embedding here to the prediction function
 	if args.fast_generation:
 		next_sample = net.predict_proba_incremental(samples, args.gc_id)
 	else:
@@ -181,13 +182,18 @@ def main():
 
 	if args.fast_generation:
 		sess.run(tf.global_variables_initializer())
+
+		# init_ops is inside model.create_generator
+		# init_ops = init = q.enqueue_many(tf.zeros((1, self.batch_size, self.quantization_channels)))
 		sess.run(net.init_ops)
 
+	# gather all vars to restore
 	variables_to_restore = {
 		var.name[:-2]: var for var in tf.global_variables()
 		if not ('state_buffer' in var.name or 'pointer' in var.name)}
 	saver = tf.train.Saver(variables_to_restore)
-
+	
+	# restore all vars
 	print('Restoring model from {}'.format(args.checkpoint))
 	saver.restore(sess, args.checkpoint)
 
@@ -195,7 +201,9 @@ def main():
 
 	quantization_channels = wavenet_params['quantization_channels']
 
+	# if we are local conditioning then we should not need a seed at the beginning
 	if args.wav_seed:
+		# should not need this for LC
 		seed = create_seed(args.wav_seed,
 						   wavenet_params['sample_rate'],
 						   quantization_channels,
@@ -210,7 +218,7 @@ def main():
 		# When using the incremental generation, we need to
 		# feed in all priming samples one by one before starting the
 		# actual generation.
-		# TODO This could be done much more efficiently by passing the waveform
+		# This could be done much more efficiently by passing the waveform
 		# to the incremental generator as an optional argument, which would be
 		# used to fill the queues initially.
 		outputs = [next_sample]
@@ -224,9 +232,16 @@ def main():
 		print('Done.')
 
 	last_sample_timestamp = datetime.now()
+
+	# for each sample to be generated do the ops in the loop
 	for step in range(args.samples):
+		# this is where it should be changed to account for LC?
 		if args.fast_generation:
 			outputs = [next_sample]
+			# push_ops is inside model's create_generator
+			# where push_ops.append(push)
+			# where push = q.enqueue([current_layer])
+			# where current_layer = input_batch of the input to the create_generator function
 			outputs.extend(net.push_ops)
 			window = waveform[-1]
 		else:
@@ -237,8 +252,9 @@ def main():
 			outputs = [next_sample]
 
 		# Run the WaveNet to predict the next sample.
-		prediction = sess.run(outputs, feed_dict={samples: window})[0]
+		prediction = sess.run(outputs, feed_dict = {samples : window})[0]
 
+		# this should not need to be changed for LC
 		# Scale prediction distribution using temperature.
 		np.seterr(divide = 'ignore')
 		scaled_prediction = np.log(prediction) / args.temperature
