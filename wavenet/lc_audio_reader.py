@@ -176,11 +176,13 @@ class LCAudioReader():
 			if not lc_files:
 				raise ValueError("No MIDI files found in '{}'".format(self.data_dir))
 
+
 	def get_gc_cardinality(self):
 		'''ADAPT:
 			this is where we return the total number of unique GC embeddings
 			for now, we do not have any particular scheme for GC'''
 		return None
+
 
 	def dq_audio(self, num_elements):
 		'''Deques audio samples. Each element is an entire sample batch'''
@@ -201,7 +203,7 @@ class LCAudioReader():
 		'''this is the main thread which gets the file names and GC embedding 
 			and LC file name from the load_files
 			and then pre-processes the audio for silence trimming (if enabled)
-			and then up smaples the local conditioning feeds them to the queues'''
+			and then up samples the local conditioning feeds them to the queues'''
 		stop = False
 
 		# keep looping until training is done
@@ -394,10 +396,8 @@ class MidiMapper():
 
 		# this is the PPQ (pulses per quarter note, aka ticks per beat). Constant.
 		resolution = self.midi.resolution
-		if tempo is None:
-			self.tempo = 500000
-		else:
-			self.tempo = tempo
+
+		self.tempo = tempo if tempo is not None else 500000
 
 		self.resolution = resolution
 		self.first_note_index = first_note_index
@@ -515,7 +515,7 @@ class MidiMapper():
 			print("Current time is {}".format(current_time))
 
 
-		# save current midi track pointer in case song is cunked up
+		# save current midi track pointer in case the song is cunked up
 		self.first_note_index = counter
 		
 		# current_time = end_time, but the MIDI isn't at the end of the track yet
@@ -523,7 +523,9 @@ class MidiMapper():
 			print("The given MIDI file is longer than the matching .wav file. Please check that the MIDI and .wav line up correctly.")
 			# then continue like it isn't our fault
 
-		smaples = self.mapper_lc_q.dequeue_many(self.mapper_lc_q.size(end_sample - start_sample))
+		# now return all indicidual embeddings as one list
+		samples = self.mapper_lc_q.dequeue_many(self.mapper_lc_q.size())
 
+		# pack all individual embeddings along the 0th dimention into one tensor
 		lc_batch = tf.pack(samples)
 		return lc_batch

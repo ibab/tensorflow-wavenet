@@ -9,6 +9,7 @@ import os
 import librosa
 import numpy as np
 import tensorflow as tf
+import midi
 
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
@@ -75,6 +76,7 @@ def get_args():
 		default = None,
 		help = 'The wav file to start generation from')
 	
+	# GC params
 	parser.add_argument('--gc-channels',
 		type = int,
 		default = None,
@@ -90,6 +92,7 @@ def get_args():
 		default = None,
 		help = 'ID of category to generate, if globally conditioned.')
 
+	# LC params
 	parser.add_argument('--lc-channels',
 		type = int,
 		default = None,
@@ -105,6 +108,11 @@ def get_args():
 	    default = None,
 	    help = "Path to the file to be used for local condition based generation. Default: None. Expecting: string.")
 
+	parse.add_argument('--sample-rate',
+		type = int,
+		default = 16000,
+		help = "Default sample rate of the wav file. Used for properly upsampling the LC file. Default: 16000. Expecting: int.")
+	
 	args = parser.parse_args()
 
 	if args.gc_channels is not None:
@@ -120,6 +128,11 @@ def get_args():
 
 		if args.lc_filepath is None:
 			raise ValueError("No local conditioning file provided in the LC filepath")
+
+	if args.lc_channels and args.samples:
+		print("WARNING: LC enabled and number of samples to be generated also given. \
+			In this case, the sample number will be ignored. Total number of samples \
+			generated will depend on the LC file.")
 
 	return args
 
@@ -144,6 +157,10 @@ def create_seed(filename,
 						lambda: tf.constant(window_size))
 
 	return quantized[:cut_index]
+
+def get_generation_length_from_midi(sample_rate, midi_filepath):
+	'''Takes in a sample rate and a path to a MIDI file and 
+		returns the lenght of generation WAV file in samples and microseconds'''
 
 
 def main():
@@ -171,10 +188,26 @@ def main():
 		gc_cardinality = args.gc_cardinality,
 		lc_channels = args.lc_channels)
 
-	# TODO: decide where to load the midi file and upsample it using the MIDI mapper
+	# this is a placeholder for the final output
 	samples = tf.placeholder(tf.int32)
 
-	# TODO: if we instantiate the mapper here, we would feed the LC embedding here to the prediction function
+	# first set bool flags for conditioned generation
+	gc_enabled = args.gc_channels is not None
+	lc_enabled = args.lc_channels is not None
+
+	# if LC is enabled, set up for LC conditioned generation
+	if lc_enabled:
+		midifile = midi.read_midifile(args.lc_filepath)
+		mapper = MidiMapper(sample_rate = args.sample_rate, lc_channels = args.lc_channels, sess = sess)
+		mapper.set_midi(midifile)
+		lc_embeddings = mapper.upsample()
+
+	# determine number of samples to be generated
+	# if LC enabled, then it depends on the temporal length of the LC file
+	sample_count = get_generation_length_from_midi(args.sample_rate, args.lc_filepath) \
+		if lc_enabled else args.samples
+
+	# TODO: figure out how to give this function each LC embedding incrementally for each sample generation
 	if args.fast_generation:
 		next_sample = net.predict_proba_incremental(samples, args.gc_id)
 	else:
@@ -182,7 +215,6 @@ def main():
 
 	if args.fast_generation:
 		sess.run(tf.global_variables_initializer())
-
 		# init_ops is inside model.create_generator
 		# init_ops = init = q.enqueue_many(tf.zeros((1, self.batch_size, self.quantization_channels)))
 		sess.run(net.init_ops)
@@ -234,7 +266,7 @@ def main():
 	last_sample_timestamp = datetime.now()
 
 	# for each sample to be generated do the ops in the loop
-	for step in range(args.samples):
+	for step in range(sample_count):
 		# this is where it should be changed to account for LC?
 		if args.fast_generation:
 			outputs = [next_sample]
@@ -279,7 +311,7 @@ def main():
 		current_sample_timestamp = datetime.now()
 		time_since_print = current_sample_timestamp - last_sample_timestamp
 		if time_since_print.total_seconds() > 1.:
-			print('Sample {:3<d}/{:3<d}'.format(step + 1, args.samples),
+			print('Sample {:3<d}/{:3<d}'.format(step + 1, sample_count),
 				  end = '\r')
 			last_sample_timestamp = current_sample_timestamp
 
