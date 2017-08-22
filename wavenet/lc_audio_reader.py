@@ -9,6 +9,8 @@ import numpy as np
 import tensorflow as tf
 import time
 
+# TODO: make sure that set tempo evnets cannot have a tick delta associated with them
+
 def find_files(directory, pattern):
 	'''Recursively finds all files matching the pattern.'''
 	files = []
@@ -502,6 +504,7 @@ class MidiMapper():
 								format(curr_event.data[2], '08b'))
 				self.tempo = int(tempo_binary, 2)
 				
+				# TODO: fix this function call aahhhhh
 				upsample_time = ticks_to_milliseconds(delta_ticks)
 				self.enq_embeddings(upsample_time, note_state)
 				

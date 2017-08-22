@@ -162,6 +162,28 @@ def get_generation_length_from_midi(sample_rate, midi_filepath):
 	'''Takes in a sample rate and a path to a MIDI file and 
 		returns the lenght of generation WAV file in samples and microseconds'''
 
+	pattern = midi.read_midifile(midi_filepath)
+	resolution = pattern.resolution
+	track = pattern[0]
+
+	total_microseconds = 0
+	curr_tempo = 500000
+
+	for i in range(0, len(track) - 1):
+		curr_event = track[i]
+		if curr_event.name == midi.SetTempoEvent.name:
+			tempo_binary = (format(curr_event.data[0], '08b')+
+							format(curr_event.data[1], '08b')+
+							format(curr_event.data[2], '08b'))
+			curr_tempo = int(tempo_binary, 2)
+		elif curr_event.name = midi.EndOfTrackEvent.name:
+			break
+		else:
+			total_microseconds += ((curr_tempo * curr_event.tick) / resolution)
+
+	samples_to_generate = total_microseconds * sample_rate / int(10e6)
+	return samples_to_generate, total_microseconds
+
 
 def main():
 	args = get_args()
