@@ -24,7 +24,7 @@ F3 = 233.08  # B-flat frequency in hz
 
 def make_sine_waves(global_conditioning):
     """Creates a time-series of sinusoidal audio amplitudes."""
-    sample_period = 1.0/SAMPLE_RATE_HZ
+    sample_period = 1.0 / SAMPLE_RATE_HZ
     times = np.arange(0.0, SAMPLE_DURATION, sample_period)
 
     if global_conditioning:
@@ -80,7 +80,7 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
         results = sess.run(operations, feed_dict=feed_dict)
 
         sample = np.random.choice(
-           np.arange(QUANTIZATION_CHANNELS), p=results[0])
+            np.arange(QUANTIZATION_CHANNELS), p=results[0])
         waveform.append(sample)
 
     # Skip the first number of samples equal to the size of the receptive
@@ -110,7 +110,7 @@ def generate_waveforms(sess, net, fast_generation, global_condition):
                                               gc_placeholder)
         operations = [next_sample_probs]
 
-    num_waveforms = 1 if global_condition is None else  \
+    num_waveforms = 1 if global_condition is None else \
         global_condition.shape[0]
     gc = None
     waveforms = [None] * num_waveforms
@@ -136,7 +136,7 @@ def check_waveform(assertion, generated_waveform, gc_category):
     # librosa.output.write_wav('/tmp/sine_test{}.wav'.format(gc_category),
     #                          generated_waveform,
     #                          SAMPLE_RATE_HZ)
-    power_spectrum = np.abs(np.fft.fft(generated_waveform))**2
+    power_spectrum = np.abs(np.fft.fft(generated_waveform)) ** 2
     freqs = np.fft.fftfreq(generated_waveform.size, SAMPLE_PERIOD_SECS)
     indices = np.argsort(freqs)
     indices = [index for index in indices if freqs[index] >= 0 and
@@ -167,7 +167,7 @@ def check_waveform(assertion, generated_waveform, gc_category):
         # than at other frequences.
         # This is a weak criterion, but still detects implementation errors
         # in the code.
-        assertion(expected_power, 10.0*other_freqs_lut[gc_category])
+        assertion(expected_power, 10.0 * other_freqs_lut[gc_category])
 
 
 class TestNet(tf.test.TestCase):
@@ -204,14 +204,16 @@ class TestNet(tf.test.TestCase):
     # training, and learns this waveform.
 
     def testEndToEndTraining(self):
-        def CreateTrainingFeedDict(audio, speaker_ids, audio_placeholder,
-                                   gc_placeholder, i):
+        def CreateTrainingFeedDict(audio, target_audio, speaker_ids,
+                                   audio_placeholder, gc_placeholder, i):
             speaker_index = 0
             if speaker_ids is None:
                 # No global conditioning.
-                feed_dict = {audio_placeholder: audio}
+                feed_dict = {audio_placeholder: audio,
+                             target_audio_placeholder: target_audio}
             else:
                 feed_dict = {audio_placeholder: audio,
+                             target_audio_placeholder: target_audio,
                              gc_placeholder: speaker_ids}
             return feed_dict, speaker_index
 
@@ -227,15 +229,18 @@ class TestNet(tf.test.TestCase):
         else:
             audio = np.pad(audio, (self.net.receptive_field - 1, 0),
                            'constant')
+        target_audio = audio
 
         audio_placeholder = tf.placeholder(dtype=tf.float32)
-        gc_placeholder = tf.placeholder(dtype=tf.int32)  \
+        target_audio_placeholder = tf.placeholder(dtype=tf.float32)
+        gc_placeholder = tf.placeholder(dtype=tf.int32) \
             if self.global_conditioning else None
 
         loss = self.net.loss(input_batch=audio_placeholder,
+                             target_batch=target_audio_placeholder,
                              global_condition_batch=gc_placeholder)
         optimizer = optimizer_factory[self.optimizer_type](
-                      learning_rate=self.learning_rate, momentum=self.momentum)
+            learning_rate=self.learning_rate, momentum=self.momentum)
         trainable = tf.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
         init = tf.global_variables_initializer()
@@ -247,12 +252,14 @@ class TestNet(tf.test.TestCase):
         operations = [loss, optim]
         with self.test_session() as sess:
             feed_dict, speaker_index = CreateTrainingFeedDict(
-                audio, speaker_ids, audio_placeholder, gc_placeholder, 0)
+                audio, target_audio, speaker_ids, audio_placeholder,
+                gc_placeholder, 0)
             sess.run(init)
             initial_loss = sess.run(loss, feed_dict=feed_dict)
             for i in range(self.train_iters):
                 feed_dict, speaker_index = CreateTrainingFeedDict(
-                    audio, speaker_ids, audio_placeholder, gc_placeholder, i)
+                    audio, target_audio, speaker_ids, audio_placeholder,
+                    gc_placeholder, i)
                 [results] = sess.run([operations], feed_dict=feed_dict)
                 if i % 100 == 0:
                     print("i: %d loss: %f" % (i, results[0]))
@@ -278,12 +285,13 @@ class TestNet(tf.test.TestCase):
                     for (waveform, id) in zip(generated_waveforms, ids):
                         check_waveform(self.assertGreater, waveform, id[0])
 
-                    # Check fast-generated wveform.
-                    # generated_waveforms, ids = generate_waveforms(sess,
-                    #     self.net, True, speaker_ids)
-                    # for (waveform, id) in zip(generated_waveforms, ids):
-                    #     print("Checking fast wf for id{}".format(id[0]))
-                    #     check_waveform( self.assertGreater, waveform, id[0])
+                        # Check fast-generated wveform.
+                        # generated_waveforms, ids = generate_waveforms(sess,
+                        #     self.net, True, speaker_ids)
+                        # for (waveform, id) in zip(generated_waveforms, ids):
+                        #     print("Checking fast wf for id{}".format(id[0]))
+                        #     check_waveform( self.assertGreater, waveform,
+                        #     id[0])
 
                 else:
                     # Check non-incremental generation
@@ -299,7 +307,6 @@ class TestNet(tf.test.TestCase):
 
 
 class TestNetWithBiases(TestNet):
-
     def setUp(self):
         print('TestNetWithBias setup.')
         sys.stdout.flush()
@@ -322,7 +329,6 @@ class TestNetWithBiases(TestNet):
 
 
 class TestNetWithRMSProp(TestNet):
-
     def setUp(self):
         print('TestNetWithRMSProp setup.')
         sys.stdout.flush()
@@ -344,7 +350,6 @@ class TestNetWithRMSProp(TestNet):
 
 
 class TestNetWithScalarInput(TestNet):
-
     def setUp(self):
         print('TestNetWithScalarInput setup.')
         sys.stdout.flush()

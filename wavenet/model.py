@@ -621,6 +621,7 @@ class WaveNetModel(object):
 
     def loss(self,
              input_batch,
+             target_batch,
              global_condition_batch=None,
              l2_regularization_strength=None,
              name='wavenet'):
@@ -632,15 +633,18 @@ class WaveNetModel(object):
             # We mu-law encode and quantize the input audioform.
             encoded_input = mu_law_encode(input_batch,
                                           self.quantization_channels)
+            encoded_target = mu_law_encode(target_batch,
+                                           self.quantization_channels)
 
             gc_embedding = self._embed_gc(global_condition_batch)
-            encoded = self._one_hot(encoded_input)
+            oh_encoded_input = self._one_hot(encoded_input)
+            oh_encoded_target = self._one_hot(encoded_target)
             if self.scalar_input:
                 network_input = tf.reshape(
                     tf.cast(input_batch, tf.float32),
                     [self.batch_size, -1, 1])
             else:
-                network_input = encoded
+                network_input = oh_encoded_input
 
             # Cut off the last sample of network input to preserve causality.
             network_input_width = tf.shape(network_input)[1] - 1
@@ -654,7 +658,7 @@ class WaveNetModel(object):
                 # for the first predicted sample.
                 target_output = tf.slice(
                     tf.reshape(
-                        encoded,
+                        oh_encoded_target,
                         [self.batch_size, -1, self.quantization_channels]),
                     [0, self.receptive_field, 0],
                     [-1, -1, -1])

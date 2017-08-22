@@ -1,4 +1,5 @@
 logdir/
 VCTK-Corpus/
 *.pyc
+.idea/
 

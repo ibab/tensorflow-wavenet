@@ -21,6 +21,7 @@ from wavenet import WaveNetModel, AudioReader, optimizer_factory
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
+TARGET_DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 50
 NUM_STEPS = int(1e5)
@@ -49,6 +50,8 @@ def get_arguments():
                         help='How many wav files to process at once. Default: ' + str(BATCH_SIZE) + '.')
     parser.add_argument('--data_dir', type=str, default=DATA_DIRECTORY,
                         help='The directory containing the VCTK corpus.')
+    parser.add_argument('--target_data_dir', type=str, default=TARGET_DATA_DIRECTORY,
+                        help='The directory containing the target VCTK corpus.')
     parser.add_argument('--store_metadata', type=bool, default=METADATA,
                         help='Whether to store advanced debugging information '
                         '(execution time, memory consumption) for use with '
@@ -217,6 +220,7 @@ def main():
         gc_enabled = args.gc_channels is not None
         reader = AudioReader(
             args.data_dir,
+            args.target_data_dir,
             coord,
             sample_rate=wavenet_params['sample_rate'],
             gc_enabled=gc_enabled,
@@ -227,6 +231,7 @@ def main():
             sample_size=args.sample_size,
             silence_threshold=silence_threshold)
         audio_batch = reader.dequeue(args.batch_size)
+        target_audio_batch = reader.dequeue_target(args.batch_size)
         if gc_enabled:
             gc_id_batch = reader.dequeue_gc(args.batch_size)
         else:
@@ -251,6 +256,7 @@ def main():
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(input_batch=audio_batch,
+                    target_batch=target_audio_batch,
                     global_condition_batch=gc_id_batch,
                     l2_regularization_strength=args.l2_regularization_strength)
     optimizer = optimizer_factory[args.optimizer](
