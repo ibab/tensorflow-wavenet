@@ -193,6 +193,8 @@ def main():
 	with open(args.wavenet_params, 'r') as config_file:
 		wavenet_params = json.load(config_file)
 
+	quantization_channels = wavenet_params['quantization_channels']	
+
 	sess = tf.Session()
 
 	net = WaveNetModel(
@@ -218,6 +220,7 @@ def main():
 	lc_enabled = args.lc_channels is not None
 
 	# if LC is enabled, set up for LC conditioned generation
+	# TODO: figure out if this will work without starting the queue runners :/
 	if lc_enabled:
 		midifile = midi.read_midifile(args.lc_filepath)
 		mapper = MidiMapper(sample_rate = args.sample_rate, lc_channels = args.lc_channels, sess = sess)
@@ -231,7 +234,7 @@ def main():
 
 	# TODO: figure out how to give this function each LC embedding incrementally for each sample generation
 	if args.fast_generation:
-		next_sample = net.predict_proba_incremental(samples, args.gc_id)
+		next_sample = net.predict_proba_incremental(samples, args.gc_id, lc_batch)
 	else:
 		next_sample = net.predict_proba(samples, args.gc_id)
 
@@ -253,8 +256,6 @@ def main():
 
 	decode = mu_law_decode(samples, wavenet_params['quantization_channels'])
 
-	quantization_channels = wavenet_params['quantization_channels']
-
 	# if we are local conditioning then we should not need a seed at the beginning
 	if args.wav_seed:
 		# should not need this for LC
@@ -275,6 +276,8 @@ def main():
 		# This could be done much more efficiently by passing the waveform
 		# to the incremental generator as an optional argument, which would be
 		# used to fill the queues initially.
+		# this is where the new LC samples should be passed in as this is what is called 
+		# for every iteration of the loop
 		outputs = [next_sample]
 		outputs.extend(net.push_ops)
 
@@ -306,14 +309,18 @@ def main():
 			outputs = [next_sample]
 
 		# Run the WaveNet to predict the next sample.
-		prediction = sess.run(outputs, feed_dict = {samples : window})[0]
+		prediction = sess.run(
+			outputs,
+			feed_dict = {
+				samples : window,
+				lc_batch : lc_embeddings[step]
+			})[0]
 
 		# this should not need to be changed for LC
 		# Scale prediction distribution using temperature.
 		np.seterr(divide = 'ignore')
 		scaled_prediction = np.log(prediction) / args.temperature
-		scaled_prediction = (scaled_prediction -
-							 np.logaddexp.reduce(scaled_prediction))
+		scaled_prediction = (scaled_prediction - np.logaddexp.reduce(scaled_prediction))
 		scaled_prediction = np.exp(scaled_prediction)
 		np.seterr(divide = 'warn')
 
@@ -321,7 +328,7 @@ def main():
 		# scaling.
 		if args.temperature == 1.0:
 			np.testing.assert_allclose(
-					prediction, scaled_prediction, atol=1e-5,
+					prediction, scaled_prediction, atol = 1e-5,
 					err_msg = 'Prediction scaling at temperature=1.0 '
 							'is not working as intended.')
 
@@ -340,7 +347,7 @@ def main():
 		# If we have partial writing, save the result so far.
 		if (args.wav_out_path and args.save_every and
 				(step + 1) % args.save_every == 0):
-			out = sess.run(decode, feed_dict={samples: waveform})
+			out = sess.run(decode, feed_dict = {samples: waveform})
 			write_wav(out, wavenet_params['sample_rate'], args.wav_out_path)
 
 	# Introduce a newline to clear the carriage return from the progress.

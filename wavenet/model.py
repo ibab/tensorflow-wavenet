@@ -402,6 +402,8 @@ class WaveNetModel(object):
 		return output
 
 	def _generator_causal_layer(self, input_batch, state_batch):
+		# TODO: this needs LC  weights added to i, maybe?
+		# why does it now have the GC bathc input to it then?
 		with tf.name_scope('causal_layer'):
 			weights_filter = self.variables['causal_layer']['filter']
 			output = self._generator_conv(
@@ -448,7 +450,7 @@ class WaveNetModel(object):
 			# 1x1 convolution with batch. Output 1x(# of dilation_channels)
 			output_filter += tf.matmul(lc_batch, weights_lc_filter)
 			# Same with gate
-			weights_lc_gate = variables['gc_gateweights']
+			weights_lc_gate = variables['lc_gateweights']
 			weights_lc_gate = weights_lc_gate[0, :, :]
 			output_gate += tf.matmul(lc_batch, weights_lc_gate)
 
@@ -472,8 +474,7 @@ class WaveNetModel(object):
 
 		return skip_contribution, input_batch + transformed
 
-	def _create_network(self, input_batch, gc_batch, 
-						lc_batch):
+	def _create_network(self, input_batch, gc_batch, lc_batch):
 		'''Construct the WaveNet network.'''
 		outputs = []
 		current_layer = input_batch
@@ -560,7 +561,7 @@ class WaveNetModel(object):
 					q = tf.FIFOQueue(
 						dilation,
 						dtypes = tf.float32,
-						shapes=(self.batch_size, self.residual_channels))
+						shapes = (self.batch_size, self.residual_channels))
 					init = q.enqueue_many(
 						tf.zeros((dilation, self.batch_size,
 								  self.residual_channels)))
@@ -680,8 +681,8 @@ class WaveNetModel(object):
 							[1, self.quantization_channels])
 			return tf.reshape(last, [-1])
 
-	def predict_proba_incremental(self, waveform, global_condition = None,
-								  local_condition = None, name = 'wavenet'):
+	def predict_proba_incremental(self, waveform, gc_batch = None,
+								  lc_embedding = None, name = 'wavenet'):
 		'''Computes the probability distribution of the next sample
 		incrementally, based on a single sample and all previously passed
 		samples.'''
@@ -692,16 +693,23 @@ class WaveNetModel(object):
 			raise NotImplementedError("Incremental generation does not "
 									  "support scalar input yet.")
 		with tf.name_scope(name):
-			# Do we want to remove one-hot encoding for LC?
-			# Rachel - look back at this later. Unclear - find where predict_proba is used
-			# and how gc is passed as embedding vs. "batch"
-			encoded = tf.one_hot(waveform, self.quantization_channels)
-			encoded = tf.reshape(encoded, [-1, self.quantization_channels])
-			gc_embedding = self._embed_gc(global_condition)
-			raw_output = self._create_generator(encoded, gc_embedding, lc_batch)
+			# mu law encode first
+			encoded_audio = tf.one_hot(waveform, self.quantization_channels)
+			encoded_audio = tf.reshape(encoded_audio, [-1, self.quantization_channels])
+
+			# gc table lookup
+			gc_embedding = self._embed_gc(gc_batch)
+
+			# create generator
+			raw_output = self._create_generator(encoded_audio, gc_embedding, lc_embedding)
+
+			# output
 			out = tf.reshape(raw_output, [-1, self.quantization_channels])
-			proba = tf.cast(
-				tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
+
+			# cast to float64 to avoid TF back end bugs
+			proba = tf.cast(tf.nn.softmax(tf.cast(out, tf.float64)), tf.float32)
+			
+			# last sample in the window is the generation
 			last = tf.slice(
 				proba,
 				[tf.shape(proba)[0] - 1, 0],
