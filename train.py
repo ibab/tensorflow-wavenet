@@ -65,13 +65,17 @@ def get_arguments():
 				'the state and will continue training. '
 				'Cannot use with --logdir_root and --restore_from.')
 	
-	parser.add_argument('--logdir-root', type = str, default = None,
+	parser.add_argument('--logdir-root',
+		type = str,
+		default = None,
 		help = 'Root directory to place the logging '
 				'output and generated model. These are stored '
 				'under the dated subdirectory of --logdir_root. '
 				'Cannot use with --logdir.')
 	
-	parser.add_argument('--restore-from', type = str, default = None,
+	parser.add_argument('--restore-from',
+		type = str,
+		default = None,
 		help = 'Directory in which to restore the model from. '
 				'This creates the new model under the dated directory '
 				'in --logdir_root. '

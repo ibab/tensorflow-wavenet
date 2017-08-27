@@ -212,13 +212,17 @@ def main():
 		gc_cardinality = args.gc_cardinality,
 		lc_channels = args.lc_channels)
 
-	# this is a placeholder for the final output
-	samples = tf.placeholder(tf.int32)
-
 	# first set bool flags for conditioned generation
 	gc_enabled = args.gc_channels is not None
 	lc_enabled = args.lc_channels is not None
+	
+	# this is a placeholder for the final output
+	samples = tf.placeholder(tf.float16)
 
+	# this placeholder is for
+	if lc_enabled:
+		lc_batch = tf.placeholder(tf.float16)
+	
 	# if LC is enabled, set up for LC conditioned generation
 	# TODO: figure out if this will work without starting the queue runners :/
 	if lc_enabled:
@@ -233,9 +237,11 @@ def main():
 		if lc_enabled else args.samples
 
 	# TODO: figure out how to give this function each LC embedding incrementally for each sample generation
-	if args.fast_generation:
+	if args.fast_generation and lc_enabled:
+		# for now (and the foreseable future) LC only works with fast generation
 		next_sample = net.predict_proba_incremental(samples, args.gc_id, lc_batch)
 	else:
+		# DEPRECATED
 		next_sample = net.predict_proba(samples, args.gc_id)
 
 	if args.fast_generation:
@@ -309,12 +315,19 @@ def main():
 			outputs = [next_sample]
 
 		# Run the WaveNet to predict the next sample.
-		prediction = sess.run(
-			outputs,
-			feed_dict = {
-				samples : window,
-				lc_batch : lc_embeddings[step]
-			})[0]
+		if lc_enabled:
+			prediction = sess.run(
+				outputs,
+				feed_dict = {
+					samples : window,
+					lc_batch : lc_embeddings[step]
+				})[0]
+		else:
+			prediction = sess.run(
+				outputs,
+				feed_dict = {
+					samples : window,
+				})[0]
 
 		# this should not need to be changed for LC
 		# Scale prediction distribution using temperature.
