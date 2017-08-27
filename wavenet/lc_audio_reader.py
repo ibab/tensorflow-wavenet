@@ -162,8 +162,8 @@ class LCAudioReader():
 
 		if self.lc_enabled:	
 			# LC samples are embedding vectors with the shape of 1 X LC_channels
-			self.lc_placeholder = tf.placeholder(dtype = tf.float16, shape = None)
-			self.q_lc = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.float16], shapes = [(None, 1)])
+			self.lc_placeholder = tf.placeholder(dtype = tf.float32, shape = None)
+			self.q_lc = tf.PaddingFIFOQueue(capacity = q_size, dtypes = [tf.float32], shapes = [(None, 1)])
 			self.enq_lc = self.q_lc.enqueue([self.lc_placeholder])
 
 		# now load in the files and see if they exist
@@ -326,8 +326,8 @@ class MidiMapper():
 		self.first_note_index = None
 
 		# tensorflow Q init
-		self.mapper_lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.float16], name = "lc_embeddings_q")
-		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.float16, shape = None)
+		self.mapper_lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.float32], name = "lc_embeddings_q")
+		self.lc_embedding_placeholder = tf.placeholder(dtype = tf.float32, shape = [self.lc_channels, None])
 		self.enq_mapper_lc = self.mapper_lc_q.enqueue_many([self.lc_embedding_placeholder])
 
 
@@ -414,7 +414,7 @@ class MidiMapper():
 		# TODO: figure out if batching all  inserts from the loops into a giant block
 		# of inserts will be more efficient if used with enqueue_many
 
-		inserts = np.zeros(shape = (upsample_time * self.sample_rate / 1000000, self.lc_channels), dtype = np.float16)
+		inserts = np.zeros(shape = (upsample_time * self.sample_rate / 1000000, self.lc_channels), dtype = np.float32)
 		print("UPSAMPLE COUNT = {}".format(upsample_time * self.sample_rate / 1000000))
 		for i in range(upsample_time * self.sample_rate / 1000000):
 			insert = np.zeros(shape = (self.lc_channels))
