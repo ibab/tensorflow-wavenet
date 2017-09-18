@@ -578,7 +578,7 @@ class WaveNetModel(object):
         with tf.name_scope(name):
             if self.scalar_input:
                 encoded = tf.cast(waveform, tf.float32)
-                encoded = tf.reshape(encoded, [-1, 1])
+                encoded = tf.reshape(encoded, [self.batch_size, -1, 1])
             else:
                 encoded = self._one_hot(waveform)
 
