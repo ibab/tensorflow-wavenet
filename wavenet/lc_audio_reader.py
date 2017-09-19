@@ -248,10 +248,12 @@ class LCAudioReader():
 
 				# CHOP UP AUDIO
 				if self.sample_size:
-					# ADAPT:
-					# setup parametrs for MidiMapper
-					previous_end = 0
-					new_end = self.receptive_field
+					if lc_enabled:
+						# ADAPT:
+						# setup parametrs for MidiMapper
+						previous_end = 0
+						new_end = self.receptive_field
+						mapper.set_midi(lc_timeseries)
 					# TODO: understand the reason for this piece voodoo from the original reader
 					while len(audio) > self.receptive_field:
 						piece = audio[:(self.receptive_field + self.sample_size), :]
@@ -273,9 +275,6 @@ class LCAudioReader():
 
 				# DONT CHOP UP AUDIO
 				else:
-					if __debug__:
-						print("Going to else")
-
 					# otherwise feed the whole audio sample in its entireity
 					self.sess.run(self.enq_audio, feed_dict = {self.audio_placeholder : audio})
 
@@ -324,6 +323,7 @@ class MidiMapper():
 		self.tempo = None
 		self.resolution = None
 		self.first_note_index = None
+		self.midi = None
 
 		# tensorflow Q init
 		self.mapper_lc_q = tf.FIFOQueue(capacity = self.q_size, dtypes = [tf.float32], name = "lc_embeddings_q")
