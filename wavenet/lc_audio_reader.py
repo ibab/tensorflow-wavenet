@@ -347,14 +347,14 @@ class MidiMapper():
 
 	def sample_to_microseconds(self, sample_num):
 		'''takes in a sample number of the wav and the sample rate and 
-			gets the corresponding millisecond of the sample in the song'''
+			gets the corresponding microseconds of the sample in the song'''
 		return (sample_num / self.sample_rate)
 		
 		
 	def tick_delta_to_microseconds(self, delta_ticks):
-		'''converts a range of midi ticks into a range of milliseconds'''
-		# milliseconds = microsec/beat * tick * beat/tick / 1000
-		# seconds = milliseconds / 1000
+		'''converts a range of midi ticks into a range of microseconds'''
+		# microseconds = microsec/beat * tick * beat/tick / 1000
+		# seconds = microseconds / 1000
 		if __debug__:
 			print("Tempo is {}".format(self.tempo))
 			print("delta ticks is {}".format(delta_ticks))
@@ -363,7 +363,7 @@ class MidiMapper():
 	
 		
 	def microseconds_per_tick(self):
-		'''takes in the tempo and the resolution and outputs the number of milliseconds per tick'''
+		'''takes in the tempo and the resolution and outputs the number of microseconds per tick'''
 		return ((self.tempo / self.resolution))
 	
 	
@@ -498,14 +498,12 @@ class MidiMapper():
 				self.tempo = int(tempo_binary, 2)
 				
 			elif event_name is "Set Tempo" and delta_ticks is not 0:
+				self.enq_embeddings(delta_ticks, note_state)
 				tempo_binary = (format(curr_event.data[0], '08b')+
 								format(curr_event.data[1], '08b')+
 								format(curr_event.data[2], '08b'))
 				self.tempo = int(tempo_binary, 2)
 				
-				# TODO: fix this function call aahhhhh
-				upsample_time = ticks_to_milliseconds(delta_ticks)
-				self.enq_embeddings(upsample_time, note_state)
 				
 			else:
 				# We are ignoring events other than note on/off or tempo. Do nothing with these events.
