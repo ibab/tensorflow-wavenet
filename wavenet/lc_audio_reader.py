@@ -172,7 +172,7 @@ class LCAudioReader():
 			raise ValueError("No WAV files found in '{}'.".format(self.data_dir))
 		
 		# if LC is enabled, check if local conditioning files exist
-		if lc_enabled:
+		if self.lc_enabled:
 			lc_files = find_files(self.data_dir, self.lc_fileformat)
 			if not lc_files:
 				raise ValueError("No MIDI files found in '{}'".format(self.data_dir))
