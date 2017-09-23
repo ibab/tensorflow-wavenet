@@ -75,23 +75,23 @@ def clean_midi_files(audio_files, lc_files):
 	str_midi = np.char.mod('%s', lc_files)
 
 	# remove extensions
-	for i, wav in enumerate(str_audio):
+	for i, wav_name in enumerate(str_audio):
 		str_audio[i] = os.path.splitext(str_audio[i])[0] 
 
-	for i, midi in enumerate(str_midi):
+	for i, midi_name in enumerate(str_midi):
 		str_midi[i] = os.path.splitext(str_midi[i])[0]
 
-	# create two lists of the midi and wav mismatches
-	str_midi_missing = [wav for wav in str_audio if wav not in str_midi]
-	str_wav_missing = [midi for midi in str_midi if midi not in str_audio]
+	# create two lists of the midi_name and wav_name mismatches
+	str_midi_missing = [wav_name for wav_name in str_audio if wav_name not in str_midi]
+	str_wav_missing = [midi_name for midi_name in str_midi if midi_name not in str_audio]
 
-	for wav in str_midi_missing:
-		fname = wav + ".wav"
+	for wav_name in str_midi_missing:
+		fname = wav_name + ".wav"
 		audio_files.remove(fname)
 		print("No MIDI match found for .wav file {}. Raw audio file removed.".format(fname))
 
-	for midi in str_wav_missing:
-		fname = midi + ".mid"
+	for midi_name in str_wav_missing:
+		fname = midi_name + ".mid"
 		lc_files.remove(fname)
 		print("No raw audio match found for .mid file {}. MIDI file removed.".format(fname))
 		
