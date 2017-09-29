@@ -11,7 +11,7 @@ import tensorflow as tf
 FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
 
 
-def get_category_cardinality(files):
+def dep_get_category_cardinality(files):
     id_reg_expression = re.compile(FILE_PATTERN)
     min_id = None
     max_id = None
@@ -26,13 +26,13 @@ def get_category_cardinality(files):
     return min_id, max_id
 
 
-def randomize_files(files):
+def dep_randomize_files(files):
     for file in files:
         file_index = random.randint(0, (len(files) - 1))
         yield files[file_index]
 
 
-def find_files(directory, pattern='*.wav'):
+def dep_find_files(directory, pattern='*.wav'):
     '''Recursively finds all files matching the pattern.'''
     files = []
     for root, dirnames, filenames in os.walk(directory):
@@ -41,7 +41,7 @@ def find_files(directory, pattern='*.wav'):
     return files
 
 
-def load_generic_audio(directory, sample_rate):
+def dep_load_generic_audio(directory, sample_rate):
     '''Generator that yields audio waveforms from the directory.'''
     files = find_files(directory)
     id_reg_exp = re.compile(FILE_PATTERN)
@@ -61,7 +61,7 @@ def load_generic_audio(directory, sample_rate):
         yield audio, filename, category_id
 
 
-def trim_silence(audio, threshold, frame_length=2048):
+def dep_trim_silence(audio, threshold, frame_length=2048):
     '''Removes silence at the beginning and end of a sample.'''
     if audio.size < frame_length:
         frame_length = audio.size
@@ -73,7 +73,7 @@ def trim_silence(audio, threshold, frame_length=2048):
     return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
 
 
-def not_all_have_id(files):
+def dep_not_all_have_id(files):
     ''' Return true iff any of the filenames does not conform to the pattern
         we require for determining the category id.'''
     id_reg_exp = re.compile(FILE_PATTERN)
@@ -84,7 +84,7 @@ def not_all_have_id(files):
     return False
 
 
-class AudioReader(object):
+class dep_AudioReader(object):
     '''Generic background audio reader that preprocesses audio files
     and enqueues them into a TensorFlow queue.'''
 
