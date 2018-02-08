@@ -398,11 +398,6 @@ class WaveNetModel(object):
         current_layer = input_batch
 
         # Pre-process the input with a regular convolution
-        if self.scalar_input:
-            initial_channels = 1
-        else:
-            initial_channels = self.quantization_channels
-
         current_layer = self._create_causal_layer(current_layer)
 
         output_width = tf.shape(input_batch)[1] - self.receptive_field + 1
