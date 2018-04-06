@@ -13,6 +13,7 @@ import tensorflow as tf
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
 SAMPLES = 16000
+SAMPLES_PER_SECOND = 16000
 TEMPERATURE = 1.0
 LOGDIR = './logdir'
 WAVENET_PARAMS = './wavenet_params.json'
@@ -39,10 +40,18 @@ def get_arguments():
     parser.add_argument(
         'checkpoint', type=str, help='Which model checkpoint to generate from')
     parser.add_argument(
+        '--seconds',
+        type=_ensure_positive_float,
+        default=None,
+        help='How many seconds of audio to generate. '
+        'Each second is equivalent to 16000 samples. '
+        'Overrides --samples.')
+    parser.add_argument(
         '--samples',
         type=int,
         default=SAMPLES,
-        help='How many waveform samples to generate')
+        help='How many waveform samples to generate. '
+        'Will be ignored if --seconds is also provided.')
     parser.add_argument(
         '--temperature',
         type=_ensure_positive_float,
@@ -106,7 +115,8 @@ def get_arguments():
             raise ValueError("Globally conditioning, but global condition was "
                               "not specified. Use --gc_id to specify global "
                               "condition.")
-
+    if arguments.seconds:
+        arguments.samples = int(arguments.seconds * SAMPLES_PER_SECOND)
     return arguments
 
 
