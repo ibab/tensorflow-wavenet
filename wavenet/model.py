@@ -320,15 +320,15 @@ class WaveNetModel(object):
 
         if self.histograms:
             layer = 'layer{}'.format(layer_index)
-            tf.histogram_summary(layer + '_filter', weights_filter)
-            tf.histogram_summary(layer + '_gate', weights_gate)
-            tf.histogram_summary(layer + '_dense', weights_dense)
-            tf.histogram_summary(layer + '_skip', weights_skip)
+            tf.summary.histogram(layer + '_filter', weights_filter)
+            tf.summary.histogram(layer + '_gate', weights_gate)
+            tf.summary.histogram(layer + '_dense', weights_dense)
+            tf.summary.histogram(layer + '_skip', weights_skip)
             if self.use_biases:
-                tf.histogram_summary(layer + '_biases_filter', filter_bias)
-                tf.histogram_summary(layer + '_biases_gate', gate_bias)
-                tf.histogram_summary(layer + '_biases_dense', dense_bias)
-                tf.histogram_summary(layer + '_biases_skip', skip_bias)
+                tf.summary.histogram(layer + '_biases_filter', filter_bias)
+                tf.summary.histogram(layer + '_biases_gate', gate_bias)
+                tf.summary.histogram(layer + '_biases_dense', dense_bias)
+                tf.summary.histogram(layer + '_biases_skip', skip_bias)
 
         input_cut = tf.shape(input_batch)[1] - tf.shape(transformed)[1]
         input_batch = tf.slice(input_batch, [0, input_cut, 0], [-1, -1, -1])
@@ -421,11 +421,11 @@ class WaveNetModel(object):
                 b2 = self.variables['postprocessing']['postprocess2_bias']
 
             if self.histograms:
-                tf.histogram_summary('postprocess1_weights', w1)
-                tf.histogram_summary('postprocess2_weights', w2)
+                tf.summary.histogram('postprocess1_weights', w1)
+                tf.summary.histogram('postprocess2_weights', w2)
                 if self.use_biases:
-                    tf.histogram_summary('postprocess1_biases', b1)
-                    tf.histogram_summary('postprocess2_biases', b2)
+                    tf.summary.histogram('postprocess1_biases', b1)
+                    tf.summary.histogram('postprocess2_biases', b2)
 
             # We skip connections from the outputs of each layer, adding them
             # all up here.
