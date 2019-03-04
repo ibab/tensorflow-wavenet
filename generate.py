@@ -136,6 +136,8 @@ def main():
     args = get_arguments()
     started_datestring = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
     logdir = os.path.join(args.logdir, 'generate', started_datestring)
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
     with open(args.wavenet_params, 'r') as config_file:
         wavenet_params = json.load(config_file)
 
