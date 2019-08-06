@@ -138,6 +138,27 @@ To disable fast generation:
 python generate.py --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000 --fast_generation=false
 ```
 
+### Getting Good Performance on CPUs without Global Conditioning
+Setting the correct number of intra-op threads and inter-op threads can greatly improve performance. For details on intra-op threads and inter-op threads, please see the [Optimize for CPU](https://www.tensorflow.org/performance/performance_guide#optimizing_for_cpu) section of the [TensorFlow Performance Guide](https://www.tensorflow.org/performance/performance_guide). The command is shown below. 
+```
+python generate.py --wav_out_path=generated.wav --num_intra_threads=intra_thread --num_inter_threads=inter_thread --save_every 10000 --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
+```
+Where:
+
+`--num_intra_threads` specifies number of threads used to parallelize each of the Tensorflow operator.
+
+`--num_inter_threads` specifies number of Ternsorflow operators that can be executed in parallel. 
+
+For example, following run command can provide good performance in CPU:
+```
+python generate.py --wav_out_path=generated.wav --num_intra_threads=2 --num_inter_threads=1 --save_every 10000 --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
+```
+
+### Optional: Creating tracefile to produce Tensorflow timeline for profiling
+To create a tracefile which can be used to see the Tensorflow timeline, another runtime argument `--trace_file=file.json` can be added in the above run command. After the run, traces are written in the file.json file. The full run commnad is shown below. 
+```
+python generate.py --wav_out_path=generated.wav --num_intra_threads=intra_thread --num_inter_threads=inter_thread --trace_file=file.json --save_every 10000 --samples 16000 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
+```  
 ### Generating with Global Conditioning
 Generate from a model incorporating global conditioning as follows:
 ```
@@ -155,6 +176,12 @@ printed out by the train.py script at training time.
 
 `--gc_id=311` specifies the id of speaker, speaker 311, for which a sample is
 to be generated.
+
+### Getting Good Performance on CPUs with Global Conditioning
+The following sample command can provide good performance with global conditioning on CPU:
+```
+python generate.py --samples 16000 --num_intra_threads=2 --num_inter_threads=1 --wav_out_path speaker311.wav --gc_channels=32 --gc_cardinality=377 --gc_id=311 logdir/train/2017-02-13T16-45-34/model.ckpt-80000
+```
 
 ## Running tests
 

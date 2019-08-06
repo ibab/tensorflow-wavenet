@@ -9,6 +9,11 @@ import os
 import librosa
 import numpy as np
 import tensorflow as tf
+#tracefile related
+from tensorflow.python.platform import gfile
+from tensorflow.python.client import timeline
+#time() related
+import time
 
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
@@ -95,6 +100,21 @@ def get_arguments():
         type=int,
         default=None,
         help='ID of category to generate, if globally conditioned.')
+    parser.add_argument(
+        '--trace_file',
+        type=str,
+        default=None,
+        help='Enable TensorFlow tracing and write trace to this file.')
+    parser.add_argument(
+        '--num_intra_threads',
+        type=int,
+        default=0,
+        help='Number of the intra_op_parallelism_threads.')
+    parser.add_argument(
+        '--num_inter_threads',
+        type=int,
+        default=0,
+        help='Number of the inter_op_parallelism_threads.')
     arguments = parser.parse_args()
     if arguments.gc_channels is not None:
         if arguments.gc_cardinality is None:
@@ -139,7 +159,22 @@ def main():
     with open(args.wavenet_params, 'r') as config_file:
         wavenet_params = json.load(config_file)
 
-    sess = tf.Session()
+    #tracefile related
+    trace_filename = args.trace_file
+    if trace_filename: 
+      run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+      run_metadata = tf.RunMetadata()
+    else:
+      run_options = None 
+      run_metadata = None 
+
+    session_config = tf.ConfigProto(allow_soft_placement=True)
+    #inter and intra parallelism for CPU
+    session_config.inter_op_parallelism_threads = args.num_inter_threads
+    session_config.intra_op_parallelism_threads = args.num_intra_threads
+    session_config.gpu_options.allow_growth = True
+
+    sess = tf.Session(config=session_config)
 
     net = WaveNetModel(
         batch_size=1,
@@ -206,6 +241,10 @@ def main():
         print('Done.')
 
     last_sample_timestamp = datetime.now()
+
+    current_time = time.time()
+    start_time = time.time()
+
     for step in range(args.samples):
         if args.fast_generation:
             outputs = [next_sample]
@@ -218,8 +257,13 @@ def main():
                 window = waveform
             outputs = [next_sample]
 
-        # Run the WaveNet to predict the next sample.
-        prediction = sess.run(outputs, feed_dict={samples: window})[0]
+        prediction = sess.run(outputs, feed_dict={samples: window}, options=run_options, run_metadata=run_metadata)[0]
+
+        #tracefile generation related
+        if trace_filename:
+          trace = timeline.Timeline(step_stats=run_metadata.step_stats)
+          with gfile.Open(trace_filename, 'w') as trace_file:
+            trace_file.write(trace.generate_chrome_trace_format(show_memory=True))
 
         # Scale prediction distribution using temperature.
         np.seterr(divide='ignore')
@@ -248,6 +292,14 @@ def main():
             print('Sample {:3<d}/{:3<d}'.format(step + 1, args.samples),
                   end='\r')
             last_sample_timestamp = current_sample_timestamp
+        #print results every 500 samples
+        if step % 500 == 0 and step != 0:
+          time_for_500sample = time.time() - current_time
+          print("Time per 500 Samples: %f sec" % (time_for_500sample))
+          print("Samples / sec: %f" % (500/time_for_500sample))
+          print("msec / sample: %f" % (time_for_500sample/500*1000))
+          print("Sample: %d" % step)
+          current_time = time.time()
 
         # If we have partial writing, save the result so far.
         if (args.wav_out_path and args.save_every and
@@ -257,6 +309,10 @@ def main():
 
     # Introduce a newline to clear the carriage return from the progress.
     print()
+    if args.samples >500 : 
+      total_time = current_time - start_time
+      print("Average Throughput of whole run: Samples / sec: %f" % (args.samples/total_time))
+      print("Average Latency of whole run: msec / sample: %f" % (total_time/args.samples*1000))
 
     # Save the result as an audio summary.
     datestring = str(datetime.now()).replace(' ', 'T')
