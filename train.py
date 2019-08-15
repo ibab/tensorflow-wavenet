@@ -258,7 +258,7 @@ def main():
     optimizer = optimizer_factory[args.optimizer](
                     learning_rate=args.learning_rate,
                     momentum=args.momentum)
-    if args.auto_mixed_precision:
+    if args.automatic_mixed_precision:
         optimizer = tf.train.experimental.enable_mixed_precision_graph_rewrite(optimizer)
     trainable = tf.trainable_variables()
     optim = optimizer.minimize(loss, var_list=trainable)
