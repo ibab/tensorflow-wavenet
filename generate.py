@@ -12,10 +12,14 @@ import tensorflow as tf
 
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
+import dynamic_changer as dynamic
+import warnings
+
 SAMPLES = 16000
 TEMPERATURE = 1.0
 LOGDIR = './logdir'
-WAVENET_PARAMS = './wavenet_params.json'
+PERIOD = 1
+WAVENET_PARAMS = 'wavenet_params_default.json'
 SAVE_EVERY = None
 SILENCE_THRESHOLD = 0.1
 
@@ -95,6 +99,26 @@ def get_arguments():
         type=int,
         default=None,
         help='ID of category to generate, if globally conditioned.')
+    parser.add_argument(
+        '--temperature_change',
+        type=str,
+        default=None,
+        help='Change the temperature dynamically during generation.')
+    parser.add_argument(
+        '--silence_threshold',
+        type=str,
+        default=SILENCE_THRESHOLD,
+        help='The threshold of silence.')
+
+    #additional arguments for dynamic_changer
+    parser.add_argument('--tform', type=str, default=None)
+    parser.add_argument('--tmin', type=float, default=0)
+    parser.add_argument('--tmax', type=float, default=1)
+    parser.add_argument('--tperiod', type=float, default=None)
+    parser.add_argument('--tfrequency', type=float, default=None)
+    parser.add_argument('--tphaseshift', type=float, default=0)
+    parser.add_argument('--graph', type=str, default=None)
+
     arguments = parser.parse_args()
     if arguments.gc_channels is not None:
         if arguments.gc_cardinality is None:
@@ -109,7 +133,6 @@ def get_arguments():
 
     return arguments
 
-
 def write_wav(waveform, sample_rate, filename):
     y = np.array(waveform)
     librosa.output.write_wav(filename, y, sample_rate)
@@ -120,7 +143,7 @@ def create_seed(filename,
                 sample_rate,
                 quantization_channels,
                 window_size,
-                silence_threshold=SILENCE_THRESHOLD):
+                silence_threshold):
     audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
     audio = audio_reader.trim_silence(audio, silence_threshold)
 
@@ -136,8 +159,14 @@ def main():
     args = get_arguments()
     started_datestring = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
     logdir = os.path.join(args.logdir, 'generate', started_datestring)
-    with open(args.wavenet_params, 'r') as config_file:
-        wavenet_params = json.load(config_file)
+    
+    # open wavenet_params file
+    if args.wavenet_params.startswith('wavenet_params_'):
+        with open(args.wavenet_params, 'r') as config_file:
+            wavenet_params = json.load(config_file)
+    else:
+        with open('wavenet_params_'+args.wavenet_params, 'r') as config_file:
+            wavenet_params = json.load(config_file)    
 
     sess = tf.Session()
 
@@ -181,7 +210,8 @@ def main():
         seed = create_seed(args.wav_seed,
                            wavenet_params['sample_rate'],
                            quantization_channels,
-                           net.receptive_field)
+                           net.receptive_field,
+                           args.silence_threshold)
         waveform = sess.run(seed).tolist()
     else:
         # Silence with a single random sample at the end.
@@ -206,6 +236,24 @@ def main():
         print('Done.')
 
     last_sample_timestamp = datetime.now()
+
+        #frequency to period change
+    if args.tfrequency is not None:
+        if args.tperiod is not None:
+            raise ValueError("Frequency and Period both assigned. Assign only one of them.")
+        else:
+            PERIOD = dynamic.frequency_to_period(args.tfrequency)
+    else:
+        if args.tperiod is not None:
+            PERIOD = args.tperiod
+        else:
+            PERIOD = 1
+
+    # generate an array of temperature for each step when called "dynamic" in tempurature-change variable
+    if args.temperature_change == "dynamic" and args.tform is not None:
+        temp_array = dynamic.generate_value(0, wavenet_params['sample_rate'], args.tform, args.tmin, args.tmax, PERIOD, args.samples, args.tphaseshift)
+
+
     for step in range(args.samples):
         if args.fast_generation:
             outputs = [next_sample]
@@ -223,7 +271,20 @@ def main():
 
         # Scale prediction distribution using temperature.
         np.seterr(divide='ignore')
-        scaled_prediction = np.log(prediction) / args.temperature
+
+        # temperature change
+        if args.temperature_change == None: #static
+            _temp_temperature = args.temperature
+        elif args.temperature_change == "dynamic":
+            if args.tform == None: #random
+                if step % int(args.samples/5) == 0:
+                    _temp_temperature = args.temperature * np.random.rand()
+            else:
+                _temp_temperature = temp_array[1][step]  
+        else:
+                raise Exception("wrong temperature_change value")
+
+        scaled_prediction = np.log(prediction) / _temp_temperature
         scaled_prediction = (scaled_prediction -
                              np.logaddexp.reduce(scaled_prediction))
         scaled_prediction = np.exp(scaled_prediction)
@@ -231,21 +292,20 @@ def main():
 
         # Prediction distribution at temperature=1.0 should be unchanged after
         # scaling.
-        if args.temperature == 1.0:
+        if args.temperature == 1.0 and args.temperature_change == None:
             np.testing.assert_allclose(
                     prediction, scaled_prediction, atol=1e-5,
-                    err_msg='Prediction scaling at temperature=1.0 '
-                            'is not working as intended.')
+                    err_msg = 'Prediction scaling at temperature=1.0 is not working as intended.')
 
         sample = np.random.choice(
             np.arange(quantization_channels), p=scaled_prediction)
-        waveform.append(sample)
 
+        
         # Show progress only once per second.
         current_sample_timestamp = datetime.now()
         time_since_print = current_sample_timestamp - last_sample_timestamp
         if time_since_print.total_seconds() > 1.:
-            print('Sample {:3<d}/{:3<d}'.format(step + 1, args.samples),
+            print('Sample {:3<d}/{:3<d}, temperature {:3<f}'.format(step + 1, args.samples, _temp_temperature),
                   end='\r')
             last_sample_timestamp = current_sample_timestamp
 

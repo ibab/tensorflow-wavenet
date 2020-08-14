@@ -1,2 +1,5 @@
-librosa>=0.5
+librosa==0.6.2
+numba==0.48
 tensorflow>=1.0.0
+matplotlib>=3.0.0
+terminalplot>=0.3.0
