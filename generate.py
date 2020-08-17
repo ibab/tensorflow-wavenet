@@ -24,7 +24,6 @@ WAVENET_PARAMS_KEY = 'default'
 SAVE_EVERY = None
 SILENCE_THRESHOLD = 0.1
 
-
 def get_arguments():
     def _str_to_bool(s):
         """Convert string to bool (in argparse context)."""
@@ -322,7 +321,7 @@ def main():
     # Save the result as an audio summary.
     datestring = str(datetime.now()).replace(' ', 'T')
     writer = tf.summary.FileWriter(logdir)
-    tf.summary.audio('generated', decode, wavenet_params['sample_rate'])
+    tf.summary.audio(f'generated/{args.checkpoint}', decode, wavenet_params['sample_rate'])
     summaries = tf.summary.merge_all()
     summary_out = sess.run(summaries,
                            feed_dict={samples: np.reshape(waveform, [1, -1])})

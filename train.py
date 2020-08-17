@@ -36,6 +36,12 @@ MOMENTUM = 0.9
 MAX_TO_KEEP = 5
 METADATA = False
 
+if os.environ.get('USER'):
+    USERNAME = os.environ.get('USER')
+elif os.environ.get('USERNAME'):
+    USERNAME = os.environ.get('USERNAME')
+else:
+    USERNAME = 'default'
 
 def get_arguments():
     def _str_to_bool(s):
@@ -142,8 +148,9 @@ def load(saver, sess, logdir):
         return None
 
 
-def get_default_logdir(logdir_root):
-    logdir = os.path.join(logdir_root, 'train', STARTED_DATESTRING)
+def get_default_logdir(logdir_root, data_dir):
+    dataset_name = '_'.join(''.join(data_dir.split('.')).split('/'))
+    logdir = os.path.join(logdir_root, 'train', USERNAME, dataset_name, STARTED_DATESTRING)
     return logdir
 
 
@@ -172,7 +179,7 @@ def validate_directories(args):
 
     logdir = args.logdir
     if logdir is None:
-        logdir = get_default_logdir(logdir_root)
+        logdir = get_default_logdir(logdir_root, args.data_dir)
         print('Using default logdir: {}'.format(logdir))
 
     restore_from = args.restore_from
