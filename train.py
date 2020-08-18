@@ -35,12 +35,10 @@ MOMENTUM = 0.9
 MAX_TO_KEEP = 5
 METADATA = False
 
-if os.environ.get('USER'):
-    USERNAME = os.environ.get('USER')
-elif os.environ.get('USERNAME'):
-    USERNAME = os.environ.get('USERNAME')
+if os.environ.get('USER_NAME'):
+    USER_NAME = os.environ.get('USER_NAME')
 else:
-    USERNAME = 'default'
+    USER_NAME = 'default'
 
 def get_arguments():
     def _str_to_bool(s):
@@ -147,7 +145,7 @@ def load(saver, sess, logdir):
 
 def get_default_logdir(logdir_root, data_dir):
     dataset_name = '_'.join(''.join(data_dir.split('.')).split('/'))
-    logdir = os.path.join(logdir_root, 'train', USERNAME, dataset_name, STARTED_DATESTRING)
+    logdir = os.path.join(logdir_root, 'train', USER_NAME, dataset_name, STARTED_DATESTRING)
     return logdir
 
 
