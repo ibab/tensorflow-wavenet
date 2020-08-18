@@ -299,7 +299,7 @@ def main():
 
         sample = np.random.choice(
             np.arange(quantization_channels), p=scaled_prediction)
-
+        waveform.append(sample)
         
         # Show progress only once per second.
         current_sample_timestamp = datetime.now()
