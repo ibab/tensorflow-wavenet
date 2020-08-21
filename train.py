@@ -24,22 +24,17 @@ DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 50
 NUM_STEPS = int(1e5)
-LEARNING_RATE = 1e-3
-WAVENET_PARAMS = './wavenet_params.json'
-WAVENET_PARAMS_KEY = 'default'
-STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
-SAMPLE_SIZE = 100000
+LEARNING_RATE = 1e-2
+WAVENET_PARAMS = 'wavenet_params/wavenet_params_default.json'
+STARTED_DATESTRING = "{0:%Y%m%d_%H:%M}".format(datetime.now())
+SAMPLE_SIZE = 80000
 L2_REGULARIZATION_STRENGTH = 0
-SILENCE_THRESHOLD = 0.3
+SILENCE_THRESHOLD = 0.01
 EPSILON = 0.001
 MOMENTUM = 0.9
 MAX_TO_KEEP = 5
 METADATA = False
 
-if os.environ.get('USER_NAME'):
-    USER_NAME = os.environ.get('USER_NAME')
-else:
-    USER_NAME = 'default'
 
 def get_arguments():
     def _str_to_bool(s):
@@ -83,8 +78,6 @@ def get_arguments():
                         help='Learning rate for training. Default: ' + str(LEARNING_RATE) + '.')
     parser.add_argument('--wavenet_params', type=str, default=WAVENET_PARAMS,
                         help='JSON file with the network parameters. Default: ' + WAVENET_PARAMS + '.')
-    parser.add_argument('--wavenet_params_key', type=str, default=WAVENET_PARAMS_KEY,
-                        help='Key for wavenet_params.json file, to choose parameters by key.')
     parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
                         help='Concatenate and cut audio samples to this many '
                         'samples. Default: ' + str(SAMPLE_SIZE) + '.')
@@ -146,13 +139,12 @@ def load(saver, sess, logdir):
         return None
 
 
-def get_default_logdir(logdir_root, data_dir):
-    dataset_name = '_'.join(''.join(data_dir.split('.')).split('/'))
-    logdir = os.path.join(logdir_root, 'train', USER_NAME, dataset_name, STARTED_DATESTRING)
+def get_default_logdir(logdir_root, _dataset):
+    logdir = os.path.join(logdir_root, 'train', STARTED_DATESTRING+"_"+_dataset)
     return logdir
 
 
-def validate_directories(args):
+def validate_directories(args, _dataset):
     """Validate and arrange directory related arguments."""
 
     # Validation
@@ -177,7 +169,7 @@ def validate_directories(args):
 
     logdir = args.logdir
     if logdir is None:
-        logdir = get_default_logdir(logdir_root, args.data_dir)
+        logdir = get_default_logdir(logdir_root, _dataset)
         print('Using default logdir: {}'.format(logdir))
 
     restore_from = args.restore_from
@@ -195,9 +187,11 @@ def validate_directories(args):
 
 def main():
     args = get_arguments()
+    dataformdir = args.data_dir.split("/")
+    _dataset = dataformdir[len(dataformdir)-1]
 
     try:
-        directories = validate_directories(args)
+        directories = validate_directories(args, _dataset)
     except ValueError as e:
         print("Some arguments are wrong:")
         print(str(e))
@@ -210,8 +204,16 @@ def main():
     # if the trained model is written into an arbitrary location.
     is_overwritten_training = logdir != restore_from
 
-    with open(args.wavenet_params, 'r') as f:
-        wavenet_params = json.load(f)[WAVENET_PARAMS_KEY]
+    # open wavenet_params file
+    if args.wavenet_params.startswith('wavenet_params/') or args.wavenet_params.startswith('.'):
+        with open(args.wavenet_params, 'r') as config_file:
+            wavenet_params = json.load(config_file)
+    elif args.wavenet_params.startswith('wavenet_params'):
+        with open('wavenet_params/'+args.wavenet_params, 'r') as config_file:
+            wavenet_params = json.load(config_file)
+    else:
+        with open('wavenet_params/wavenet_params_'+args.wavenet_params, 'r') as config_file:
+            wavenet_params = json.load(config_file)   
 
     # Create coordinator.
     coord = tf.train.Coordinator()
