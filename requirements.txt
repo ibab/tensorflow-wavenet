@@ -1,2 +1,3 @@
 librosa>=0.5
-tensorflow>=1.0.0
+llvmlite<=0.32.0
+tensorflow<=1.15.2

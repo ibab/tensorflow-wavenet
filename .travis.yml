@@ -1,13 +1,22 @@
 language: python
 sudo: required
-dist: trusty
+dist: bionic
 matrix:
     include:
-        - python: 2.7
-        - python: 3.5
+      - python: 2.7
+      - python: 3.5
+before_install:
+   - apt-get update -y
+   - apt-get install -y --no-install-recommends --fix-missing \
+     ca-certificates \
+     g++ \
+     libsndfile1 \
+     llvm-7 \
+     make \
+     wget
 install:
-    - source ci/install.sh
+   - source ci/install.sh
 script:
-    - bash ci/test.sh
+   - bash ci/test.sh
 notifications:
-    email: false
+  email: false
