@@ -7,7 +7,7 @@ matrix:
       - python: 3.5
 before_install:
    - sudo apt-get update -y
-   - sudo apt-get install -y --no-install-recommends --fix-missing ca-certificates g++ libsndfile1 llvm-7 make wget
+   - sudo apt-get install -y --no-install-recommends --fix-missing ca-certificates g++ libsndfile1 llvm-7-dev make wget
 install:
    - source ci/install.sh
 script:
