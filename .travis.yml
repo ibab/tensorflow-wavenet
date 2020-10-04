@@ -3,8 +3,9 @@ sudo: required
 dist: bionic
 matrix:
     include:
-      - python: 2.7
       - python: 3.5
+      - python: 3.6
+      - python: 3.7
 before_install:
    - sudo apt-get update -y
    - sudo apt-get install -y --no-install-recommends --fix-missing ca-certificates g++ libsndfile1 llvm-7-dev make wget
