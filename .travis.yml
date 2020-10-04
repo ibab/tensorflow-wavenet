@@ -6,8 +6,8 @@ matrix:
       - python: 2.7
       - python: 3.5
 before_install:
-   - apt-get update -y
-   - apt-get install -y --no-install-recommends --fix-missing \
+   - sudo apt-get update -y
+   - sudo apt-get install -y --no-install-recommends --fix-missing \
      ca-certificates \
      g++ \
      libsndfile1 \
