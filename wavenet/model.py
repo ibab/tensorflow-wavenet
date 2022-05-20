@@ -1,5 +1,7 @@
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+import tensorflow.keras as keras
 
 from .ops import causal_conv, mu_law_encode
 
@@ -7,7 +9,7 @@ from .ops import causal_conv, mu_law_encode
 def create_variable(name, shape):
     '''Create a convolution filter variable with the specified name and shape,
     and initialize it using Xavier initialition.'''
-    initializer = tf.contrib.layers.xavier_initializer_conv2d()
+    initializer = keras.initializers.glorot_normal()
     variable = tf.Variable(initializer(shape=shape), name=name)
     return variable
 

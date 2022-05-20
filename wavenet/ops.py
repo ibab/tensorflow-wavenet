@@ -1,6 +1,7 @@
 from __future__ import division
 
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 
 def create_adam_optimizer(learning_rate, momentum):
