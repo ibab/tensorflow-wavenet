@@ -14,10 +14,14 @@ import os
 import sys
 import time
 
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.python.client import timeline
 
 from wavenet import WaveNetModel, AudioReader, optimizer_factory
+
+tf.disable_v2_behavior()
+
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'

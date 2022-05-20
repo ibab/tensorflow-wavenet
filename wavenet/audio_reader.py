@@ -6,7 +6,8 @@ import threading
 
 import librosa
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
 
@@ -65,7 +66,7 @@ def trim_silence(audio, threshold, frame_length=2048):
     '''Removes silence at the beginning and end of a sample.'''
     if audio.size < frame_length:
         frame_length = audio.size
-    energy = librosa.feature.rmse(audio, frame_length=frame_length)
+    energy = librosa.feature.rms(y=audio, frame_length=frame_length)
     frames = np.nonzero(energy > threshold)
     indices = librosa.core.frames_to_samples(frames)[1]
 

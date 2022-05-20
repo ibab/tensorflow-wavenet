@@ -8,7 +8,8 @@ import os
 
 import librosa
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
 
