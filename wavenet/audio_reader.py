@@ -8,7 +8,7 @@ import librosa
 import numpy as np
 import tensorflow as tf
 
-FILE_PATTERN = r'p([0-9]+)_([0-9]+)\.wav'
+FILE_PATTERN = r"p([0-9]+)_([0-9]+)\.wav"
 
 
 def get_category_cardinality(files):
@@ -32,8 +32,8 @@ def randomize_files(files):
         yield files[file_index]
 
 
-def find_files(directory, pattern='*.wav'):
-    '''Recursively finds all files matching the pattern.'''
+def find_files(directory, pattern="*.wav"):
+    """Recursively finds all files matching the pattern."""
     files = []
     for root, dirnames, filenames in os.walk(directory):
         for filename in fnmatch.filter(filenames, pattern):
@@ -42,7 +42,7 @@ def find_files(directory, pattern='*.wav'):
 
 
 def load_generic_audio(directory, sample_rate):
-    '''Generator that yields audio waveforms from the directory.'''
+    """Generator that yields audio waveforms from the directory."""
     files = find_files(directory)
     id_reg_exp = re.compile(FILE_PATTERN)
     print("files length: {}".format(len(files)))
@@ -62,20 +62,20 @@ def load_generic_audio(directory, sample_rate):
 
 
 def trim_silence(audio, threshold, frame_length=2048):
-    '''Removes silence at the beginning and end of a sample.'''
+    """Removes silence at the beginning and end of a sample."""
     if audio.size < frame_length:
         frame_length = audio.size
-    energy = librosa.feature.rmse(audio, frame_length=frame_length)
+    energy = librosa.feature.rms(audio, frame_length=frame_length)
     frames = np.nonzero(energy > threshold)
     indices = librosa.core.frames_to_samples(frames)[1]
 
     # Note: indices can be an empty array, if the whole audio was silence.
-    return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
+    return audio[indices[0] : indices[-1]] if indices.size else audio[0:0]
 
 
 def not_all_have_id(files):
-    ''' Return true iff any of the filenames does not conform to the pattern
-        we require for determining the category id.'''
+    """Return true iff any of the filenames does not conform to the pattern
+    we require for determining the category id."""
     id_reg_exp = re.compile(FILE_PATTERN)
     for file in files:
         ids = id_reg_exp.findall(file)
@@ -85,18 +85,20 @@ def not_all_have_id(files):
 
 
 class AudioReader(object):
-    '''Generic background audio reader that preprocesses audio files
-    and enqueues them into a TensorFlow queue.'''
+    """Generic background audio reader that preprocesses audio files
+    and enqueues them into a TensorFlow queue."""
 
-    def __init__(self,
-                 audio_dir,
-                 coord,
-                 sample_rate,
-                 gc_enabled,
-                 receptive_field,
-                 sample_size=None,
-                 silence_threshold=None,
-                 queue_size=32):
+    def __init__(
+        self,
+        audio_dir,
+        coord,
+        sample_rate,
+        gc_enabled,
+        receptive_field,
+        sample_size=None,
+        silence_threshold=None,
+        queue_size=32,
+    ):
         self.audio_dir = audio_dir
         self.sample_rate = sample_rate
         self.coord = coord
@@ -105,16 +107,13 @@ class AudioReader(object):
         self.silence_threshold = silence_threshold
         self.gc_enabled = gc_enabled
         self.threads = []
-        self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
-        self.queue = tf.PaddingFIFOQueue(queue_size,
-                                         ['float32'],
-                                         shapes=[(None, 1)])
+        self.sample_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=None)
+        self.queue = tf.queue.PaddingFIFOQueue(queue_size, ["float32"], shapes=[(None, 1)])
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
 
         if self.gc_enabled:
-            self.id_placeholder = tf.placeholder(dtype=tf.int32, shape=())
-            self.gc_queue = tf.PaddingFIFOQueue(queue_size, ['int32'],
-                                                shapes=[()])
+            self.id_placeholder = tf.compat.v1.placeholder(dtype=tf.int32, shape=())
+            self.gc_queue = tf.queue.PaddingFIFOQueue(queue_size, ["int32"], shapes=[()])
             self.gc_enqueue = self.gc_queue.enqueue([self.id_placeholder])
 
         # TODO Find a better way to check this.
@@ -124,8 +123,10 @@ class AudioReader(object):
         if not files:
             raise ValueError("No audio files found in '{}'.".format(audio_dir))
         if self.gc_enabled and not_all_have_id(files):
-            raise ValueError("Global conditioning is enabled, but file names "
-                             "do not conform to pattern having id.")
+            raise ValueError(
+                "Global conditioning is enabled, but file names "
+                "do not conform to pattern having id."
+            )
         # Determine the number of mutually-exclusive categories we will
         # accomodate in our embedding table.
         if self.gc_enabled:
@@ -138,8 +139,7 @@ class AudioReader(object):
             # the id one specifies when generating, and the ids in the
             # file names.
             self.gc_category_cardinality += 1
-            print("Detected --gc_cardinality={}".format(
-                  self.gc_category_cardinality))
+            print("Detected --gc_cardinality={}".format(self.gc_category_cardinality))
         else:
             self.gc_category_cardinality = None
 
@@ -164,32 +164,27 @@ class AudioReader(object):
                     audio = trim_silence(audio[:, 0], self.silence_threshold)
                     audio = audio.reshape(-1, 1)
                     if audio.size == 0:
-                        print("Warning: {} was ignored as it contains only "
-                              "silence. Consider decreasing trim_silence "
-                              "threshold, or adjust volume of the audio."
-                              .format(filename))
+                        print(
+                            "Warning: {} was ignored as it contains only "
+                            "silence. Consider decreasing trim_silence "
+                            "threshold, or adjust volume of the audio.".format(filename)
+                        )
 
-                audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]],
-                               'constant')
+                audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]], "constant")
 
                 if self.sample_size:
                     # Cut samples into pieces of size receptive_field +
                     # sample_size with receptive_field overlap
                     while len(audio) > self.receptive_field:
-                        piece = audio[:(self.receptive_field +
-                                        self.sample_size), :]
-                        sess.run(self.enqueue,
-                                 feed_dict={self.sample_placeholder: piece})
-                        audio = audio[self.sample_size:, :]
+                        piece = audio[: (self.receptive_field + self.sample_size), :]
+                        sess.run(self.enqueue, feed_dict={self.sample_placeholder: piece})
+                        audio = audio[self.sample_size :, :]
                         if self.gc_enabled:
-                            sess.run(self.gc_enqueue, feed_dict={
-                                self.id_placeholder: category_id})
+                            sess.run(self.gc_enqueue, feed_dict={self.id_placeholder: category_id})
                 else:
-                    sess.run(self.enqueue,
-                             feed_dict={self.sample_placeholder: audio})
+                    sess.run(self.enqueue, feed_dict={self.sample_placeholder: audio})
                     if self.gc_enabled:
-                        sess.run(self.gc_enqueue,
-                                 feed_dict={self.id_placeholder: category_id})
+                        sess.run(self.gc_enqueue, feed_dict={self.id_placeholder: category_id})
 
     def start_threads(self, sess, n_threads=1):
         for _ in range(n_threads):

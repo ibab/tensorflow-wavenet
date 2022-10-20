@@ -7,7 +7,6 @@ from wavenet import time_to_batch, batch_to_time, causal_conv
 
 
 class TestCausalConv(tf.test.TestCase):
-
     def testCausalConv(self):
         """Tests that the op is equivalent to a numpy implementation."""
         x1 = np.arange(1, 21, dtype=np.float32)
@@ -16,15 +15,12 @@ class TestCausalConv(tf.test.TestCase):
         f = np.reshape(np.array([1, 1], dtype=np.float32), [2, 1, 1])
         out = causal_conv(x, f, 4)
 
-        with self.test_session() as sess:
-            result = sess.run(out)
-
         # Causal convolution using numpy
-        ref = np.convolve(x1, [1, 0, 0, 0, 1], mode='valid')
+        ref = np.convolve(x1, [1, 0, 0, 0, 1], mode="valid")
         ref = np.append(ref, ref)
         ref = np.reshape(ref, [2, 16, 1])
 
-        self.assertAllEqual(result, ref)
+        self.assertAllEqual(out, ref)
 
     def testNoTimeShift(self):
         """Tests that the convolution does not introduce a time shift.
@@ -45,20 +41,17 @@ class TestCausalConv(tf.test.TestCase):
         # value is 1.0, the other 0.0
         filter = np.reshape(np.array([0.0, 1.0], dtype=np.float32), [2, 1, 1])
 
-        x_padded = np.pad(x, [[0, 0], [2, 0], [0, 0]], 'constant')
+        x_padded = np.pad(x, [[0, 0], [2, 0], [0, 0]], "constant")
 
         # Compute the output
         out = causal_conv(x_padded, filter, dilation=2)
 
-        with self.test_session() as sess:
-            result = sess.run(out)
-
         # The shapes should be the same.
-        self.assertAllEqual(result.shape, x.shape)
+        self.assertAllEqual(out.shape, x.shape)
 
         # The output time series should be identical to the input series.
-        self.assertAllEqual(result, x)
+        self.assertAllEqual(out, x)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     tf.test.main()

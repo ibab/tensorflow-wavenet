@@ -6,6 +6,8 @@ import tensorflow as tf
 import random
 import os
 
+tf.compat.v1.disable_eager_execution()
+
 from wavenet import (WaveNetModel, time_to_batch, batch_to_time, causal_conv,
                      optimizer_factory, mu_law_decode)
 
@@ -93,8 +95,8 @@ def generate_waveform(sess, net, fast_generation, gc, samples_placeholder,
 
 
 def generate_waveforms(sess, net, fast_generation, global_condition):
-    samples_placeholder = tf.placeholder(tf.int32)
-    gc_placeholder = tf.placeholder(tf.int32) if global_condition is not None \
+    samples_placeholder = tf.compat.v1.placeholder(tf.int32)
+    gc_placeholder = tf.compat.v1.placeholder(tf.int32) if global_condition is not None \
         else None
 
     net.batch_size = 1
@@ -193,7 +195,7 @@ class TestNet(tf.test.TestCase):
                                 global_condition_cardinality=None)
 
     def _save_net(sess):
-        saver = tf.train.Saver(var_list=tf.trainable_variables())
+        saver = tf.compat.v1.train.Saver(var_list=tf.compat.v1.trainable_variables())
         saver.save(sess, os.path.join('tmp', 'test.ckpt'))
 
     # Train a net on a short clip of 3 sine waves superimposed
@@ -228,17 +230,17 @@ class TestNet(tf.test.TestCase):
             audio = np.pad(audio, (self.net.receptive_field - 1, 0),
                            'constant')
 
-        audio_placeholder = tf.placeholder(dtype=tf.float32)
-        gc_placeholder = tf.placeholder(dtype=tf.int32)  \
+        audio_placeholder = tf.compat.v1.placeholder(dtype=tf.float32)
+        gc_placeholder = tf.compat.v1.placeholder(dtype=tf.int32)  \
             if self.global_conditioning else None
 
         loss = self.net.loss(input_batch=audio_placeholder,
                              global_condition_batch=gc_placeholder)
         optimizer = optimizer_factory[self.optimizer_type](
                       learning_rate=self.learning_rate, momentum=self.momentum)
-        trainable = tf.trainable_variables()
+        trainable = tf.compat.v1.trainable_variables()
         optim = optimizer.minimize(loss, var_list=trainable)
-        init = tf.global_variables_initializer()
+        init = tf.compat.v1.global_variables_initializer()
 
         generated_waveform = None
         max_allowed_loss = 0.1
