@@ -1,7 +1,8 @@
 """Unit tests for the causal_conv op."""
 
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from wavenet import time_to_batch, batch_to_time, causal_conv
 

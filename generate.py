@@ -7,10 +7,15 @@ import json
 import os
 
 import librosa
+import soundfile
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from wavenet import WaveNetModel, mu_law_decode, mu_law_encode, audio_reader
+
+tf.disable_v2_behavior()
+
 
 SAMPLES = 16000
 TEMPERATURE = 1.0
@@ -112,7 +117,7 @@ def get_arguments():
 
 def write_wav(waveform, sample_rate, filename):
     y = np.array(waveform)
-    librosa.output.write_wav(filename, y, sample_rate)
+    soundfile.write(filename, y, sample_rate)
     print('Updated wav file at {}'.format(filename))
 
 
